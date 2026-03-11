@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "RER",
+    " P ",
+    "R R"
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:redstone_block"
+    },
+    "E": {
+      "item": "minecraft:emerald_block"
+    },
+    "P": {
+      "item": "deepnullreforged:deep_null_panel_4"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:energy_upgrade",
+    "count": 1
+  }
+}
