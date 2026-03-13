@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IBI",
+    "GLG",
+    "IBI"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:bucket"
+    },
+    "G": {
+      "item": "minecraft:glass_bottle"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "L": {
+      "item": "minecraft:blue_stained_glass_pane"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:fluid_upgrade",
+    "count": 1
+  }
+}

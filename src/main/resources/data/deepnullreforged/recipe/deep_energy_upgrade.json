@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SDS",
+    "PEP",
+    "SDS"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:nether_star"
+    },
+    "D": {
+      "item": "minecraft:diamond_block"
+    },
+    "P": {
+      "item": "minecraft:ender_pearl"
+    },
+    "E": {
+      "item": "deepnullreforged:energy_upgrade"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:deep_energy_upgrade",
+    "count": 1
+  }
+}

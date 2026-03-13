@@ -1,0 +1,77 @@
+/DeepNull US English Localizations
+
+//Creative Tab
+itemGroup.deepnullreforged=DeepNull
+
+//Items
+item.deep_null_0.name=DeepNull/
+item.deep_null_1.name=DeepNull/MK II
+item.deep_null_2.name=DeepNull/MK III
+item.deep_null_3.name=DeepNull/MK IV
+item.deep_null_4.name=DeepNull/MK V
+item.deep_null_5.name=DeepNull/MK VI
+item.deep_null_6.name=DeepNull/Творческая
+item.deep_null_panel.name=Редстоуновая панель DeepNull
+item.deep_null_panel_0.name=Редстоуновая панель DeepNull
+item.deep_null_panel_1.name=Лазуритовая панель DeepNull
+item.deep_null_panel_2.name=Железная панель DeepNull
+item.deep_null_panel_3.name=Золотая панель DeepNull
+item.deep_null_panel_4.name=Алмазная панель DeepNull
+item.deep_null_panel_5.name=Изумрудная панель DeepNull
+
+//Blocks
+tile.deepnull_dock.name=Док-станция DeepNull
+
+//JEI INTEGRATION
+jei.deepnullreforged.desc=DeepNull является духовным преемником и обновленной версией /dev/null/ из OpenBlocks.
+jei.deepnullreforged.desc0=\n§4§lРедстоуновый§r DeepNull (MK I) - это самый низкий уровень с 9 слотами и до 2 стеков в каждом слоте.
+jei.deepnullreforged.desc1=\n§9§lЛазуритовый§r DeepNull (MK II) - это 2-й уровень с 18 слотами и до 4 стеков в каждом слоте.
+jei.deepnullreforged.desc2=\n§8§lЖелезный§r DeepNull (MK III) - это 3-й уровень с 27 слотами и до 8 стеками в каждом слоте.
+jei.deepnullreforged.desc3=\n§6§lЗолотой§r DeepNull (MK IV) - это 4-й уровень с 36 слотами и до 16 стеками в каждом слоте.
+jei.deepnullreforged.desc4=\n§b§lАлмазный§r DeepNull (MK IV) - это 5-й уровень с 45 слотами и до 32 стеков в каждом слоте.
+jei.deepnullreforged.desc5=§2§lИзумрудный§r DeepNull (MK VI) - это высший уровень с 54 слотами и до 2,14 миллиарда предметов на слот.
+jei.deepnull_dock.desc=-ПКМ с DeepNull в руке, чтобы разместить DeepNull в док-станции\n-Предметы могут быть извлечены только из DeepNull, а не вставлены-снизу.\n-Скорость определяется блоком, который тянет из дока.
+
+//KeyBindings
+key.categories.deepnullreforged=DeepNull
+key.next_item.desc=Цикл к след. предмету в DeepNull
+key.previous_item.desc=Цикл к пред. предмету в DeepNull
+key.open_deepnull.desc=Открыть ближайший DeepNull
+key.togglehud.desc=Переключить видимость HUD
+
+//Misc
+dn.selected_item.desc=Выбранный предмет
+dn.count.desc=Количество
+dn.extract.desc=Извлечь
+dn.place.desc=Разместить
+dn.extract_mode.desc=Режим извлечения
+dn.placement_mode.desc=Режим размещения
+dn.infinite.desc=Бесконечный
+dn.no_open_keybind.desc=Не установлена клавиша открытия
+dn.open_with.desc=Открыть с
+dn.ore_dictionary.desc=Словарь руды
+dn.enabled.desc=Включено
+dn.disabled.desc=Отключено
+dn.not_oredicted.desc=Предметы нет в рудном словаре
+dn.ctrl_click_change.desc=Ctrl+Click, чтобы изменить режим извлечения
+dn.o_click_toggle.desc=O+Click, чтобы переключить режим словаря руды
+dn.p_click_toggle.desc=P+Click, чтобы изменить режим размещения
+dn.alt_click_set.desc=Alt+Click, чтобы установить как выбранный предмет
+dn.selected.desc=Выбранный
+dn.will.desc=Будет
+dn.from_slot.desc=из этого слота
+dn.do.desc=Делать
+dn.not_extract.desc=не извлекать
+dn.extract_all_but.desc=извлекать все, кроме
+dn.extract_all.desc=извлекать все
+dn.not_place.desc=не размещать
+dn.place_all_but.desc=размещать все, кроме
+dn.place_all.desc=размещать все
+dn.right_click_with.desc=ПКС с
+dn.empty_hand_open.desc=пустая рука, чтобы открыть GUI
+dn.docked.desc=Пристыкован
+dn.chisel_varient.desc=Вариант
+dn.lock.desc=Блокировка
+dn.unlock.desc=разблокировка
+dn.items_per_slot.desc=предметов на слот
+dn.number_of_slots.desc=Количество слотов
