@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "bab",
+    "aca",
+    "bab"
+  ],
+  "key": {
+    "a": {
+      "item": "deepnullreforged:deep_null_panel_5"
+    },
+    "b": {
+      "item": "minecraft:bucket"
+    },
+    "c": {
+      "item": "deepnullreforged:fluid_upgrade"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:damp_null_5",
+    "count": 1
+  }
+}
