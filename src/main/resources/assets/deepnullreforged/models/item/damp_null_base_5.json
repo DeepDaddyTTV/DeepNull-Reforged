@@ -1,0 +1,8 @@
+{
+  "parent": "deepnullreforged:item/deep_null_base_5",
+  "textures": {
+    "particle": "deepnullreforged:item/dampnull/frame",
+    "0": "deepnullreforged:item/dampnull/frame",
+    "1": "deepnullreforged:item/dampnull/glass_emerald"
+  }
+}
