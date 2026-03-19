@@ -663,7 +663,7 @@ public class DeepNullItem extends Item {
                     continue;
                 }
 
-                ItemStack remainder = inventory.insertIntoFirstAvailableSlot(preview.copy(), true);
+                ItemStack remainder = inventory.insertIntoExistingSlotsOnly(preview.copy(), true);
                 int accepted = preview.getCount() - remainder.getCount();
                 if (accepted <= 0) {
                     continue;
@@ -674,7 +674,7 @@ public class DeepNullItem extends Item {
                     continue;
                 }
 
-                ItemStack leftover = inventory.insertIntoFirstAvailableSlot(extracted, false);
+                ItemStack leftover = inventory.insertIntoExistingSlotsOnly(extracted, false);
                 int moved = extracted.getCount() - leftover.getCount();
                 if (moved <= 0) {
                     if (!leftover.isEmpty()) {
@@ -751,7 +751,7 @@ public class DeepNullItem extends Item {
                     continue;
                 }
 
-                int accepted = inventory.fillFluid(available.copy(), true);
+                int accepted = inventory.fillExistingFluidSlotsOnly(available.copy(), true);
                 if (accepted <= 0) {
                     continue;
                 }
@@ -761,7 +761,7 @@ public class DeepNullItem extends Item {
                     continue;
                 }
 
-                int inserted = inventory.fillFluid(drained, false);
+                int inserted = inventory.fillExistingFluidSlotsOnly(drained, false);
                 if (inserted <= 0) {
                     target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
                     continue;

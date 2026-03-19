@@ -118,7 +118,7 @@ The client can notify players when a newer version is available and provide a Cu
 
 ## Related Pages
 
-- [Home](./Home.md)
-- [DeepNull and Tiers](./DeepNull-and-Tiers.md)
-- [DampNull](./DampNull.md)
-- [Upgrades](./Upgrades.md)
+- [Home](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki)
+- [DeepNull and Tiers](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DeepNull-and-Tiers)
+- [DampNull](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DampNull)
+- [Upgrades](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Upgrades)

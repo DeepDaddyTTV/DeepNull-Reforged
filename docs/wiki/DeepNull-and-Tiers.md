@@ -2,6 +2,8 @@
 
 This page covers how the main item-storage DeepNulls work.
 
+![DeepNull and tiers](images/deepnull-and-tiers.png)
+
 ## What a DeepNull Does
 
 A DeepNull stores items in internal slots. Each slot is dedicated to one item type at a time and can hold far more than a normal stack.
@@ -72,6 +74,6 @@ Creative DeepNulls support locking and effectively infinite storage behavior. Th
 
 ## Related Pages
 
-- [Upgrades](./Upgrades.md)
-- [Controls, JEI, and Automation](./Controls-JEI-and-Automation.md)
-- [DampNull](./DampNull.md)
+- [Upgrades](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Upgrades)
+- [Controls, JEI, and Automation](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Controls,-JEI,-and-Automation)
+- [DampNull](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DampNull)

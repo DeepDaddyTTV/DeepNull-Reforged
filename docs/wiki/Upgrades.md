@@ -2,6 +2,8 @@
 
 Upgrades add special behaviors to DeepNulls. They are installed through the upgrade interface.
 
+![DeepNull upgrades](images/upgrades.png)
+
 ## Upgrade Overview
 
 | Upgrade | What It Does | Availability |
@@ -119,5 +121,5 @@ Compression only happens if the resulting item is already stored in the DeepNull
 
 ## Related Pages
 
-- [DeepNull and Tiers](./DeepNull-and-Tiers.md)
-- [Controls, JEI, and Automation](./Controls-JEI-and-Automation.md)
+- [DeepNull and Tiers](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DeepNull-and-Tiers)
+- [Controls, JEI, and Automation](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Controls,-JEI,-and-Automation)

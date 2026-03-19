@@ -5,8 +5,6 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import net.minecraft.world.InteractionResult;
@@ -97,8 +95,7 @@ public final class Ae2TransferCompat {
     }
 
     private static boolean moveItemsFromStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
-        boolean movedAny = refillStoredItemTypes(inventory, storage, actionSource);
-        return fillEmptyItemSlots(inventory, storage, actionSource) || movedAny;
+        return refillStoredItemTypes(inventory, storage, actionSource);
     }
 
     private static boolean refillStoredItemTypes(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
@@ -143,46 +140,6 @@ public final class Ae2TransferCompat {
         return movedAny;
     }
 
-    private static boolean fillEmptyItemSlots(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
-        boolean movedAny = false;
-        boolean progressed;
-        do {
-            progressed = false;
-            KeyCounter available = storage.getAvailableStacks();
-            for (AEKey key : available.keySet()) {
-                if (!(key instanceof AEItemKey itemKey)) {
-                    continue;
-                }
-                long amount = available.get(key);
-                if (amount <= 0) {
-                    continue;
-                }
-
-                int request = (int) Math.min(amount, Integer.MAX_VALUE);
-                if (request <= 0) {
-                    continue;
-                }
-
-                ItemStack extracted = itemKey.toStack(request);
-                ItemStack remainder = inventory.insertIntoFirstAvailableSlot(extracted, true);
-                int accepted = extracted.getCount() - remainder.getCount();
-                if (accepted <= 0) {
-                    continue;
-                }
-
-                long moved = storage.extract(itemKey, accepted, Actionable.MODULATE, actionSource);
-                if (moved <= 0) {
-                    continue;
-                }
-
-                inventory.insertIntoFirstAvailableSlot(itemKey.toStack((int) Math.min(moved, Integer.MAX_VALUE)), false);
-                movedAny = true;
-                progressed = true;
-            }
-        } while (progressed);
-        return movedAny;
-    }
-
     private static boolean moveFluidsToStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
         boolean movedAny = false;
         boolean progressed;
@@ -213,8 +170,7 @@ public final class Ae2TransferCompat {
     }
 
     private static boolean moveFluidsFromStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
-        boolean movedAny = refillStoredFluidTypes(inventory, storage, actionSource);
-        return fillEmptyFluidTanks(inventory, storage, actionSource) || movedAny;
+        return refillStoredFluidTypes(inventory, storage, actionSource);
     }
 
     private static boolean refillStoredFluidTypes(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
@@ -256,37 +212,4 @@ public final class Ae2TransferCompat {
         return movedAny;
     }
 
-    private static boolean fillEmptyFluidTanks(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
-        boolean movedAny = false;
-        boolean progressed;
-        do {
-            progressed = false;
-            KeyCounter available = storage.getAvailableStacks();
-            for (AEKey key : available.keySet()) {
-                if (!(key instanceof AEFluidKey fluidKey)) {
-                    continue;
-                }
-                long amount = available.get(key);
-                if (amount <= 0) {
-                    continue;
-                }
-
-                FluidStack candidate = fluidKey.toStack((int) Math.min(amount, Integer.MAX_VALUE));
-                int accepted = inventory.fillFluid(candidate, true);
-                if (accepted <= 0) {
-                    continue;
-                }
-
-                long moved = storage.extract(fluidKey, accepted, Actionable.MODULATE, actionSource);
-                if (moved <= 0) {
-                    continue;
-                }
-
-                inventory.fillFluid(fluidKey.toStack((int) Math.min(moved, Integer.MAX_VALUE)), false);
-                movedAny = true;
-                progressed = true;
-            }
-        } while (progressed);
-        return movedAny;
-    }
 }

@@ -88,6 +88,8 @@
   "dn.unlock.desc": "Unlock",
   "dn.transfer_locked.desc": "Transfer Locked",
   "dn.transfer_unlocked.desc": "Transfer Unlocked",
+  "guideme.deepnullreforged.guide_name": "DeepNull Reforged Guide",
+  "guideme.deepnullreforged.guide_desc": "Optional in-game documentation for DeepNull Reforged.",
   "dn.charging.desc": "Charging",
   "dn.charging_on.desc": "Charging: On",
   "dn.charging_off.desc": "Charging: Off",

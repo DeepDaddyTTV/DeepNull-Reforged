@@ -360,6 +360,27 @@ public class DeepNullInventory extends ItemStackHandler {
         return filled;
     }
 
+    public int fillExistingFluidSlotsOnly(FluidStack resource, boolean simulate) {
+        if (!supportsFluidStorage() || resource.isEmpty()) {
+            return 0;
+        }
+
+        int remaining = resource.getAmount();
+        int filled = 0;
+
+        for (int slot = 0; slot < getFluidSlotCount() && remaining > 0; slot++) {
+            FluidStack existing = fluidStacks.get(slot);
+            if (existing.isEmpty() || !FluidStack.isSameFluidSameComponents(existing, resource)) {
+                continue;
+            }
+            int slotFilled = fillFluid(slot, resource.copyWithAmount(remaining), simulate);
+            remaining -= slotFilled;
+            filled += slotFilled;
+        }
+
+        return filled;
+    }
+
     public int fillFluid(int slot, FluidStack resource, boolean simulate) {
         validateSlotIndex(slot);
         if (!supportsFluidStorage() || resource.isEmpty()) {
@@ -824,8 +845,7 @@ public class DeepNullInventory extends ItemStackHandler {
         if (transformedRemainder != null) {
             return transformedRemainder;
         }
-        ItemStack remaining = insertIntoMatchingSlotsPrepared(stack, simulate, true);
-        return insertIntoMatchingSlotsPrepared(remaining, simulate, false);
+        return insertIntoExistingSlotsOnly(stack, simulate);
     }
 
     public ItemStack insertIntoFirstAvailableSlot(ItemStack stack, boolean simulate) {
@@ -841,6 +861,10 @@ public class DeepNullInventory extends ItemStackHandler {
         if (transformedRemainder != null) {
             return transformedRemainder;
         }
+        return insertIntoExistingSlotsOnly(stack, simulate);
+    }
+
+    public ItemStack insertIntoExistingSlotsOnly(ItemStack stack, boolean simulate) {
         ItemStack remaining = insertIntoMatchingSlotsPrepared(stack, simulate, true);
         return insertIntoMatchingSlotsPrepared(remaining, simulate, false);
     }

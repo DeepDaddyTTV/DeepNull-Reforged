@@ -2,6 +2,8 @@
 
 DampNull is the fluid-focused counterpart to the DeepNull.
 
+![DampNull tanks and UI](images/dampnull.png)
+
 Instead of storing items by slot, it stores fluids by tank.
 
 ## What a DampNull Does
@@ -69,6 +71,6 @@ Docked DampNulls expose fluid capability to compatible mods, so they can be used
 
 ## Related Pages
 
-- [DeepNull and Tiers](./DeepNull-and-Tiers.md)
-- [Upgrades](./Upgrades.md)
-- [Controls, JEI, and Automation](./Controls-JEI-and-Automation.md)
+- [DeepNull and Tiers](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DeepNull-and-Tiers)
+- [Upgrades](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Upgrades)
+- [Controls, JEI, and Automation](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Controls,-JEI,-and-Automation)

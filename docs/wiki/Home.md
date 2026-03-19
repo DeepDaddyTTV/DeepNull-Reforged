@@ -7,12 +7,14 @@ DeepNull Reforged is a NeoForge 1.21.1 port and expansion of the classic `/dev/n
 
 Both are items that can he held in your inventory and used to both store and directly use their contents.
 
+![DeepNull Reforged overview](images/home.gif)
+
 ## Contents
 
-- [DeepNull and Tiers](./DeepNull-and-Tiers.md)
-- [DampNull](./DampNull.md)
-- [Upgrades](./Upgrades.md)
-- [Controls, JEI, and Automation](./Controls-JEI-and-Automation.md)
+- [DeepNull and Tiers](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DeepNull-and-Tiers)
+- [DampNull](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DampNull)
+- [Upgrades](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Upgrades)
+- [Controls, JEI, and Automation](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Controls,-JEI,-and-Automation)
 
 ## At a Glance
 
