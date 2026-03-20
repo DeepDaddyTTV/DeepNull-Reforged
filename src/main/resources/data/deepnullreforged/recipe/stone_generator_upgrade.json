@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ICI",
+    "LUW",
+    "ICI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:cobblestone"
+    },
+    "L": {
+      "item": "minecraft:lava_bucket"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    },
+    "W": {
+      "item": "minecraft:water_bucket"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:stone_generator_upgrade",
+    "count": 1
+  }
+}

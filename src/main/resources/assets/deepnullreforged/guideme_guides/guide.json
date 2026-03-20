@@ -1,0 +1,16 @@
+{
+  "default_language": "en_us",
+  "item_settings": {
+    "display_name": {
+      "type": "translatable",
+      "translate": "guideme.deepnullreforged.guide_name"
+    },
+    "tooltip_lines": [
+      {
+        "type": "translatable",
+        "translate": "guideme.deepnullreforged.guide_desc",
+        "color": "dark_gray"
+      }
+    ]
+  }
+}

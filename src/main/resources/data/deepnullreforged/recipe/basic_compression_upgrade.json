@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ICI",
+    "CUC",
+    "ICI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:crafting_table"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:basic_compression_upgrade",
+    "count": 1
+  }
+}

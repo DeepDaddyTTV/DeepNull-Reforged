@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "DSD",
+    "EUE",
+    "DSD"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:nether_star"
+    },
+    "D": {
+      "item": "minecraft:diamond_block"
+    },
+    "E": {
+      "item": "deepnullreforged:energy_upgrade"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:deep_energy_upgrade",
+    "count": 1
+  }
+}
