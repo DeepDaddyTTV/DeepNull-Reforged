@@ -622,8 +622,8 @@ public class DeepNullItem extends Item {
 
             DeepNullInventory targetInventory = new DeepNullInventory(deepNullItem.tier(), candidateStack, player.level().registryAccess(), null);
             boolean matchesPreference = preferExistingMatch
-                    ? targetInventory.containsMatchingStack(generated)
-                    : !targetInventory.containsMatchingStack(generated) && targetInventory.allowsAutomationOutput(generated);
+                    ? targetInventory.containsGeneratorSeedStack(generated)
+                    : !targetInventory.containsGeneratorSeedStack(generated) && targetInventory.allowsGeneratedOutput(generated);
             if (!matchesPreference) {
                 continue;
             }

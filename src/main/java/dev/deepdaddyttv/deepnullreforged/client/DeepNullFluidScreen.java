@@ -49,7 +49,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final int INFO_BUTTON_V = 16;
     private static final int LOCK_BUTTON_V = 37;
     private static final int UPGRADE_BUTTON_V = 37;
-    private static final int STONE_BUTTON_V = 16;
+    private static final int STONE_BUTTON_V = 37;
     private static final int TAB_BUTTON_WIDTH = 13;
     private static final int TAB_BUTTON_HEIGHT = 19;
     private static final int INFO_TAB_U = 105;

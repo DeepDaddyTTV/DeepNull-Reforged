@@ -3,6 +3,7 @@ package dev.deepdaddyttv.deepnullreforged;
 import com.mojang.logging.LogUtils;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
+import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModCapabilities;
@@ -34,6 +35,7 @@ public final class DeepNullReforged {
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(DeepNullPayloads::register);
+        modEventBus.addListener(NullWorkbenchPayloads::register);
         modEventBus.addListener(ModCapabilities::register);
         modEventBus.addListener(DeepNullConfig::onLoad);
         modEventBus.addListener(DeepNullConfig::onReload);

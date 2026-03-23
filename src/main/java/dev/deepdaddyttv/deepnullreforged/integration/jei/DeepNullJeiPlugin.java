@@ -4,11 +4,13 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.client.DeepNullFluidScreen;
 import dev.deepdaddyttv.deepnullreforged.client.DeepNullScreen;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
+import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.RecipeTypes;
+import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
@@ -37,9 +39,15 @@ public final class DeepNullJeiPlugin implements IModPlugin {
     }
 
     @Override
+    public void registerCategories(IRecipeCategoryRegistration registration) {
+        registration.addRecipeCategories(new NullWorkbenchRecipeCategory(registration.getJeiHelpers().getGuiHelper()));
+    }
+
+    @Override
     public void registerRecipes(IRecipeRegistration registration) {
         registration.addRecipes(RecipeTypes.CRAFTING, createDeepNullUpgradeDisplayRecipes(registration));
         registration.addRecipes(RecipeTypes.CRAFTING, createDampNullUpgradeDisplayRecipes(registration));
+        registration.addRecipes(NullWorkbenchRecipeCategory.RECIPE_TYPE, NullWorkbenchRecipes.all());
 
         List<ItemStack> deepNulls = List.of(
                 new ItemStack(ModItems.REDSTONE_DEEP_NULL.get()),
@@ -73,6 +81,7 @@ public final class DeepNullJeiPlugin implements IModPlugin {
         registration.addRecipeCatalyst(new ItemStack(ModItems.GOLD_DAMP_NULL.get()), RecipeTypes.CRAFTING);
         registration.addRecipeCatalyst(new ItemStack(ModItems.DIAMOND_DAMP_NULL.get()), RecipeTypes.CRAFTING);
         registration.addRecipeCatalyst(new ItemStack(ModItems.EMERALD_DAMP_NULL.get()), RecipeTypes.CRAFTING);
+        registration.addRecipeCatalyst(new ItemStack(ModBlocks.NULL_WORKBENCH.get()), NullWorkbenchRecipeCategory.RECIPE_TYPE);
     }
 
     @Override
@@ -96,6 +105,7 @@ public final class DeepNullJeiPlugin implements IModPlugin {
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
         registration.addRecipeTransferHandler(new DeepNullCraftingTransferHandler(registration.getTransferHelper()), RecipeTypes.CRAFTING);
+        registration.addRecipeTransferHandler(new NullWorkbenchRecipeTransferHandler(registration.getTransferHelper()), NullWorkbenchRecipeCategory.RECIPE_TYPE);
     }
 
     private static List<RecipeHolder<CraftingRecipe>> createDeepNullUpgradeDisplayRecipes(IRecipeRegistration registration) {

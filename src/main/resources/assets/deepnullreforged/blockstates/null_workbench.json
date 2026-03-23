@@ -1,0 +1,36 @@
+{
+  "variants": {
+    "facing=north,part=main": {
+      "model": "deepnullreforged:block/null_workbench",
+      "y": 180
+    },
+    "facing=east,part=main": {
+      "model": "deepnullreforged:block/null_workbench",
+      "y": 270
+    },
+    "facing=south,part=main": {
+      "model": "deepnullreforged:block/null_workbench",
+      "y": 0
+    },
+    "facing=west,part=main": {
+      "model": "deepnullreforged:block/null_workbench",
+      "y": 90
+    },
+    "facing=north,part=extension": {
+      "model": "deepnullreforged:block/null_workbench_extension",
+      "y": 180
+    },
+    "facing=east,part=extension": {
+      "model": "deepnullreforged:block/null_workbench_extension",
+      "y": 270
+    },
+    "facing=south,part=extension": {
+      "model": "deepnullreforged:block/null_workbench_extension",
+      "y": 0
+    },
+    "facing=west,part=extension": {
+      "model": "deepnullreforged:block/null_workbench_extension",
+      "y": 90
+    }
+  }
+}

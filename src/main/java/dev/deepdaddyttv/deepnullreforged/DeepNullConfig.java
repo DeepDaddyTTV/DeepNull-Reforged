@@ -64,6 +64,7 @@ public final class DeepNullConfig {
     private static final ModConfigSpec.BooleanValue CLIENT_SHOW_GUIDEME_HINT;
     private static final ModConfigSpec.BooleanValue CLIENT_INVERT_DAMPNULL_INTERACTION;
     private static final ModConfigSpec.BooleanValue CLIENT_ANIMATE_DOCKED_NULLS;
+    private static final ModConfigSpec.BooleanValue CLIENT_SHOW_FULL_DEEPNULL_COUNTS;
 
     private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_TRANSFER_LOCKED;
     private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_PICKUP_ENABLED;
@@ -106,6 +107,7 @@ public final class DeepNullConfig {
     private static volatile boolean clientShowGuideMeHint = true;
     private static volatile boolean clientInvertDampNullInteraction;
     private static volatile boolean clientAnimateDockedNulls = true;
+    private static volatile boolean clientShowFullDeepNullCounts;
 
     private static volatile boolean defaultTransferLocked;
     private static volatile boolean defaultAutoPickupEnabled = true;
@@ -169,6 +171,8 @@ public final class DeepNullConfig {
         CLIENT_BUILDER.push("visuals");
         CLIENT_ANIMATE_DOCKED_NULLS = CLIENT_BUILDER.comment("Animate docked DeepNulls and DampNulls while rendering on the dock.")
                 .define("animateDockedNulls", true);
+        CLIENT_SHOW_FULL_DEEPNULL_COUNTS = CLIENT_BUILDER.comment("Show full item counts in DeepNull screens instead of compact 1.5K / 2M style numbers.")
+                .define("showFullDeepNullCounts", false);
         CLIENT_BUILDER.pop();
         CLIENT_SPEC = CLIENT_BUILDER.build();
 
@@ -246,10 +250,6 @@ public final class DeepNullConfig {
                 "Vertical sponge scan range by tier.");
         SERVER_BUILDER.pop();
         SERVER_SPEC = SERVER_BUILDER.build();
-
-        bakeClient();
-        bakeCommon();
-        bakeServer();
     }
 
     private DeepNullConfig() {
@@ -308,6 +308,10 @@ public final class DeepNullConfig {
 
     public static boolean animateDockedNulls() {
         return clientAnimateDockedNulls;
+    }
+
+    public static boolean showFullDeepNullCounts() {
+        return clientShowFullDeepNullCounts;
     }
 
     public static boolean defaultTransferLocked() {
@@ -449,6 +453,7 @@ public final class DeepNullConfig {
         clientShowGuideMeHint = CLIENT_SHOW_GUIDEME_HINT.getAsBoolean();
         clientInvertDampNullInteraction = CLIENT_INVERT_DAMPNULL_INTERACTION.getAsBoolean();
         clientAnimateDockedNulls = CLIENT_ANIMATE_DOCKED_NULLS.getAsBoolean();
+        clientShowFullDeepNullCounts = CLIENT_SHOW_FULL_DEEPNULL_COUNTS.getAsBoolean();
     }
 
     private static void bakeCommon() {

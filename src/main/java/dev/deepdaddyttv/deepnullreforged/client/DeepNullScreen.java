@@ -17,6 +17,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
@@ -50,13 +51,18 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final ResourceLocation CHARGING_BUTTON_OFF_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_charging_button_off.png");
     private static final ResourceLocation CHARGING_BUTTON_ON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_charging_button_on.png");
     private static final ResourceLocation STONEWORKS_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_stoneworks_button.png");
+    private static final ResourceLocation DIALOGUE_ACTIVE_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_dialogue_active.png");
+    private static final ResourceLocation DIALOGUE_INACTIVE_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_dialogue_inactive.png");
+    private static final ResourceLocation PLUS_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_plus_button.png");
+    private static final ResourceLocation MINUS_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_minus_button.png");
+    private static final ResourceLocation EXTRACT_DIALOG_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_extract_mode_dialogue_box.png");
     private static final ResourceLocation INFO_TAB_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_info_tab.png");
     private static final int TAB_BUTTON_U = 98;
     private static final int INFO_BUTTON_V = 16;
     private static final int LOCK_BUTTON_V = 37;
     private static final int UPGRADE_BUTTON_V = 37;
     private static final int CHARGING_BUTTON_V = 58;
-    private static final int STONEWORKS_BUTTON_V = 16;
+    private static final int STONEWORKS_BUTTON_V = 37;
     private static final int TAB_BUTTON_WIDTH = 13;
     private static final int TAB_BUTTON_HEIGHT = 19;
     private static final int INFO_TAB_U = 105;
@@ -69,7 +75,31 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final int INFO_UPGRADE_ICON_GAP = 2;
     private static final int STONEWORKS_GRID_COLUMNS = 3;
     private static final int STONEWORKS_GRID_SPACING = 22;
-    private static final int STONEWORKS_GRID_START_Y = 78;
+    private static final int STONEWORKS_GRID_START_Y = 86;
+    private static final int DIALOGUE_TEXTURE_SIZE = 128;
+    private static final int DIALOGUE_ACTIVE_U = 39;
+    private static final int DIALOGUE_ACTIVE_V = 53;
+    private static final int DIALOGUE_INACTIVE_U = 40;
+    private static final int DIALOGUE_INACTIVE_V = 53;
+    private static final int DIALOGUE_WIDTH = 49;
+    private static final int DIALOGUE_HEIGHT = 19;
+    private static final int DIALOGUE_TEXT_PADDING_X = 6;
+    private static final int DIALOGUE_TEXT_PADDING_Y = 3;
+    private static final int DIALOGUE_TEXTBOX_HEIGHT = 14;
+    private static final int DIALOGUE_BUTTON_GAP = 2;
+    private static final int STEP_BUTTON_TEXTURE_SIZE = 128;
+    private static final int STEP_BUTTON_SIZE = 19;
+    private static final int PLUS_BUTTON_U = 55;
+    private static final int PLUS_BUTTON_V = 47;
+    private static final int MINUS_BUTTON_U = 54;
+    private static final int MINUS_BUTTON_V = 55;
+    private static final int EXTRACT_DIALOG_TEXTURE_SIZE = 128;
+    private static final int EXTRACT_DIALOG_U = 11;
+    private static final int EXTRACT_DIALOG_V = 35;
+    private static final int EXTRACT_DIALOG_WIDTH = 106;
+    private static final int EXTRACT_DIALOG_HEIGHT = 42;
+    private static final int EXTRACT_DIALOG_TITLE_Y = 10;
+    private static final int EXTRACT_DIALOG_CONTROLS_Y = 14;
 
     private final ResourceLocation backgroundTexture;
     private final int baseImageWidth;
@@ -82,6 +112,10 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private boolean stoneworksPanelOpen;
     private Button lockButton;
     private EditBox stoneworksAmountBox;
+    private EditBox customExtractionBox;
+    private int customExtractionSlot = -1;
+    private int customExtractionAnchorX;
+    private int customExtractionAnchorY;
 
     public DeepNullScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -101,7 +135,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         super.init();
         latchedReorderSlot = -1;
         clearShiftQuickMoveState();
-        stoneworksAmountBox = new EditBox(font, 0, 0, 46, 14, Component.translatable("dn.stoneworks_amount.desc"));
+        stoneworksAmountBox = new EditBox(font, 0, 0, DIALOGUE_WIDTH - (DIALOGUE_TEXT_PADDING_X * 2), DIALOGUE_TEXTBOX_HEIGHT, Component.translatable("dn.stoneworks_amount.desc"));
         stoneworksAmountBox.setMaxLength(4);
         stoneworksAmountBox.setBordered(false);
         stoneworksAmountBox.setTextColor(0xFFFFFFFF);
@@ -109,6 +143,15 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         stoneworksAmountBox.setFilter(value -> value.chars().allMatch(Character::isDigit));
         stoneworksAmountBox.setResponder(this::onStoneworksAmountChanged);
         addWidget(stoneworksAmountBox);
+        customExtractionBox = new EditBox(font, 0, 0, DIALOGUE_WIDTH - (DIALOGUE_TEXT_PADDING_X * 2), DIALOGUE_TEXTBOX_HEIGHT, Component.translatable("dn.custom_extract_amount.desc"));
+        customExtractionBox.setMaxLength(10);
+        customExtractionBox.setBordered(false);
+        customExtractionBox.setTextColor(0xFFFFFFFF);
+        customExtractionBox.setTextColorUneditable(0xFFFFFFFF);
+        customExtractionBox.setFilter(value -> value.chars().allMatch(Character::isDigit));
+        customExtractionBox.visible = false;
+        customExtractionBox.active = false;
+        addWidget(customExtractionBox);
         if (menu.getDankInventory().supportsLocking()) {
             lockButton = Button.builder(lockLabel(), button -> {
                         boolean next = !menu.getDankInventory().isLocked();
@@ -157,6 +200,46 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     @Override
+    protected void renderSlotContents(GuiGraphics guiGraphics, ItemStack itemstack, Slot slot, String countString) {
+        if (isStorageItemSlot(slot) && !itemstack.isEmpty()) {
+            Rect2i slotRect = new Rect2i(leftPos + slot.x, topPos + slot.y, 16, 16);
+            if (customExtractionBox != null && customExtractionBox.visible && intersects(customExtractionPopupBounds(), slotRect)) {
+                return;
+            }
+            String overlay = compactSlotCountText(itemstack);
+            super.renderSlotContents(guiGraphics, itemstack.copyWithCount(1), slot, "");
+            if (overlay != null && !overlay.isEmpty()) {
+                renderStorageCountOverlay(guiGraphics, slot, overlay);
+            }
+            return;
+        }
+        super.renderSlotContents(guiGraphics, itemstack, slot, countString);
+    }
+
+    @Override
+    protected List<Component> getTooltipFromContainerItem(ItemStack stack) {
+        List<Component> tooltip = new ArrayList<>(super.getTooltipFromContainerItem(stack));
+        if (!isStorageItemSlot(hoveredSlot) || stack.isEmpty()) {
+            return tooltip;
+        }
+
+        Component countLine = Component.literal("")
+                .append(label(
+                        "dn.count.desc",
+                        menu.getDankInventory().supportsLocking() && menu.getDankInventory().isLocked()
+                                ? Component.translatable("dn.infinite.desc")
+                                : Component.literal(DeepNullCountFormatter.formatExact(stack.getCount()))
+                ))
+                .withStyle(ChatFormatting.GRAY);
+
+        if (tooltip.isEmpty()) {
+            tooltip.add(stack.getHoverName());
+        }
+        tooltip.add(Math.min(1, tooltip.size()), countLine);
+        return tooltip;
+    }
+
+    @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(guiGraphics, mouseX, mouseY, partialTick);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -164,6 +247,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             renderInfoPanel(guiGraphics);
         } else if (stoneworksPanelOpen) {
             renderStoneworksPanel(guiGraphics, mouseX, mouseY, partialTick);
+        }
+        if (customExtractionBox != null && customExtractionBox.visible) {
+            renderCustomExtractionEditor(guiGraphics, mouseX, mouseY, partialTick);
         }
         renderTooltip(guiGraphics, mouseX, mouseY);
         renderStorageTooltip(guiGraphics, mouseX, mouseY);
@@ -177,10 +263,28 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 2 && isWithin(mouseX, mouseY, leftPos, topPos, baseImageWidth, imageHeight)) {
-            return true;
+        if (customExtractionBox != null && customExtractionBox.visible) {
+            if (handleCustomExtractionEditorClick(mouseX, mouseY, button)) {
+                return true;
+            }
+            if (!isWithin(customExtractionEditorBounds(), mouseX, mouseY)) {
+                closeCustomExtractionEditor(true);
+            }
+        }
+        Slot slot = getSlotUnderMouse();
+        if (!isFluidView() && button == 2) {
+            if (slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
+                openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY));
+                return true;
+            }
+            if (isWithin(mouseX, mouseY, leftPos, topPos, baseImageWidth, imageHeight)) {
+                return true;
+            }
         }
         if (handleIconButtonClick(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (stoneworksPanelOpen && handleStoneworksAmountClick(mouseX, mouseY, button)) {
             return true;
         }
         if (stoneworksPanelOpen && button == 0) {
@@ -192,7 +296,6 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             }
         }
         clearShiftQuickMoveState();
-        Slot slot = getSlotUnderMouse();
         boolean shouldBeginShiftQuickMoveDrag = canStartShiftQuickMoveDrag(slot, button);
         boolean fluidStorageClick = isFluidView() && slot instanceof DeepNullMenu.FluidStorageSlot;
         if ((slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) || fluidStorageClick) {
@@ -233,6 +336,17 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (customExtractionBox != null && customExtractionBox.isFocused()) {
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_TAB) {
+                closeCustomExtractionEditor(true);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                closeCustomExtractionEditor(false);
+                return true;
+            }
+            return customExtractionBox.keyPressed(keyCode, scanCode, modifiers);
+        }
         if (stoneworksAmountBox != null && stoneworksAmountBox.isFocused()) {
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
@@ -258,6 +372,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
+        if (customExtractionBox != null && customExtractionBox.isFocused()) {
+            return customExtractionBox.charTyped(codePoint, modifiers);
+        }
         return super.charTyped(codePoint, modifiers);
     }
 
@@ -271,6 +388,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             clearShiftQuickMoveState();
         }
         updateStoneworksAmountBox();
+        updateCustomExtractionBox();
     }
 
     private boolean canStartShiftQuickMoveDrag(Slot slot, int button) {
@@ -402,6 +520,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             case KEEP_16 -> 0xFFD6AE3B;
             case KEEP_64 -> 0xFF6193C5;
             case KEEP_NONE -> 0xFF4FA96A;
+            case CUSTOM -> 0xFFAF6FDB;
         };
     }
 
@@ -437,6 +556,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             lineY += 4;
             lineY = drawWrapped(guiGraphics, Component.translatable("dn.alt_click_set.desc"), textX, lineY, textWidth, 0xFF99A5B5);
             lineY = drawWrapped(guiGraphics, Component.translatable("dn.alt_arrow_move.desc"), textX, lineY, textWidth, 0xFF99A5B5);
+            lineY = drawWrapped(guiGraphics, Component.translatable("dn.middle_click_custom_extract.desc"), textX, lineY, textWidth, 0xFF99A5B5);
             lineY = drawWrapped(guiGraphics, Component.translatable("dn.ctrl_click_change.desc"), textX, lineY, textWidth, 0xFF99A5B5);
             lineY = drawWrapped(guiGraphics, Component.translatable("dn.p_click_toggle.desc"), textX, lineY, textWidth, 0xFF99A5B5);
             lineY += 4;
@@ -453,7 +573,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         lineY = drawWrapped(guiGraphics, stack.getHoverName(), textX, lineY, INFO_TAB_WIDTH - 40, 0xFFFFFFFF);
         lineY += 4;
         lineY = drawWrapped(guiGraphics, label("dn.count.desc", countText(stack)), textX - 20, lineY, textWidth, 0xFFE8EDF5);
-        lineY = drawWrapped(guiGraphics, label("dn.extract.desc", menu.getDankInventory().getExtractionMode(storageSlot).tooltip()), textX - 20, lineY, textWidth, 0xFFE8EDF5);
+        lineY = drawWrapped(guiGraphics, label("dn.extract.desc", menu.getDankInventory().getExtractionTooltip(storageSlot)), textX - 20, lineY, textWidth, 0xFFE8EDF5);
         lineY = drawWrapped(guiGraphics, label("dn.place.desc", menu.getDankInventory().getPlacementMode(storageSlot).tooltip()), textX - 20, lineY, textWidth, 0xFFE8EDF5);
         lineY = drawWrapped(guiGraphics, label("dn.tag_matching.desc", tagText(storageSlot)), textX - 20, lineY, textWidth, 0xFFE8EDF5);
         renderUpgradeSummary(guiGraphics, panelX, panelY);
@@ -502,7 +622,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (menu.getDankInventory().supportsLocking() && menu.getDankInventory().isLocked()) {
             return Component.translatable("dn.infinite.desc");
         }
-        return Component.literal(Integer.toString(stack.getCount()));
+        return Component.literal(DeepNullConfig.showFullDeepNullCounts()
+                ? DeepNullCountFormatter.formatExact(stack.getCount())
+                : DeepNullCountFormatter.formatCompact(stack.getCount()));
     }
 
     private Component tagText(int slotIndex) {
@@ -513,6 +635,39 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return Component.translatable("dn.not_oredicted.desc");
         }
         return Component.translatable(menu.getDankInventory().isTagMatchingEnabled(slotIndex) ? "dn.enabled.desc" : "dn.disabled.desc");
+    }
+
+    private boolean isStorageItemSlot(Slot slot) {
+        return slot instanceof SlotItemHandler && slot.index >= 0 && slot.index < menu.getStorageSlotCount();
+    }
+
+    private String compactSlotCountText(ItemStack stack) {
+        if (menu.getDankInventory().supportsLocking() && menu.getDankInventory().isLocked()) {
+            return "inf";
+        }
+        return DeepNullConfig.showFullDeepNullCounts()
+                ? DeepNullCountFormatter.formatExact(stack.getCount())
+                : DeepNullCountFormatter.formatCompact(stack.getCount());
+    }
+
+    private void renderStorageCountOverlay(GuiGraphics guiGraphics, Slot slot, String overlay) {
+        if (customExtractionBox != null && customExtractionBox.visible) {
+            Rect2i popup = customExtractionPopupBounds();
+            Rect2i slotRect = new Rect2i(leftPos + slot.x, topPos + slot.y, 16, 16);
+            if (intersects(popup, slotRect)) {
+                return;
+            }
+        }
+        float scale = overlay.length() <= 3 ? 0.75F : 0.6F;
+        int textWidth = font.width(overlay);
+        int drawX = slot.x + 16 - Math.round(textWidth * scale) - 1;
+        int drawY = slot.y + 16 - Math.round(font.lineHeight * scale);
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0.0F, 0.0F, 200.0F);
+        guiGraphics.pose().translate(drawX, drawY, 0.0F);
+        guiGraphics.pose().scale(scale, scale, 1.0F);
+        guiGraphics.drawString(font, overlay, 0, 0, 0xFFFFFFFF, true);
+        guiGraphics.pose().popPose();
     }
 
     private Component trim(Component component, int maxWidth) {
@@ -548,6 +703,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             contentLines += wrappedLineCount(Component.translatable("dn.hover_for_details.desc"), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
             contentLines += wrappedLineCount(Component.translatable("dn.alt_click_set.desc"), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
             contentLines += wrappedLineCount(Component.translatable("dn.alt_arrow_move.desc"), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
+            contentLines += wrappedLineCount(Component.translatable("dn.middle_click_custom_extract.desc"), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
             contentLines += wrappedLineCount(Component.translatable("dn.ctrl_click_change.desc"), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
             contentLines += wrappedLineCount(Component.translatable("dn.p_click_toggle.desc"), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
             contentLines += wrappedLineCount(Component.translatable("dn.upgrades_hint.desc"), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
@@ -559,7 +715,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         contentLines += wrappedLineCount(Component.translatable("dn.slot.desc").append(" ").append(Integer.toString(storageSlot + 1)), INFO_PANEL_WIDTH - 34);
         contentLines += wrappedLineCount(stack.getHoverName(), INFO_PANEL_WIDTH - 34);
         contentLines += wrappedLineCount(label("dn.count.desc", countText(stack)), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
-        contentLines += wrappedLineCount(label("dn.extract.desc", menu.getDankInventory().getExtractionMode(storageSlot).tooltip()), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
+        contentLines += wrappedLineCount(label("dn.extract.desc", menu.getDankInventory().getExtractionTooltip(storageSlot)), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
         contentLines += wrappedLineCount(label("dn.place.desc", menu.getDankInventory().getPlacementMode(storageSlot).tooltip()), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
         contentLines += wrappedLineCount(label("dn.tag_matching.desc", tagText(storageSlot)), INFO_PANEL_WIDTH - (INFO_PANEL_PADDING * 2));
         contentLines += upgradeSummaryLineCount();
@@ -688,6 +844,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             case OBSIDIAN_GENERATOR -> new ItemStack(ModItems.OBSIDIAN_GENERATOR_UPGRADE.get());
             case SPONGE -> new ItemStack(ModItems.SPONGE_UPGRADE.get());
             case GAS -> new ItemStack(ModItems.GAS_UPGRADE.get());
+            case ENDER -> new ItemStack(ModItems.ENDER_UPGRADE.get());
         };
     }
 
@@ -723,7 +880,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                     CHARGING_BUTTON_V
             );
         }
-        if (menu.getDankInventory().hasStoneworksUpgrade()) {
+        if (menu.hasUpgrade(DeepNullUpgradeType.STONEWORKS)) {
             renderIconButton(guiGraphics, STONEWORKS_BUTTON_TEXTURE, x, stoneworksButtonY(), STONEWORKS_BUTTON_V);
         }
     }
@@ -758,7 +915,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             PacketDistributor.sendToServer(new DeepNullPayloads.MenuChargingPayload(next));
             return true;
         }
-        if (menu.getDankInventory().hasStoneworksUpgrade() && isWithin(mouseX, mouseY, x, stoneworksButtonY(), TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+        if (menu.hasUpgrade(DeepNullUpgradeType.STONEWORKS) && isWithin(mouseX, mouseY, x, stoneworksButtonY(), TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             stoneworksPanelOpen = !stoneworksPanelOpen;
             if (stoneworksPanelOpen) {
                 infoPanelOpen = false;
@@ -807,12 +964,8 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         guiGraphics.blit(INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
         guiGraphics.drawString(font, Component.translatable("upgrade.stoneworks_upgrade.installed"), textX, panelY + 12, 0xFFFFFFFF, false);
         guiGraphics.drawString(font, Component.translatable("dn.stoneworks_amount.desc"), textX, panelY + 30, 0xFFC9D0DB, false);
-
-        if (stoneworksAmountBox != null) {
-            stoneworksAmountBox.render(guiGraphics, mouseX, mouseY, partialTick);
-        }
-
-        guiGraphics.drawString(font, Component.translatable("dn.stoneworks_outputs.desc"), textX, panelY + 58, 0xFFC9D0DB, false);
+        renderStoneworksAmountEditor(guiGraphics, mouseX, mouseY, partialTick);
+        guiGraphics.drawString(font, Component.translatable("dn.stoneworks_outputs.desc"), textX, panelY + 64, 0xFFC9D0DB, false);
         List<StoneworksMaterial> materials = menu.getVisibleStoneworksMaterials();
         int startX = textX;
         int startY = panelY + STONEWORKS_GRID_START_Y;
@@ -869,10 +1022,11 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (stoneworksAmountBox == null) {
             return;
         }
-        stoneworksAmountBox.visible = stoneworksPanelOpen && menu.getDankInventory().hasStoneworksUpgrade();
+        stoneworksAmountBox.visible = stoneworksPanelOpen && menu.hasUpgrade(DeepNullUpgradeType.STONEWORKS);
         stoneworksAmountBox.active = stoneworksAmountBox.visible;
-        stoneworksAmountBox.setX(infoPanelX() + 14);
-        stoneworksAmountBox.setY(infoPanelY() + 42);
+        Rect2i bounds = stoneworksDialogBounds();
+        stoneworksAmountBox.setX(bounds.getX() + DIALOGUE_TEXT_PADDING_X);
+        stoneworksAmountBox.setY(bounds.getY() + DIALOGUE_TEXT_PADDING_Y);
         if (!stoneworksAmountBox.visible) {
             stoneworksAmountBox.setFocused(false);
             return;
@@ -905,6 +1059,280 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (menu.setStoneworksTargetStacks(parsed)) {
             PacketDistributor.sendToServer(new DeepNullPayloads.MenuStoneworksAmountPayload(parsed));
         }
+    }
+
+    private void openCustomExtractionEditor(int slot, int mouseX, int mouseY) {
+        if (customExtractionBox == null || slot < 0 || slot >= menu.getStorageSlotCount()) {
+            return;
+        }
+        ItemStack stack = menu.getDankInventory().getStackInSlot(slot);
+        if (stack.isEmpty()) {
+            return;
+        }
+        customExtractionSlot = slot;
+        customExtractionAnchorX = mouseX;
+        customExtractionAnchorY = mouseY;
+        int currentMinimum = currentCustomExtractionEditorValue(slot, stack);
+        customExtractionBox.setValue(Integer.toString(currentMinimum));
+        updateCustomExtractionBox();
+        customExtractionBox.visible = true;
+        customExtractionBox.active = true;
+        customExtractionBox.setFocused(true);
+        customExtractionBox.setCursorPosition(0);
+        customExtractionBox.setHighlightPos(customExtractionBox.getValue().length());
+        if (stoneworksAmountBox != null) {
+            stoneworksAmountBox.setFocused(false);
+        }
+    }
+
+    private void closeCustomExtractionEditor(boolean apply) {
+        if (customExtractionBox == null) {
+            return;
+        }
+        if (apply && customExtractionSlot >= 0 && customExtractionSlot < menu.getStorageSlotCount()) {
+            ItemStack stack = menu.getDankInventory().getStackInSlot(customExtractionSlot);
+            if (!stack.isEmpty() && !customExtractionBox.getValue().isEmpty()) {
+                try {
+                    int amount = Integer.parseInt(customExtractionBox.getValue());
+                    if (menu.setCustomExtractionMinimum(customExtractionSlot, amount)) {
+                        PacketDistributor.sendToServer(new DeepNullPayloads.MenuCustomExtractionPayload(customExtractionSlot, amount));
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        customExtractionSlot = -1;
+        customExtractionAnchorX = 0;
+        customExtractionAnchorY = 0;
+        customExtractionBox.setFocused(false);
+        customExtractionBox.visible = false;
+        customExtractionBox.active = false;
+    }
+
+    private void updateCustomExtractionBox() {
+        if (customExtractionBox == null) {
+            return;
+        }
+        if (customExtractionSlot < 0 || customExtractionSlot >= menu.getStorageSlotCount()) {
+            customExtractionBox.visible = false;
+            customExtractionBox.active = false;
+            return;
+        }
+        ItemStack stack = menu.getDankInventory().getStackInSlot(customExtractionSlot);
+        if (stack.isEmpty()) {
+            closeCustomExtractionEditor(false);
+            return;
+        }
+        Rect2i bounds = customExtractionDialogBounds();
+        customExtractionBox.setX(bounds.getX() + DIALOGUE_TEXT_PADDING_X + 2);
+        customExtractionBox.setY(bounds.getY() + DIALOGUE_TEXT_PADDING_Y + 1);
+        customExtractionBox.visible = true;
+        customExtractionBox.active = true;
+        if (!customExtractionBox.isFocused()) {
+            customExtractionBox.setValue(Integer.toString(currentCustomExtractionEditorValue(customExtractionSlot, stack)));
+        }
+    }
+
+    private int currentCustomExtractionEditorValue(int slot, ItemStack stack) {
+        return switch (menu.getDankInventory().getExtractionMode(slot)) {
+            case KEEP_ALL -> Math.min(stack.getCount(), menu.getDankInventory().getSlotLimit(slot));
+            default -> menu.getDankInventory().getExtractionMinimum(slot);
+        };
+    }
+
+    private void renderStoneworksAmountEditor(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        if (stoneworksAmountBox == null || !stoneworksAmountBox.visible) {
+            return;
+        }
+        Rect2i bounds = stoneworksDialogBounds();
+        renderDialogue(guiGraphics, bounds, stoneworksAmountBox.isFocused());
+        renderStepButton(guiGraphics, stoneworksMinusButtonBounds(), MINUS_BUTTON_TEXTURE, MINUS_BUTTON_U, MINUS_BUTTON_V);
+        renderStepButton(guiGraphics, stoneworksPlusButtonBounds(), PLUS_BUTTON_TEXTURE, PLUS_BUTTON_U, PLUS_BUTTON_V);
+        stoneworksAmountBox.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private void renderCustomExtractionEditor(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        if (customExtractionBox == null || !customExtractionBox.visible) {
+            return;
+        }
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0.0F, 0.0F, 300.0F);
+        Rect2i popup = customExtractionPopupBounds();
+        Rect2i dialog = customExtractionDialogBounds();
+        guiGraphics.blit(EXTRACT_DIALOG_TEXTURE, popup.getX(), popup.getY(), EXTRACT_DIALOG_U, EXTRACT_DIALOG_V, EXTRACT_DIALOG_WIDTH, EXTRACT_DIALOG_HEIGHT, EXTRACT_DIALOG_TEXTURE_SIZE, EXTRACT_DIALOG_TEXTURE_SIZE);
+        Component title = Component.translatable("dn.custom_extract_limit.desc");
+        guiGraphics.drawString(font, title, popup.getX() + 34, popup.getY() + EXTRACT_DIALOG_TITLE_Y, 0xFFFFFFFF, false);
+        renderDialogue(guiGraphics, dialog, customExtractionBox.isFocused());
+        renderStepButton(guiGraphics, customExtractionMinusButtonBounds(), MINUS_BUTTON_TEXTURE, MINUS_BUTTON_U, MINUS_BUTTON_V);
+        renderStepButton(guiGraphics, customExtractionPlusButtonBounds(), PLUS_BUTTON_TEXTURE, PLUS_BUTTON_U, PLUS_BUTTON_V);
+        customExtractionBox.render(guiGraphics, mouseX, mouseY, partialTick);
+        guiGraphics.pose().popPose();
+    }
+
+    private void renderDialogue(GuiGraphics guiGraphics, Rect2i bounds, boolean active) {
+        ResourceLocation texture = active ? DIALOGUE_ACTIVE_TEXTURE : DIALOGUE_INACTIVE_TEXTURE;
+        int u = active ? DIALOGUE_ACTIVE_U : DIALOGUE_INACTIVE_U;
+        int v = active ? DIALOGUE_ACTIVE_V : DIALOGUE_INACTIVE_V;
+        guiGraphics.blit(texture, bounds.getX(), bounds.getY(), u, v, DIALOGUE_WIDTH, DIALOGUE_HEIGHT, DIALOGUE_TEXTURE_SIZE, DIALOGUE_TEXTURE_SIZE);
+    }
+
+    private void renderStepButton(GuiGraphics guiGraphics, Rect2i bounds, ResourceLocation texture, int u, int v) {
+        guiGraphics.blit(texture, bounds.getX(), bounds.getY(), u, v, STEP_BUTTON_SIZE, STEP_BUTTON_SIZE, STEP_BUTTON_TEXTURE_SIZE, STEP_BUTTON_TEXTURE_SIZE);
+    }
+
+    private boolean handleStoneworksAmountClick(double mouseX, double mouseY, int button) {
+        if (button != 0 || stoneworksAmountBox == null || !stoneworksAmountBox.visible) {
+            return false;
+        }
+        if (isWithin(stoneworksMinusButtonBounds(), mouseX, mouseY)) {
+            adjustStoneworksAmount(-stoneworksDialogStep());
+            stoneworksAmountBox.setFocused(true);
+            return true;
+        }
+        if (isWithin(stoneworksPlusButtonBounds(), mouseX, mouseY)) {
+            adjustStoneworksAmount(stoneworksDialogStep());
+            stoneworksAmountBox.setFocused(true);
+            return true;
+        }
+        if (isWithin(stoneworksDialogBounds(), mouseX, mouseY)) {
+            stoneworksAmountBox.setFocused(true);
+            if (isWithin(mouseX, mouseY, stoneworksAmountBox.getX(), stoneworksAmountBox.getY(), stoneworksAmountBox.getWidth(), stoneworksAmountBox.getHeight())) {
+                stoneworksAmountBox.mouseClicked(mouseX, mouseY, button);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private boolean handleCustomExtractionEditorClick(double mouseX, double mouseY, int button) {
+        if (button != 0 || customExtractionBox == null || !customExtractionBox.visible) {
+            return false;
+        }
+        if (isWithin(customExtractionMinusButtonBounds(), mouseX, mouseY)) {
+            adjustCustomExtractionAmount(-customExtractionDialogStep());
+            customExtractionBox.setFocused(true);
+            return true;
+        }
+        if (isWithin(customExtractionPlusButtonBounds(), mouseX, mouseY)) {
+            adjustCustomExtractionAmount(customExtractionDialogStep());
+            customExtractionBox.setFocused(true);
+            return true;
+        }
+        if (isWithin(customExtractionDialogBounds(), mouseX, mouseY)) {
+            customExtractionBox.setFocused(true);
+            if (isWithin(mouseX, mouseY, customExtractionBox.getX(), customExtractionBox.getY(), customExtractionBox.getWidth(), customExtractionBox.getHeight())) {
+                customExtractionBox.mouseClicked(mouseX, mouseY, button);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private void adjustStoneworksAmount(int delta) {
+        int current = parseNumericBox(stoneworksAmountBox, menu.getStoneworksTargetStacks());
+        int next = Math.max(0, current + delta);
+        if (next != current) {
+            stoneworksAmountBox.setValue(Integer.toString(next));
+        }
+    }
+
+    private void adjustCustomExtractionAmount(int delta) {
+        if (customExtractionSlot < 0 || customExtractionSlot >= menu.getStorageSlotCount()) {
+            return;
+        }
+        ItemStack stack = menu.getDankInventory().getStackInSlot(customExtractionSlot);
+        if (stack.isEmpty()) {
+            return;
+        }
+        int current = parseNumericBox(customExtractionBox, currentCustomExtractionEditorValue(customExtractionSlot, stack));
+        long unclamped = (long) current + delta;
+        int next = (int) Math.max(0L, Math.min((long) menu.getDankInventory().getSlotLimit(customExtractionSlot), unclamped));
+        customExtractionBox.setValue(Integer.toString(next));
+        if (menu.setCustomExtractionMinimum(customExtractionSlot, next)) {
+            PacketDistributor.sendToServer(new DeepNullPayloads.MenuCustomExtractionPayload(customExtractionSlot, next));
+        }
+    }
+
+    private int parseNumericBox(EditBox box, int fallback) {
+        if (box == null || box.getValue().isEmpty()) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(box.getValue());
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private int customExtractionDialogStep() {
+        return Screen.hasShiftDown() ? 10 : 1;
+    }
+
+    private int stoneworksDialogStep() {
+        return Screen.hasShiftDown() ? 512 : 64;
+    }
+
+    private Rect2i stoneworksDialogBounds() {
+        int y = infoPanelY() + 39;
+        int x = infoPanelX() + 14 + STEP_BUTTON_SIZE + DIALOGUE_BUTTON_GAP;
+        return new Rect2i(x, y, DIALOGUE_WIDTH, DIALOGUE_HEIGHT);
+    }
+
+    private Rect2i stoneworksMinusButtonBounds() {
+        Rect2i dialog = stoneworksDialogBounds();
+        return new Rect2i(dialog.getX() - DIALOGUE_BUTTON_GAP - STEP_BUTTON_SIZE, dialog.getY(), STEP_BUTTON_SIZE, STEP_BUTTON_SIZE);
+    }
+
+    private Rect2i stoneworksPlusButtonBounds() {
+        Rect2i dialog = stoneworksDialogBounds();
+        return new Rect2i(dialog.getX() + dialog.getWidth() + DIALOGUE_BUTTON_GAP, dialog.getY(), STEP_BUTTON_SIZE, STEP_BUTTON_SIZE);
+    }
+
+    private Rect2i customExtractionDialogBounds() {
+        Rect2i popup = customExtractionPopupBounds();
+        return new Rect2i(
+                popup.getX() + 31,
+                popup.getY() + EXTRACT_DIALOG_CONTROLS_Y,
+                DIALOGUE_WIDTH,
+                DIALOGUE_HEIGHT
+        );
+    }
+
+    private Rect2i customExtractionPopupBounds() {
+        if (customExtractionSlot < 0 || customExtractionSlot >= menu.getStorageSlotCount()) {
+            return new Rect2i(0, 0, 0, 0);
+        }
+        int targetX = customExtractionAnchorX - (EXTRACT_DIALOG_WIDTH / 2);
+        int minX = leftPos + 4;
+        int maxX = leftPos + baseImageWidth - EXTRACT_DIALOG_WIDTH - 4;
+        int x = Math.max(minX, Math.min(maxX, targetX));
+        int y = Math.max(topPos + 4, customExtractionAnchorY - EXTRACT_DIALOG_HEIGHT - 12);
+        return new Rect2i(x, y, EXTRACT_DIALOG_WIDTH, EXTRACT_DIALOG_HEIGHT);
+    }
+
+    private Rect2i customExtractionMinusButtonBounds() {
+        Rect2i dialog = customExtractionDialogBounds();
+        return new Rect2i(dialog.getX() - DIALOGUE_BUTTON_GAP - STEP_BUTTON_SIZE, dialog.getY(), STEP_BUTTON_SIZE, STEP_BUTTON_SIZE);
+    }
+
+    private Rect2i customExtractionPlusButtonBounds() {
+        Rect2i dialog = customExtractionDialogBounds();
+        return new Rect2i(dialog.getX() + dialog.getWidth() + DIALOGUE_BUTTON_GAP, dialog.getY(), STEP_BUTTON_SIZE, STEP_BUTTON_SIZE);
+    }
+
+    private Rect2i customExtractionEditorBounds() {
+        return customExtractionPopupBounds();
+    }
+
+    private static boolean isWithin(Rect2i bounds, double mouseX, double mouseY) {
+        return bounds != null && isWithin(mouseX, mouseY, bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight());
+    }
+
+    private static boolean intersects(Rect2i a, Rect2i b) {
+        return a.getX() < b.getX() + b.getWidth()
+                && a.getX() + a.getWidth() > b.getX()
+                && a.getY() < b.getY() + b.getHeight()
+                && a.getY() + a.getHeight() > b.getY();
     }
 
     private int getReorderSourceSlot() {

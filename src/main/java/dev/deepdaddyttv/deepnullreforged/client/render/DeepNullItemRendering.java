@@ -75,6 +75,8 @@ public final class DeepNullItemRendering {
             event.register(baseModelLocation(tier));
             event.register(dampBaseModelLocation(tier));
         }
+        event.register(styledBaseModelLocation());
+        event.register(styledDampBaseModelLocation());
     }
 
     private static RenderContents getRenderContents(ItemStack deepNullStack) {
@@ -151,6 +153,13 @@ public final class DeepNullItemRendering {
         private static BakedModel getBaseModel(ItemStack stack) {
             if (!(stack.getItem() instanceof DeepNullItem deepNullItem)) {
                 return Minecraft.getInstance().getModelManager().getMissingModel();
+            }
+            if (DeepNullInventory.hasCustomStyle(stack)) {
+                return Minecraft.getInstance().getModelManager().getModel(
+                        stack.getItem() instanceof DampNullItem
+                                ? styledDampBaseModelLocation()
+                                : styledBaseModelLocation()
+                );
             }
             return Minecraft.getInstance().getModelManager().getModel(
                     stack.getItem() instanceof DampNullItem
@@ -463,6 +472,16 @@ public final class DeepNullItemRendering {
 
     private static ModelResourceLocation dampBaseModelLocation(DeepNullTier tier) {
         ResourceLocation id = DeepNullReforged.id("item/damp_null_base_" + tier.ordinalId());
+        return ModelResourceLocation.standalone(id);
+    }
+
+    private static ModelResourceLocation styledBaseModelLocation() {
+        ResourceLocation id = DeepNullReforged.id("item/deep_null_styled");
+        return ModelResourceLocation.standalone(id);
+    }
+
+    private static ModelResourceLocation styledDampBaseModelLocation() {
+        ResourceLocation id = DeepNullReforged.id("item/damp_null_styled");
         return ModelResourceLocation.standalone(id);
     }
 

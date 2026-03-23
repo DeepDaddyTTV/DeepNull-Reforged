@@ -7,6 +7,8 @@ import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullPanelItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullUpgradeItem;
+import dev.deepdaddyttv.deepnullreforged.item.EnderUpgradeItem;
+import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -40,6 +42,8 @@ public final class ModItems {
 
     public static final DeferredItem<Item> FILTER = ITEMS.register("filter", () -> new Item(new Item.Properties()));
     public static final DeferredItem<Item> UPGRADE_CORE = ITEMS.register("upgrade_core", () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> ENDER_UPGRADE_CORE = ITEMS.register("ender_upgrade_core", () -> new Item(new Item.Properties()));
+    public static final DeferredItem<Item> SYNCHRONIZER = ITEMS.register("synchronizer", () -> new SynchronizerItem(new Item.Properties()));
     public static final DeferredItem<Item> FILTER_UPGRADE = registerUpgrade(DeepNullUpgradeType.FILTER);
     public static final DeferredItem<Item> FLUID_UPGRADE = registerUpgrade(DeepNullUpgradeType.FLUID);
     public static final DeferredItem<Item> ENERGY_UPGRADE = registerUpgrade(DeepNullUpgradeType.ENERGY);
@@ -53,8 +57,10 @@ public final class ModItems {
     public static final DeferredItem<Item> OBSIDIAN_GENERATOR_UPGRADE = registerUpgrade(DeepNullUpgradeType.OBSIDIAN_GENERATOR);
     public static final DeferredItem<Item> SPONGE_UPGRADE = registerUpgrade(DeepNullUpgradeType.SPONGE);
     public static final DeferredItem<Item> GAS_UPGRADE = registerUpgrade(DeepNullUpgradeType.GAS);
+    public static final DeferredItem<Item> ENDER_UPGRADE = registerUpgrade(DeepNullUpgradeType.ENDER);
 
     public static final DeferredItem<Item> DEEP_NULL_DOCK = ITEMS.register("deepnull_dock", () -> new BlockItem(ModBlocks.DEEP_NULL_DOCK.get(), new Item.Properties()));
+    public static final DeferredItem<Item> NULL_WORKBENCH = ITEMS.register("null_workbench", () -> new BlockItem(ModBlocks.NULL_WORKBENCH.get(), new Item.Properties()));
 
     private ModItems() {
     }
@@ -72,6 +78,9 @@ public final class ModItems {
     }
 
     private static DeferredItem<Item> registerUpgrade(DeepNullUpgradeType type) {
+        if (type == DeepNullUpgradeType.ENDER) {
+            return ITEMS.register(type.itemId(), () -> new EnderUpgradeItem(new Item.Properties()));
+        }
         return ITEMS.register(type.itemId(), () -> new DeepNullUpgradeItem(type, new Item.Properties()));
     }
 }

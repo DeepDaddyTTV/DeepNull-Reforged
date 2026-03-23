@@ -193,6 +193,10 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         }
     }
 
+    public void markStoredDeepNullChanged() {
+        setChangedAndSync(false);
+    }
+
     private void generateStone(DeepNullInventory inventory) {
         if (!inventory.hasStoneGeneratorUpgrade()) {
             return;

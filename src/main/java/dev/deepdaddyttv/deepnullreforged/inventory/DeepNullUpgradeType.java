@@ -13,7 +13,8 @@ public enum DeepNullUpgradeType {
     OBSIDIAN_GENERATOR(8, "obsidian_generator_upgrade"),
     SPONGE(10, "sponge_upgrade"),
     GAS(11, "gas_upgrade"),
-    STONEWORKS(12, "stoneworks_upgrade");
+    STONEWORKS(12, "stoneworks_upgrade"),
+    ENDER(13, "ender_upgrade");
 
     private final int slot;
     private final String itemId;
@@ -38,6 +39,13 @@ public enum DeepNullUpgradeType {
         };
     }
 
+    public boolean usesSharedSlot() {
+        return switch (this) {
+            case ENERGY, DEEP_ENERGY, STONE_GENERATOR, OBSIDIAN_GENERATOR -> true;
+            default -> false;
+        };
+    }
+
     public boolean isSupportedBy(DeepNullTier tier, boolean fluidOnly) {
         if (fluidOnly) {
             return switch (this) {
@@ -45,6 +53,7 @@ public enum DeepNullUpgradeType {
                 case OBSIDIAN_GENERATOR -> tier.supportsObsidianGeneratorUpgrade();
                 case SPONGE -> tier.supportsSpongeUpgrade();
                 case GAS -> tier.supportsGasUpgrade();
+                case ENDER -> true;
                 default -> false;
             };
         }
@@ -59,6 +68,7 @@ public enum DeepNullUpgradeType {
             case BASIC_COMPRESSION -> tier.supportsBasicCompressionUpgrade();
             case ADVANCED_COMPRESSION -> tier.supportsAdvancedCompressionUpgrade();
             case STONEWORKS -> tier.supportsStoneworksUpgrade();
+            case ENDER -> true;
             case STONE_GENERATOR -> false;
             case OBSIDIAN_GENERATOR -> false;
             case SPONGE -> false;
@@ -71,6 +81,12 @@ public enum DeepNullUpgradeType {
             if (type.slot == slot) {
                 return type;
             }
+        }
+        if (slot == 3) {
+            return DEEP_ENERGY;
+        }
+        if (slot == 9) {
+            return OBSIDIAN_GENERATOR;
         }
         throw new IllegalArgumentException("Unknown DeepNull upgrade slot: " + slot);
     }

@@ -149,6 +149,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
             case OBSIDIAN_GENERATOR -> "obsidian_generator_upgrade_placeholder";
             case SPONGE -> "sponge_upgrade_placeholder";
             case GAS -> "gas_upgrade_placeholder";
+            case ENDER -> "ender_upgrade_placeholder";
         };
         ResourceLocation widgetTexture = DeepNullReforged.id("textures/gui/widgets/" + placeholderName + ".png");
         if (Minecraft.getInstance().getResourceManager().getResource(widgetTexture).isPresent()) {
@@ -168,6 +169,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
             case OBSIDIAN_GENERATOR -> "obsidian_generator_upgrade";
             case SPONGE -> "sponge_upgrade";
             case GAS -> "gas_upgrade";
+            case ENDER -> "ender_upgrade";
         };
         if (itemIconName != null) {
             return DeepNullReforged.id("textures/item/" + itemIconName + ".png");
@@ -228,6 +230,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
     private MutableComponent upgradeKindText(DeepNullUpgradeType type) {
         return switch (type) {
             case STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS -> Component.translatable("upgrade.kind.dampnull");
+            case ENDER -> Component.translatable("upgrade.kind.anynull");
             default -> Component.translatable("upgrade.kind.deepnull");
         };
     }
@@ -235,7 +238,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
     private Component supportedTierText(DeepNullUpgradeType type) {
         return switch (type) {
             case FILTER -> Component.translatable("upgrade.tiers.iron_plus");
-            case FLUID, AUTO_FEEDING, AUTO_SMELTING, BASIC_COMPRESSION, ADVANCED_COMPRESSION, STONEWORKS, STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS -> Component.translatable("upgrade.tiers.every_tier");
+            case FLUID, AUTO_FEEDING, AUTO_SMELTING, BASIC_COMPRESSION, ADVANCED_COMPRESSION, STONEWORKS, STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS, ENDER -> Component.translatable("upgrade.tiers.every_tier");
             case ENERGY -> Component.translatable("upgrade.tiers.diamond_plus");
             case DEEP_ENERGY -> Component.translatable("upgrade.tiers.emerald_only");
         };

@@ -3,62 +3,38 @@ navigation:
   title: Upgrades
   icon: deepnullreforged:upgrade_core
   position: 3
-item_ids:
-  - deepnullreforged:filter
-  - deepnullreforged:upgrade_core
-  - deepnullreforged:filter_upgrade
-  - deepnullreforged:fluid_upgrade
-  - deepnullreforged:energy_upgrade
-  - deepnullreforged:deep_energy_upgrade
-  - deepnullreforged:auto_feeding_upgrade
-  - deepnullreforged:auto_smelting_upgrade
-  - deepnullreforged:basic_compression_upgrade
-  - deepnullreforged:advanced_compression_upgrade
 ---
 
 # Upgrades
 
-Upgrades add special behavior to DeepNulls.
+![Upgrade Screens](images/upgrades.png)
 
-![DeepNull upgrades](images/upgrades.png)
+Upgrades add the specialized behavior that turns DeepNulls and DampNulls from storage tools into automation and gameplay tools.
 
-## Upgrade List
+## DeepNull Upgrades
 
-- <ItemLink id="deepnullreforged:filter_upgrade" />
-- <ItemLink id="deepnullreforged:fluid_upgrade" />
-- <ItemLink id="deepnullreforged:energy_upgrade" />
-- <ItemLink id="deepnullreforged:deep_energy_upgrade" />
-- <ItemLink id="deepnullreforged:auto_feeding_upgrade" />
-- <ItemLink id="deepnullreforged:auto_smelting_upgrade" />
-- <ItemLink id="deepnullreforged:basic_compression_upgrade" />
-- <ItemLink id="deepnullreforged:advanced_compression_upgrade" />
+- [Filter Upgrade](filter-upgrade.md)
+- [Bucket Upgrade](bucket-upgrade.md)
+- [Energy Upgrade](energy-upgrade.md)
+- [Deep Energy Upgrade](deep-energy-upgrade.md)
+- [Auto-Feeding Upgrade](auto-feeding-upgrade.md)
+- [Auto-Smelting Upgrade](auto-smelting-upgrade.md)
+- [Basic Compression Upgrade](basic-compression-upgrade.md)
+- [Advanced Compression Upgrade](advanced-compression-upgrade.md)
+- [Stoneworks Upgrade](stoneworks-upgrade.md)
+- [Ender Upgrade](ender-upgrade.md)
 
-## Highlights
+## DampNull Upgrades
 
-### Filter Upgrade
+- [Stone Generator](stone-generator.md)
+- [Obsidian Generator](obsidian-generator.md)
+- [Sponge Upgrade](sponge-upgrade.md)
+- [Chemical Upgrade](chemical-upgrade.md)
+- [Ender Upgrade](ender-upgrade.md)
 
-Adds ghost-slot filtering and preset behavior.
+## Shared Notes
 
-### Bucket Upgrade
-
-Lets a DeepNull use stored buckets and compatible fluid containers directly from item slots.
-
-### Energy and Deep Energy
-
-Adds Forge Energy storage, charging, and dock energy IO.  
-Deep Energy is the higher-end Emerald-only extension.
-
-### Auto-Feeding
-
-Consumes real stored food when the player needs hunger.
-
-### Auto-Smelting
-
-Applies to world pickup only and supports a dedicated whitelist / blacklist filter screen.
-
-### Compression
-
-Uses real crafting recipes:
-
-- Basic Compression handles `2x2` self-recipes
-- Advanced Compression handles `3x3` self-recipes
+- Energy and Deep Energy share one slot.
+- Stone Generator and Obsidian Generator share one DampNull slot.
+- Ender Upgrade works on both DeepNulls and DampNulls.
+- Some upgrade behavior can be disabled or rebalanced through [Config and Settings](config-and-settings.md).

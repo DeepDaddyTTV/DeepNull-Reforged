@@ -103,6 +103,12 @@ public final class DeepNullPayloads {
                         handleMenuStoneworksAmount(payload, player);
                     }
                 }));
+        registrar.playToServer(MenuCustomExtractionPayload.TYPE, MenuCustomExtractionPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuCustomExtraction(payload, player);
+                    }
+                }));
         registrar.playToServer(MenuStoneworksTogglePayload.TYPE, MenuStoneworksTogglePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
@@ -298,6 +304,16 @@ public final class DeepNullPayloads {
         }
 
         if (menu.setStoneworksTargetStacks(payload.amount())) {
+            menu.broadcastChanges();
+        }
+    }
+
+    private static void handleMenuCustomExtraction(MenuCustomExtractionPayload payload, ServerPlayer player) {
+        if (!(player.containerMenu instanceof DeepNullMenu menu)) {
+            return;
+        }
+
+        if (menu.setCustomExtractionMinimum(payload.slot(), payload.amount())) {
             menu.broadcastChanges();
         }
     }
@@ -507,6 +523,23 @@ public final class DeepNullPayloads {
         public static final Type<MenuStoneworksAmountPayload> TYPE = payloadType("menu_stoneworks_amount");
         public static final StreamCodec<RegistryFriendlyByteBuf, MenuStoneworksAmountPayload> STREAM_CODEC =
                 StreamCodec.composite(ByteBufCodecs.VAR_INT, MenuStoneworksAmountPayload::amount, MenuStoneworksAmountPayload::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record MenuCustomExtractionPayload(int slot, int amount) implements CustomPacketPayload {
+        public static final Type<MenuCustomExtractionPayload> TYPE = payloadType("menu_custom_extraction");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuCustomExtractionPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        MenuCustomExtractionPayload::slot,
+                        ByteBufCodecs.VAR_INT,
+                        MenuCustomExtractionPayload::amount,
+                        MenuCustomExtractionPayload::new
+                );
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

@@ -1,9 +1,11 @@
 package dev.deepdaddyttv.deepnullreforged.inventory;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullUpgradeItem;
+import dev.deepdaddyttv.deepnullreforged.item.EnderUpgradeItem;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -12,6 +14,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.TagKey;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -23,6 +26,7 @@ import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.item.crafting.SmeltingRecipe;
 import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.fml.ModList;
@@ -48,6 +52,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String COUNT_TAG = "Count";
     private static final String SELECTED_TAG = "Selected";
     private static final String EXTRACTION_TAG = "ExtractionModes";
+    private static final String CUSTOM_EXTRACTION_TAG = "CustomExtractionModes";
     private static final String PLACEMENT_TAG = "PlacementModes";
     private static final String TAG_MATCHING_TAG = "TagMatching";
     private static final String LOCKED_TAG = "Locked";
@@ -59,6 +64,9 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String CONTENT_MODE_TAG = "ContentMode";
     private static final String FLUIDS_TAG = "Fluids";
     private static final String CHEMICALS_TAG = "Chemicals";
+    private static final String ENDER_MIRROR_ITEMS_TAG = "EnderMirrorItems";
+    private static final String ENDER_MIRROR_FLUIDS_TAG = "EnderMirrorFluids";
+    private static final String ENDER_MIRROR_CHEMICALS_TAG = "EnderMirrorChemicals";
     private static final String ENERGY_TAG = "Energy";
     private static final String CHARGING_TAG = "Charging";
     private static final String TRANSFER_LOCKED_TAG = "TransferLocked";
@@ -69,11 +77,32 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String STONEWORKS_AMOUNT_TAG = "StoneworksAmount";
     private static final String STONEWORKS_MONITOR_TAG = "StoneworksMonitor";
     private static final String STONEWORKS_CURSOR_TAG = "StoneworksCursor";
+    private static final String FRAME_COLOR_TAG = "FrameColor";
+    private static final String GLASS_COLOR_TAG = "GlassColor";
     private static final int FILTER_SLOT_COUNT = 27;
     private static final int CREATIVE_DISPLAY_ENERGY = Integer.MAX_VALUE / 2;
     private static final int CREATIVE_DISPLAY_FLUID = Integer.MAX_VALUE / 2;
     private static final int DEFAULT_STONEWORKS_AMOUNT = 1;
     private static final int MAX_STONEWORKS_AMOUNT = 9_999;
+    private static final int DEFAULT_STYLE_COLOR = 0xFFFFFF;
+    private static final int[] DEFAULT_DEEPNULL_GLASS_COLORS = {
+            0xC62121,
+            0x3A63CF,
+            0xEBEBEB,
+            0xEAE31C,
+            0x29AFCE,
+            0x0FDD74,
+            0x9718E4
+    };
+    private static final int[] DEFAULT_DAMPNULL_GLASS_COLORS = {
+            0xC82A2A,
+            0x4269D1,
+            0xEBEBEB,
+            0xEBE428,
+            0x34B3D0,
+            0x1BDE7B,
+            0x9C24E5
+    };
 
     private final DeepNullTier tier;
     private final ItemStack backingStack;
@@ -81,6 +110,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private final @Nullable Runnable changeListener;
     private final boolean fluidOnly;
     private final ItemExtractionMode[] extractionModes;
+    private final int[] customExtractionAmounts;
     private final ItemPlacementMode[] placementModes;
     private final boolean[] tagMatchingModes;
     private final UpgradeItemHandler upgradeHandler;
@@ -104,6 +134,9 @@ public class DeepNullInventory extends ItemStackHandler {
     private int stoneworksTargetStacks = DeepNullConfig.defaultStoneworksAmount();
     private final boolean[] stoneworksMonitoring = new boolean[StoneworksMaterial.values().length];
     private int stoneworksCursor;
+    private int frameColor = DEFAULT_STYLE_COLOR;
+    private int glassColor = DEFAULT_STYLE_COLOR;
+    private boolean pendingLinkCleanup;
 
     public DeepNullInventory(DeepNullTier tier, ItemStack backingStack, @Nullable HolderLookup.Provider registries, @Nullable Runnable changeListener) {
         this(tier, backingStack, () -> registries, changeListener);
@@ -122,6 +155,7 @@ public class DeepNullInventory extends ItemStackHandler {
         this.changeListener = changeListener;
         this.fluidOnly = backingStack.getItem() instanceof DampNullItem;
         this.extractionModes = new ItemExtractionMode[getSlots()];
+        this.customExtractionAmounts = new int[getSlots()];
         this.placementModes = new ItemPlacementMode[getSlots()];
         this.tagMatchingModes = new boolean[getSlots()];
         this.upgradeHandler = new UpgradeItemHandler();
@@ -133,14 +167,31 @@ public class DeepNullInventory extends ItemStackHandler {
         Arrays.fill(this.placementModes, ItemPlacementMode.KEEP_1);
         Arrays.fill(this.stoneworksMonitoring, true);
         load();
+        if (pendingLinkCleanup) {
+            pendingLinkCleanup = false;
+            save();
+        }
     }
 
     public static DeepNullInventory client(DeepNullTier tier) {
         return new DeepNullInventory(tier, ItemStack.EMPTY, () -> null, null);
     }
 
+    public static boolean hasCustomStyle(ItemStack stack) {
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        if (!tag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
+            return false;
+        }
+        CompoundTag root = tag.getCompound(ROOT_TAG);
+        return root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC) || root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
+    }
+
     public DeepNullTier tier() {
         return tier;
+    }
+
+    public ItemStack backingStack() {
+        return backingStack;
     }
 
     public boolean isFluidOnly() {
@@ -851,6 +902,111 @@ public class DeepNullInventory extends ItemStackHandler {
         return hasUpgrade(DeepNullUpgradeType.DEEP_ENERGY);
     }
 
+    public int getFrameColor() {
+        return frameColor;
+    }
+
+    public int getGlassColor() {
+        return glassColor;
+    }
+
+    public void setFrameColor(int frameColor) {
+        int next = sanitizeStyleColor(frameColor);
+        if (this.frameColor == next) {
+            return;
+        }
+        this.frameColor = next;
+        save();
+    }
+
+    public void setGlassColor(int glassColor) {
+        int next = sanitizeStyleColor(glassColor);
+        if (this.glassColor == next) {
+            return;
+        }
+        this.glassColor = next;
+        save();
+    }
+
+    public void setStyleColors(int frameColor, int glassColor) {
+        int nextFrame = sanitizeStyleColor(frameColor);
+        int nextGlass = sanitizeStyleColor(glassColor);
+        if (this.frameColor == nextFrame && this.glassColor == nextGlass) {
+            return;
+        }
+        this.frameColor = nextFrame;
+        this.glassColor = nextGlass;
+        save();
+    }
+
+    public void resetStyleColors() {
+        setStyleColors(defaultFrameColor(), defaultGlassColor());
+    }
+
+    public CompoundTag exportConfiguration() {
+        HolderLookup.Provider registries = registriesSupplier.get();
+        CompoundTag tag = new CompoundTag();
+        if (registries == null) {
+            return tag;
+        }
+        sanitizeState();
+        writeLocalStateToRoot(tag, registries);
+        return tag;
+    }
+
+    public boolean importConfiguration(CompoundTag configuration) {
+        HolderLookup.Provider registries = registriesSupplier.get();
+        if (configuration == null || registries == null) {
+            return false;
+        }
+
+        clearFilterStacks();
+        clearAutoSmeltFilterStacks();
+        readItemList(registries, configuration.getList(FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), filterStacks);
+        readItemList(registries, configuration.getList(AUTO_SMELT_FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), autoSmeltFilterStacks);
+        selectedSlot = configuration.getInt(SELECTED_TAG);
+        readEnumModes(configuration.getIntArray(EXTRACTION_TAG), extractionModes, ItemExtractionMode.values(), ItemExtractionMode.KEEP_1);
+        readIntModes(configuration.getIntArray(CUSTOM_EXTRACTION_TAG), customExtractionAmounts);
+        readEnumModes(configuration.getIntArray(PLACEMENT_TAG), placementModes, ItemPlacementMode.values(), ItemPlacementMode.KEEP_1);
+        readBooleanModes(configuration.getByteArray(TAG_MATCHING_TAG), tagMatchingModes);
+        locked = supportsLocking() && configuration.getBoolean(LOCKED_TAG);
+        filterMode = DeepNullFilterMode.byId(configuration.getInt(FILTER_MODE_TAG));
+        autoSmeltFilterMode = normalizeAutoSmeltFilterMode(DeepNullFilterMode.byId(configuration.getInt(AUTO_SMELT_FILTER_MODE_TAG)));
+        contentMode = fluidOnly
+                ? DeepNullContentMode.FLUIDS
+                : DeepNullContentMode.byId(configuration.getInt(CONTENT_MODE_TAG));
+        chargingEnabled = configuration.getBoolean(CHARGING_TAG);
+        transferLocked = configuration.getBoolean(TRANSFER_LOCKED_TAG);
+        autoPickupEnabled = configuration.contains(AUTO_PICKUP_TAG, Tag.TAG_BYTE)
+                ? configuration.getBoolean(AUTO_PICKUP_TAG)
+                : DeepNullConfig.defaultAutoPickupEnabled();
+        autoFeedingEnabled = configuration.contains(AUTO_FEEDING_TAG, Tag.TAG_BYTE)
+                ? configuration.getBoolean(AUTO_FEEDING_TAG)
+                : DeepNullConfig.defaultAutoFeedingEnabled();
+        autoSmeltingEnabled = configuration.contains(AUTO_SMELTING_TAG, Tag.TAG_BYTE)
+                ? configuration.getBoolean(AUTO_SMELTING_TAG)
+                : DeepNullConfig.defaultAutoSmeltingEnabled();
+        stoneGeneratorVariant = StoneGeneratorVariant.byId(configuration.getInt(STONE_GENERATOR_VARIANT_TAG));
+        stoneworksTargetStacks = configuration.contains(STONEWORKS_AMOUNT_TAG, Tag.TAG_ANY_NUMERIC)
+                ? configuration.getInt(STONEWORKS_AMOUNT_TAG)
+                : DeepNullConfig.defaultStoneworksAmount();
+        if (configuration.contains(STONEWORKS_MONITOR_TAG, Tag.TAG_BYTE_ARRAY)) {
+            readBooleanModes(configuration.getByteArray(STONEWORKS_MONITOR_TAG), stoneworksMonitoring);
+        } else {
+            Arrays.fill(stoneworksMonitoring, true);
+        }
+        stoneworksCursor = configuration.getInt(STONEWORKS_CURSOR_TAG);
+        frameColor = configuration.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
+                ? configuration.getInt(FRAME_COLOR_TAG)
+                : defaultFrameColor();
+        glassColor = configuration.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
+                ? configuration.getInt(GLASS_COLOR_TAG)
+                : defaultGlassColor();
+        sanitizeState();
+        save();
+        return true;
+    }
+
     public int getStoneworksTargetStacks() {
         return stoneworksTargetStacks;
     }
@@ -905,7 +1061,7 @@ public class DeepNullInventory extends ItemStackHandler {
         if (fluidOnly || !hasStoneworksUpgrade() || !DeepNullConfig.isStoneworksEnabled()) {
             return false;
         }
-        if (countStoredLike(new ItemStack(Items.COBBLESTONE)) <= 0) {
+        if (countExtractableLike(new ItemStack(Items.COBBLESTONE)) <= 0) {
             return false;
         }
 
@@ -998,6 +1154,13 @@ public class DeepNullInventory extends ItemStackHandler {
             return false;
         }
         return containsMatchingStack(stack) || filterExplicitlyAllows(stack);
+    }
+
+    public boolean allowsGeneratedOutput(ItemStack stack) {
+        if (fluidOnly || stack.isEmpty() || (supportsLocking() && locked)) {
+            return false;
+        }
+        return containsGeneratorSeedStack(stack) || filterExplicitlyAllows(stack);
     }
 
     public ItemStack insertAutomationOutput(ItemStack stack, boolean simulate) {
@@ -1157,9 +1320,43 @@ public class DeepNullInventory extends ItemStackHandler {
         return extractionModes[slot];
     }
 
+    public int getExtractionMinimum(int slot) {
+        validateSlotIndex(slot);
+        return extractionModes[slot] == ItemExtractionMode.CUSTOM
+                ? Math.max(0, customExtractionAmounts[slot])
+                : Math.max(0, extractionModes[slot].keptAmount());
+    }
+
+    public Component getExtractionTooltip(int slot) {
+        validateSlotIndex(slot);
+        return extractionModes[slot].tooltip(getExtractionMinimum(slot));
+    }
+
     public void setExtractionMode(int slot, ItemExtractionMode mode) {
         validateSlotIndex(slot);
         extractionModes[slot] = mode;
+        if (mode != ItemExtractionMode.CUSTOM) {
+            customExtractionAmounts[slot] = 0;
+        }
+        save();
+    }
+
+    public void setCustomExtractionMinimum(int slot, int amount) {
+        validateSlotIndex(slot);
+        int clamped = Math.max(0, Math.min(getSlotLimit(slot), amount));
+        ItemExtractionMode nextMode = switch (clamped) {
+            case 0 -> ItemExtractionMode.KEEP_NONE;
+            case 1 -> ItemExtractionMode.KEEP_1;
+            case 16 -> ItemExtractionMode.KEEP_16;
+            case 64 -> ItemExtractionMode.KEEP_64;
+            default -> ItemExtractionMode.CUSTOM;
+        };
+        int nextCustomAmount = nextMode == ItemExtractionMode.CUSTOM ? clamped : 0;
+        if (extractionModes[slot] == nextMode && customExtractionAmounts[slot] == nextCustomAmount) {
+            return;
+        }
+        extractionModes[slot] = nextMode;
+        customExtractionAmounts[slot] = nextCustomAmount;
         save();
     }
 
@@ -1222,6 +1419,10 @@ public class DeepNullInventory extends ItemStackHandler {
         extractionModes[fromSlot] = extractionModes[toSlot];
         extractionModes[toSlot] = extractionMode;
 
+        int customExtractionAmount = customExtractionAmounts[fromSlot];
+        customExtractionAmounts[fromSlot] = customExtractionAmounts[toSlot];
+        customExtractionAmounts[toSlot] = customExtractionAmount;
+
         ItemPlacementMode placementMode = placementModes[fromSlot];
         placementModes[fromSlot] = placementModes[toSlot];
         placementModes[toSlot] = placementMode;
@@ -1246,7 +1447,7 @@ public class DeepNullInventory extends ItemStackHandler {
         if (stack.isEmpty()) {
             return 0;
         }
-        int keptAmount = getExtractionMode(slot).keptAmount();
+        int keptAmount = getExtractionMinimum(slot);
         if (keptAmount == Integer.MAX_VALUE) {
             return 0;
         }
@@ -1307,6 +1508,44 @@ public class DeepNullInventory extends ItemStackHandler {
 
     public boolean containsMatchingStack(ItemStack stack) {
         return findMatchingSlot(stack) >= 0;
+    }
+
+    public boolean containsExtractableMatchingStack(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+
+        for (int slot = 0; slot < getSlots(); slot++) {
+            if (getExtractableAmount(slot) <= 0) {
+                continue;
+            }
+
+            ItemStack stored = getStackInSlot(slot);
+            if (ItemStack.isSameItemSameComponents(stored, stack) || ItemStack.isSameItem(stored, stack)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public boolean containsGeneratorSeedStack(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+
+        for (int slot = 0; slot < getSlots(); slot++) {
+            if (getExtractionMode(slot) == ItemExtractionMode.KEEP_ALL) {
+                continue;
+            }
+
+            ItemStack stored = getStackInSlot(slot);
+            if (ItemStack.isSameItemSameComponents(stored, stack) || ItemStack.isSameItem(stored, stack)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean matchesIncoming(int slot, ItemStack incomingStack) {
@@ -1443,6 +1682,10 @@ public class DeepNullInventory extends ItemStackHandler {
     @Override
     protected void onContentsChanged(int slot) {
         super.onContentsChanged(slot);
+        if (getStackInSlot(slot).isEmpty() && extractionModes[slot] == ItemExtractionMode.CUSTOM) {
+            extractionModes[slot] = ItemExtractionMode.KEEP_1;
+            customExtractionAmounts[slot] = 0;
+        }
         if (!fluidOnly && contentMode == DeepNullContentMode.ITEMS) {
             if (selectedSlot >= 0 && getStackInSlot(selectedSlot).isEmpty()) {
                 selectedSlot = findNextOccupiedSlot(selectedSlot, true);
@@ -1598,11 +1841,7 @@ public class DeepNullInventory extends ItemStackHandler {
             return;
         }
         CompoundTag root = tag.getCompound(ROOT_TAG);
-        if (root.contains(ITEMS_TAG, Tag.TAG_LIST)) {
-            readStoredItemList(registries, root.getList(ITEMS_TAG, Tag.TAG_COMPOUND), stacks);
-        } else if (root.contains(ITEMS_TAG, Tag.TAG_COMPOUND)) {
-            deserializeNBT(registries, root.getCompound(ITEMS_TAG));
-        }
+        readPrimaryStorageFromRoot(registries, root);
         if (root.contains(UPGRADES_TAG, Tag.TAG_COMPOUND)) {
             upgradeHandler.deserializeNBT(registries, root.getCompound(UPGRADES_TAG));
             upgradeHandler.ensureSlotCount();
@@ -1611,6 +1850,7 @@ public class DeepNullInventory extends ItemStackHandler {
         readItemList(registries, root.getList(AUTO_SMELT_FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), autoSmeltFilterStacks);
         selectedSlot = root.getInt(SELECTED_TAG);
         readEnumModes(root.getIntArray(EXTRACTION_TAG), extractionModes, ItemExtractionMode.values(), ItemExtractionMode.KEEP_1);
+        readIntModes(root.getIntArray(CUSTOM_EXTRACTION_TAG), customExtractionAmounts);
         readEnumModes(root.getIntArray(PLACEMENT_TAG), placementModes, ItemPlacementMode.values(), ItemPlacementMode.KEEP_1);
         readBooleanModes(root.getByteArray(TAG_MATCHING_TAG), tagMatchingModes);
         locked = supportsLocking() && root.getBoolean(LOCKED_TAG);
@@ -1619,17 +1859,6 @@ public class DeepNullInventory extends ItemStackHandler {
         contentMode = fluidOnly
                 ? DeepNullContentMode.FLUIDS
                 : DeepNullContentMode.byId(root.getInt(CONTENT_MODE_TAG));
-        if (root.contains(FLUIDS_TAG, Tag.TAG_LIST)) {
-            readFluidList(registries, root.getList(FLUIDS_TAG, Tag.TAG_COMPOUND), fluidStacks);
-        } else if (root.contains("Fluid", Tag.TAG_COMPOUND)) {
-            FluidStack migrated = FluidStack.parseOptional(registries, root.getCompound("Fluid"));
-            if (!migrated.isEmpty() && !fluidStacks.isEmpty()) {
-                fluidStacks.set(0, migrated);
-            }
-        }
-        if (root.contains(CHEMICALS_TAG, Tag.TAG_LIST)) {
-            readChemicalList(root.getList(CHEMICALS_TAG, Tag.TAG_COMPOUND), chemicalStacks);
-        }
         storedEnergy = Math.max(0, root.getInt(ENERGY_TAG));
         chargingEnabled = root.getBoolean(CHARGING_TAG);
         transferLocked = root.getBoolean(TRANSFER_LOCKED_TAG);
@@ -1652,6 +1881,21 @@ public class DeepNullInventory extends ItemStackHandler {
             Arrays.fill(stoneworksMonitoring, true);
         }
         stoneworksCursor = root.getInt(STONEWORKS_CURSOR_TAG);
+        frameColor = root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
+                ? root.getInt(FRAME_COLOR_TAG)
+                : defaultFrameColor();
+        glassColor = root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
+                ? root.getInt(GLASS_COLOR_TAG)
+                : defaultGlassColor();
+
+        LinkedDockSource linkedSource = resolveLinkedDockSource(true);
+        if (linkedSource != null) {
+            overlayLinkedStorage(registries, linkedSource.dock().getStoredDeepNull());
+            cacheLinkedStorageLocallyIfChanged(registries);
+        } else if (EnderUpgradeItem.isLinked(getEnderUpgradeStack())) {
+            overlayMirrorStorageFromRoot(registries, root);
+        }
+
         if (selectedSlot < -1 || selectedSlot >= getSlots()) {
             selectedSlot = -1;
         }
@@ -1673,70 +1917,317 @@ public class DeepNullInventory extends ItemStackHandler {
 
         sanitizeState();
 
-        CompoundTag root = new CompoundTag();
-        root.put(ITEMS_TAG, writeStoredItemList(registries, stacks));
-        root.put(UPGRADES_TAG, upgradeHandler.serializeNBT(registries));
-        root.put(FILTER_ITEMS_TAG, writeItemList(registries, filterStacks));
-        root.put(AUTO_SMELT_FILTER_ITEMS_TAG, writeItemList(registries, autoSmeltFilterStacks));
-        root.putInt(SELECTED_TAG, selectedSlot);
-        root.putIntArray(EXTRACTION_TAG, Arrays.stream(extractionModes).mapToInt(Enum::ordinal).toArray());
-        root.putIntArray(PLACEMENT_TAG, Arrays.stream(placementModes).mapToInt(Enum::ordinal).toArray());
-        root.putByteArray(TAG_MATCHING_TAG, booleanModesAsBytes(tagMatchingModes));
-        if (supportsLocking() && locked) {
-            root.putBoolean(LOCKED_TAG, true);
-        }
-        if (supportsFiltering()) {
-            root.putInt(FILTER_MODE_TAG, filterMode.ordinal());
-        }
-        if (supportsAutoSmeltFiltering()) {
-            root.putInt(AUTO_SMELT_FILTER_MODE_TAG, normalizeAutoSmeltFilterMode(autoSmeltFilterMode).ordinal());
-        }
-        if (!fluidOnly && contentMode != DeepNullContentMode.ITEMS) {
-            root.putInt(CONTENT_MODE_TAG, contentMode.ordinal());
-        }
-        if (supportsFluidStorage()) {
-            net.minecraft.nbt.ListTag fluids = writeFluidList(registries, fluidStacks);
-            if (!fluids.isEmpty()) {
-                root.put(FLUIDS_TAG, fluids);
-            }
-            net.minecraft.nbt.ListTag chemicals = writeChemicalList(chemicalStacks);
-            if (!chemicals.isEmpty()) {
-                root.put(CHEMICALS_TAG, chemicals);
-            }
-        }
-        if (hasEnergyUpgrade() && storedEnergy > 0) {
-            root.putInt(ENERGY_TAG, storedEnergy);
-        }
-        if (isChargingEnabled()) {
-            root.putBoolean(CHARGING_TAG, true);
-        }
-        if (transferLocked) {
-            root.putBoolean(TRANSFER_LOCKED_TAG, true);
-        }
-        root.putBoolean(AUTO_PICKUP_TAG, autoPickupEnabled);
-        root.putBoolean(AUTO_FEEDING_TAG, autoFeedingEnabled);
-        root.putBoolean(AUTO_SMELTING_TAG, autoSmeltingEnabled);
-        if (stoneGeneratorVariant != StoneGeneratorVariant.COBBLESTONE) {
-            root.putInt(STONE_GENERATOR_VARIANT_TAG, stoneGeneratorVariant.ordinal());
-        }
-        if (stoneworksTargetStacks != DeepNullConfig.defaultStoneworksAmount()) {
-            root.putInt(STONEWORKS_AMOUNT_TAG, stoneworksTargetStacks);
-        }
-        root.putByteArray(STONEWORKS_MONITOR_TAG, booleanModesAsBytes(stoneworksMonitoring));
-        if (stoneworksCursor != 0) {
-            root.putInt(STONEWORKS_CURSOR_TAG, stoneworksCursor);
-        }
+        CompoundTag tag = backingStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag root = tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG).copy() : new CompoundTag();
+        LinkedDockSource linkedSource = resolveLinkedDockSource(false);
 
-        CustomData.update(DataComponents.CUSTOM_DATA, backingStack, tag -> tag.put(ROOT_TAG, root));
+        writeLocalStateToRoot(root, registries);
+        if (linkedSource != null) {
+            writeMirrorStorageToRoot(root, registries);
+            CustomData.update(DataComponents.CUSTOM_DATA, backingStack, customTag -> customTag.put(ROOT_TAG, root));
+            writeLinkedStorage(registries, linkedSource);
+        } else {
+            writePrimaryStorageToRoot(root, registries);
+            clearMirrorStorage(root);
+            CustomData.update(DataComponents.CUSTOM_DATA, backingStack, customTag -> customTag.put(ROOT_TAG, root));
+        }
 
         if (changeListener != null) {
             changeListener.run();
         }
     }
 
+    private void readPrimaryStorageFromRoot(HolderLookup.Provider registries, CompoundTag root) {
+        clearStorageContents();
+        if (!fluidOnly) {
+            if (root.contains(ITEMS_TAG, Tag.TAG_LIST)) {
+                readStoredItemList(registries, root.getList(ITEMS_TAG, Tag.TAG_COMPOUND), stacks);
+            } else if (root.contains(ITEMS_TAG, Tag.TAG_COMPOUND)) {
+                deserializeNBT(registries, root.getCompound(ITEMS_TAG));
+            }
+        }
+        if (supportsFluidStorage()) {
+            if (root.contains(FLUIDS_TAG, Tag.TAG_LIST)) {
+                readFluidList(registries, root.getList(FLUIDS_TAG, Tag.TAG_COMPOUND), fluidStacks);
+            } else if (root.contains("Fluid", Tag.TAG_COMPOUND)) {
+                FluidStack migrated = FluidStack.parseOptional(registries, root.getCompound("Fluid"));
+                if (!migrated.isEmpty() && !fluidStacks.isEmpty()) {
+                    fluidStacks.set(0, migrated);
+                }
+            }
+            if (root.contains(CHEMICALS_TAG, Tag.TAG_LIST)) {
+                readChemicalList(root.getList(CHEMICALS_TAG, Tag.TAG_COMPOUND), chemicalStacks);
+            }
+        }
+    }
+
+    private void overlayLinkedStorage(HolderLookup.Provider registries, ItemStack sourceStack) {
+        CompoundTag sourceTag = sourceStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        if (!sourceTag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
+            clearStorageContents();
+            return;
+        }
+        readStorageFromRoot(registries, sourceTag.getCompound(ROOT_TAG), ITEMS_TAG, FLUIDS_TAG, CHEMICALS_TAG);
+    }
+
+    private void overlayMirrorStorageFromRoot(HolderLookup.Provider registries, CompoundTag root) {
+        readStorageFromRoot(registries, root, ENDER_MIRROR_ITEMS_TAG, ENDER_MIRROR_FLUIDS_TAG, ENDER_MIRROR_CHEMICALS_TAG);
+    }
+
+    private void readStorageFromRoot(
+            HolderLookup.Provider registries,
+            CompoundTag root,
+            String itemsKey,
+            String fluidsKey,
+            String chemicalsKey
+    ) {
+        clearStorageContents();
+        if (!fluidOnly && root.contains(itemsKey, Tag.TAG_LIST)) {
+            readStoredItemList(registries, root.getList(itemsKey, Tag.TAG_COMPOUND), stacks);
+        }
+        if (supportsFluidStorage()) {
+            if (root.contains(fluidsKey, Tag.TAG_LIST)) {
+                readFluidList(registries, root.getList(fluidsKey, Tag.TAG_COMPOUND), fluidStacks);
+            }
+            if (root.contains(chemicalsKey, Tag.TAG_LIST)) {
+                readChemicalList(root.getList(chemicalsKey, Tag.TAG_COMPOUND), chemicalStacks);
+            }
+        }
+    }
+
+    private void writeLocalStateToRoot(CompoundTag root, HolderLookup.Provider registries) {
+        root.put(UPGRADES_TAG, upgradeHandler.serializeNBT(registries));
+        root.put(FILTER_ITEMS_TAG, writeItemList(registries, filterStacks));
+        root.put(AUTO_SMELT_FILTER_ITEMS_TAG, writeItemList(registries, autoSmeltFilterStacks));
+        root.putInt(SELECTED_TAG, selectedSlot);
+        root.putIntArray(EXTRACTION_TAG, Arrays.stream(extractionModes).mapToInt(Enum::ordinal).toArray());
+        root.putIntArray(CUSTOM_EXTRACTION_TAG, Arrays.copyOf(customExtractionAmounts, customExtractionAmounts.length));
+        root.putIntArray(PLACEMENT_TAG, Arrays.stream(placementModes).mapToInt(Enum::ordinal).toArray());
+        root.putByteArray(TAG_MATCHING_TAG, booleanModesAsBytes(tagMatchingModes));
+
+        if (supportsLocking() && locked) {
+            root.putBoolean(LOCKED_TAG, true);
+        } else {
+            root.remove(LOCKED_TAG);
+        }
+
+        if (supportsFiltering()) {
+            root.putInt(FILTER_MODE_TAG, filterMode.ordinal());
+        } else {
+            root.remove(FILTER_MODE_TAG);
+        }
+
+        if (supportsAutoSmeltFiltering()) {
+            root.putInt(AUTO_SMELT_FILTER_MODE_TAG, normalizeAutoSmeltFilterMode(autoSmeltFilterMode).ordinal());
+        } else {
+            root.remove(AUTO_SMELT_FILTER_MODE_TAG);
+        }
+
+        if (!fluidOnly && contentMode != DeepNullContentMode.ITEMS) {
+            root.putInt(CONTENT_MODE_TAG, contentMode.ordinal());
+        } else {
+            root.remove(CONTENT_MODE_TAG);
+        }
+
+        if (hasEnergyUpgrade() && storedEnergy > 0) {
+            root.putInt(ENERGY_TAG, storedEnergy);
+        } else {
+            root.remove(ENERGY_TAG);
+        }
+
+        if (isChargingEnabled()) {
+            root.putBoolean(CHARGING_TAG, true);
+        } else {
+            root.remove(CHARGING_TAG);
+        }
+
+        if (transferLocked) {
+            root.putBoolean(TRANSFER_LOCKED_TAG, true);
+        } else {
+            root.remove(TRANSFER_LOCKED_TAG);
+        }
+
+        root.putBoolean(AUTO_PICKUP_TAG, autoPickupEnabled);
+        root.putBoolean(AUTO_FEEDING_TAG, autoFeedingEnabled);
+        root.putBoolean(AUTO_SMELTING_TAG, autoSmeltingEnabled);
+
+        if (stoneGeneratorVariant != StoneGeneratorVariant.COBBLESTONE) {
+            root.putInt(STONE_GENERATOR_VARIANT_TAG, stoneGeneratorVariant.ordinal());
+        } else {
+            root.remove(STONE_GENERATOR_VARIANT_TAG);
+        }
+
+        if (stoneworksTargetStacks != DeepNullConfig.defaultStoneworksAmount()) {
+            root.putInt(STONEWORKS_AMOUNT_TAG, stoneworksTargetStacks);
+        } else {
+            root.remove(STONEWORKS_AMOUNT_TAG);
+        }
+        root.putByteArray(STONEWORKS_MONITOR_TAG, booleanModesAsBytes(stoneworksMonitoring));
+        if (stoneworksCursor != 0) {
+            root.putInt(STONEWORKS_CURSOR_TAG, stoneworksCursor);
+        } else {
+            root.remove(STONEWORKS_CURSOR_TAG);
+        }
+
+        if (frameColor != defaultFrameColor()) {
+            root.putInt(FRAME_COLOR_TAG, frameColor);
+        } else {
+            root.remove(FRAME_COLOR_TAG);
+        }
+
+        if (glassColor != defaultGlassColor()) {
+            root.putInt(GLASS_COLOR_TAG, glassColor);
+        } else {
+            root.remove(GLASS_COLOR_TAG);
+        }
+    }
+
+    private void writePrimaryStorageToRoot(CompoundTag root, HolderLookup.Provider registries) {
+        if (!fluidOnly) {
+            root.put(ITEMS_TAG, writeStoredItemList(registries, stacks));
+        }
+        if (supportsFluidStorage()) {
+            putOrRemoveList(root, FLUIDS_TAG, writeFluidList(registries, fluidStacks));
+            putOrRemoveList(root, CHEMICALS_TAG, writeChemicalList(chemicalStacks));
+        } else {
+            root.remove(FLUIDS_TAG);
+            root.remove(CHEMICALS_TAG);
+        }
+    }
+
+    private void writeMirrorStorageToRoot(CompoundTag root, HolderLookup.Provider registries) {
+        if (!fluidOnly) {
+            putOrRemoveList(root, ENDER_MIRROR_ITEMS_TAG, writeStoredItemList(registries, stacks));
+        }
+        if (supportsFluidStorage()) {
+            putOrRemoveList(root, ENDER_MIRROR_FLUIDS_TAG, writeFluidList(registries, fluidStacks));
+            putOrRemoveList(root, ENDER_MIRROR_CHEMICALS_TAG, writeChemicalList(chemicalStacks));
+        } else {
+            root.remove(ENDER_MIRROR_FLUIDS_TAG);
+            root.remove(ENDER_MIRROR_CHEMICALS_TAG);
+        }
+    }
+
+    private void clearMirrorStorage(CompoundTag root) {
+        root.remove(ENDER_MIRROR_ITEMS_TAG);
+        root.remove(ENDER_MIRROR_FLUIDS_TAG);
+        root.remove(ENDER_MIRROR_CHEMICALS_TAG);
+    }
+
+    private void writeLinkedStorage(HolderLookup.Provider registries, LinkedDockSource linkedSource) {
+        ItemStack sourceStack = linkedSource.dock().getStoredDeepNull();
+        if (sourceStack.isEmpty()) {
+            return;
+        }
+        CustomData.update(DataComponents.CUSTOM_DATA, sourceStack, tag -> {
+            CompoundTag root = tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG).copy() : new CompoundTag();
+            if (!fluidOnly) {
+                root.put(ITEMS_TAG, writeStoredItemList(registries, stacks));
+            }
+            if (supportsFluidStorage()) {
+                putOrRemoveList(root, FLUIDS_TAG, writeFluidList(registries, fluidStacks));
+                putOrRemoveList(root, CHEMICALS_TAG, writeChemicalList(chemicalStacks));
+            }
+            tag.put(ROOT_TAG, root);
+        });
+        linkedSource.dock().markStoredDeepNullChanged();
+    }
+
+    private void cacheLinkedStorageLocallyIfChanged(HolderLookup.Provider registries) {
+        CompoundTag currentTag = backingStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag currentRoot = currentTag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? currentTag.getCompound(ROOT_TAG).copy() : new CompoundTag();
+        CompoundTag updatedRoot = currentRoot.copy();
+        writeMirrorStorageToRoot(updatedRoot, registries);
+        if (updatedRoot.equals(currentRoot)) {
+            return;
+        }
+        CustomData.update(DataComponents.CUSTOM_DATA, backingStack, tag -> tag.put(ROOT_TAG, updatedRoot));
+        if (changeListener != null) {
+            changeListener.run();
+        }
+    }
+
+    private void clearStorageContents() {
+        for (int slot = 0; slot < stacks.size(); slot++) {
+            stacks.set(slot, ItemStack.EMPTY);
+        }
+        for (int slot = 0; slot < fluidStacks.size(); slot++) {
+            fluidStacks.set(slot, FluidStack.EMPTY);
+        }
+        for (int slot = 0; slot < chemicalStacks.size(); slot++) {
+            chemicalStacks.set(slot, StoredChemical.EMPTY);
+        }
+    }
+
+    private void putOrRemoveList(CompoundTag root, String key, net.minecraft.nbt.ListTag value) {
+        if (value.isEmpty()) {
+            root.remove(key);
+            return;
+        }
+        root.put(key, value);
+    }
+
+    private ItemStack getEnderUpgradeStack() {
+        if (DeepNullUpgradeType.ENDER.slot() < 0 || DeepNullUpgradeType.ENDER.slot() >= upgradeHandler.getSlots()) {
+            return ItemStack.EMPTY;
+        }
+        return upgradeHandler.getStackInSlot(DeepNullUpgradeType.ENDER.slot());
+    }
+
+    private @Nullable LinkedDockSource resolveLinkedDockSource(boolean clearInvalidLink) {
+        ItemStack enderUpgrade = getEnderUpgradeStack();
+        EnderUpgradeItem.LinkData link = EnderUpgradeItem.getLink(enderUpgrade);
+        if (link == null) {
+            return null;
+        }
+
+        if (!EnderUpgradeItem.matchesNull(enderUpgrade, tier, fluidOnly)) {
+            return null;
+        }
+
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
+            return null;
+        }
+
+        Level level = server.getLevel(link.dimension());
+        if (level == null || !(level.getBlockEntity(link.pos()) instanceof DeepNullDockBlockEntity dock) || !dock.hasStoredDeepNull()) {
+            invalidateEnderLink(enderUpgrade, clearInvalidLink);
+            return null;
+        }
+        if (!(dock.getStoredDeepNull().getItem() instanceof DeepNullItem linkedItem)) {
+            invalidateEnderLink(enderUpgrade, clearInvalidLink);
+            return null;
+        }
+
+        boolean linkedFluidOnly = linkedItem instanceof DampNullItem;
+        if (linkedFluidOnly != fluidOnly || linkedItem.tier() != tier || linkedFluidOnly != link.fluidOnly() || linkedItem.tier() != link.tier()) {
+            invalidateEnderLink(enderUpgrade, clearInvalidLink);
+            return null;
+        }
+
+        return new LinkedDockSource(dock);
+    }
+
+    private void invalidateEnderLink(ItemStack enderUpgrade, boolean clearInvalidLink) {
+        if (!clearInvalidLink) {
+            return;
+        }
+        EnderUpgradeItem.clearLink(enderUpgrade);
+        pendingLinkCleanup = true;
+    }
+
     private void sanitizeState() {
         migrateLegacyUpgradeSlots();
         for (int slot = 0; slot < getSlots(); slot++) {
+            if (getStackInSlot(slot).isEmpty() && extractionModes[slot] == ItemExtractionMode.CUSTOM) {
+                extractionModes[slot] = ItemExtractionMode.KEEP_1;
+                customExtractionAmounts[slot] = 0;
+            } else if (extractionModes[slot] == ItemExtractionMode.CUSTOM) {
+                customExtractionAmounts[slot] = Math.max(1, Math.min(customExtractionAmounts[slot], getSlotLimit(slot)));
+            } else {
+                customExtractionAmounts[slot] = 0;
+            }
             if (!supportsTagMatching(slot)) {
                 tagMatchingModes[slot] = false;
             }
@@ -1779,6 +2270,8 @@ public class DeepNullInventory extends ItemStackHandler {
         }
         stoneworksTargetStacks = Math.max(0, Math.min(MAX_STONEWORKS_AMOUNT, stoneworksTargetStacks));
         stoneworksCursor = Math.floorMod(stoneworksCursor, StoneworksMaterial.roundRobinOrder().length);
+        frameColor = sanitizeStyleColor(frameColor);
+        glassColor = sanitizeStyleColor(glassColor);
         autoPickupEnabled = autoPickupEnabled && DeepNullConfig.isAutoPickupEnabled();
         autoFeedingEnabled = autoFeedingEnabled && hasAutoFeedingUpgrade() && DeepNullConfig.isAutoFeedingEnabled();
         autoSmeltingEnabled = autoSmeltingEnabled && hasAutoSmeltingUpgrade() && DeepNullConfig.isAutoSmeltingEnabled();
@@ -1843,6 +2336,19 @@ public class DeepNullInventory extends ItemStackHandler {
             return false;
         }
         return ItemStack.isSameItemSameComponents(filterStack, incomingStack) || ItemStack.isSameItem(filterStack, incomingStack);
+    }
+
+    private static int sanitizeStyleColor(int color) {
+        return color & 0xFFFFFF;
+    }
+
+    private int defaultFrameColor() {
+        return DEFAULT_STYLE_COLOR;
+    }
+
+    private int defaultGlassColor() {
+        int tierId = Math.max(0, Math.min(tier.ordinalId(), DEFAULT_DEEPNULL_GLASS_COLORS.length - 1));
+        return fluidOnly ? DEFAULT_DAMPNULL_GLASS_COLORS[tierId] : DEFAULT_DEEPNULL_GLASS_COLORS[tierId];
     }
 
     private boolean filterExplicitlyAllows(ItemStack stack) {
@@ -2030,16 +2536,7 @@ public class DeepNullInventory extends ItemStackHandler {
 
     private boolean canRunStoneworksFor(StoneworksMaterial material, boolean hasWaterSupport) {
         ItemStack output = getStoneworksDisplayStack(material);
-        if (output.isEmpty() || !allowsAutomationOutput(output)) {
-            return false;
-        }
-        if (material == StoneworksMaterial.CLAY && !hasWaterSupport) {
-            return false;
-        }
-        if (material == StoneworksMaterial.GLASS && !hasAutoSmeltingUpgrade()) {
-            return false;
-        }
-        if (material == StoneworksMaterial.DUST && output.isEmpty()) {
+        if (!isStoneworksOutputAvailable(material, output, hasWaterSupport) || !canInsertStoneworksOutput(output)) {
             return false;
         }
 
@@ -2047,8 +2544,7 @@ public class DeepNullInventory extends ItemStackHandler {
             return true;
         }
 
-        int targetItems = stoneworksTargetStacks * output.getMaxStackSize();
-        return countStoredLike(output) < targetItems;
+        return countStoredLike(output) < requiredStoneworksItems(material, hasWaterSupport);
     }
 
     private int runStoneworksFor(StoneworksMaterial material, boolean hasWaterSupport, int maxOperations) {
@@ -2070,32 +2566,31 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     private boolean tryRunStoneworksChain(StoneworksMaterial target, boolean hasWaterSupport, boolean simulate) {
+        ItemStack finalOutput = getStoneworksDisplayStack(target);
+        if (!isStoneworksOutputAvailable(target, finalOutput, hasWaterSupport) || !canInsertStoneworksOutput(finalOutput)) {
+            return false;
+        }
+        if (!insertStoneworksOutput(finalOutput.copyWithCount(1), true).isEmpty()) {
+            return false;
+        }
+
+        ItemStack transientOutput = ItemStack.EMPTY;
         for (StoneworksMaterial stage : stoneworksStages(target)) {
             ItemStack input = stoneworksInput(stage);
             ItemStack output = getStoneworksDisplayStack(stage);
-            if (output.isEmpty() || !allowsAutomationOutput(output)) {
+            if (!isStoneworksOutputAvailable(stage, output, hasWaterSupport)) {
                 return false;
             }
-            if (stage == StoneworksMaterial.CLAY && !hasWaterSupport) {
+
+            if (matchesStoneworksInput(transientOutput, input)) {
+                transientOutput = ItemStack.EMPTY;
+            } else if (!consumeMatchingItem(input, 1, simulate)) {
                 return false;
             }
-            if (stage == StoneworksMaterial.GLASS && !hasAutoSmeltingUpgrade()) {
-                return false;
-            }
-            if (countStoredLike(input) <= 0) {
-                return false;
-            }
-            if (!insertAutomationOutput(output.copyWithCount(1), true).isEmpty()) {
-                return false;
-            }
-            if (!consumeMatchingItem(input, 1, simulate)) {
-                return false;
-            }
-            if (!insertAutomationOutput(output.copyWithCount(1), simulate).isEmpty()) {
-                return false;
-            }
+
+            transientOutput = output.copyWithCount(1);
         }
-        return true;
+        return !transientOutput.isEmpty() && insertStoneworksOutput(transientOutput, simulate).isEmpty();
     }
 
     private StoneworksMaterial[] stoneworksStages(StoneworksMaterial target) {
@@ -2118,6 +2613,64 @@ public class DeepNullInventory extends ItemStackHandler {
         };
     }
 
+    private boolean matchesStoneworksInput(ItemStack transientOutput, ItemStack input) {
+        if (transientOutput.isEmpty() || input.isEmpty()) {
+            return false;
+        }
+        return ItemStack.isSameItemSameComponents(transientOutput, input) || ItemStack.isSameItem(transientOutput, input);
+    }
+
+    private boolean canInsertStoneworksOutput(ItemStack stack) {
+        return !insertStoneworksOutput(stack.copyWithCount(1), true).isEmpty() ? false : true;
+    }
+
+    private ItemStack insertStoneworksOutput(ItemStack stack, boolean simulate) {
+        if (fluidOnly || stack.isEmpty() || (supportsLocking() && locked)) {
+            return stack;
+        }
+        return insertPreparedIntoFirstAvailableSlot(stack, simulate);
+    }
+
+    private boolean isStoneworksOutputAvailable(StoneworksMaterial material, ItemStack output, boolean hasWaterSupport) {
+        if (output.isEmpty()) {
+            return false;
+        }
+        if (material == StoneworksMaterial.CLAY && !hasWaterSupport) {
+            return false;
+        }
+        if (material == StoneworksMaterial.GLASS && !hasAutoSmeltingUpgrade()) {
+            return false;
+        }
+        return material != StoneworksMaterial.DUST || !output.isEmpty();
+    }
+
+    private int requiredStoneworksItems(StoneworksMaterial material, boolean hasWaterSupport) {
+        ItemStack output = getStoneworksDisplayStack(material);
+        if (!isStoneworksOutputAvailable(material, output, hasWaterSupport)) {
+            return 0;
+        }
+
+        int required = isStoneworksMonitoring(material) ? stoneworksTargetStacks : 0;
+        return switch (material) {
+            case DIRT -> required
+                    + requiredStoneworksOperations(StoneworksMaterial.CLAY, hasWaterSupport)
+                    + requiredStoneworksOperations(StoneworksMaterial.GRAVEL, hasWaterSupport);
+            case GRAVEL -> required
+                    + requiredStoneworksOperations(StoneworksMaterial.SAND, hasWaterSupport);
+            case SAND -> required
+                    + requiredStoneworksOperations(StoneworksMaterial.DUST, hasWaterSupport)
+                    + requiredStoneworksOperations(StoneworksMaterial.GLASS, hasWaterSupport);
+            case DUST, CLAY, GLASS -> required;
+        };
+    }
+
+    private int requiredStoneworksOperations(StoneworksMaterial material, boolean hasWaterSupport) {
+        if (!isStoneworksMonitoring(material)) {
+            return 0;
+        }
+        return requiredStoneworksItems(material, hasWaterSupport);
+    }
+
     private int countStoredLike(ItemStack sample) {
         if (sample.isEmpty()) {
             return 0;
@@ -2135,6 +2688,24 @@ public class DeepNullInventory extends ItemStackHandler {
         return total;
     }
 
+    private int countExtractableLike(ItemStack sample) {
+        if (sample.isEmpty()) {
+            return 0;
+        }
+
+        int total = 0;
+        for (int slot = 0; slot < getSlots(); slot++) {
+            ItemStack stored = getStackInSlot(slot);
+            if (stored.isEmpty()) {
+                continue;
+            }
+            if (ItemStack.isSameItemSameComponents(stored, sample) || ItemStack.isSameItem(stored, sample)) {
+                total += getExtractableAmount(slot);
+            }
+        }
+        return total;
+    }
+
     private boolean consumeMatchingItem(ItemStack sample, int amount, boolean simulate) {
         int remaining = amount;
         for (int slot = 0; slot < getSlots() && remaining > 0; slot++) {
@@ -2145,7 +2716,7 @@ public class DeepNullInventory extends ItemStackHandler {
             if (!ItemStack.isSameItemSameComponents(stored, sample) && !ItemStack.isSameItem(stored, sample)) {
                 continue;
             }
-            ItemStack extracted = extractItemIgnoreExtractionMode(slot, remaining, simulate);
+            ItemStack extracted = extractItem(slot, remaining, simulate);
             remaining -= extracted.getCount();
         }
         return remaining <= 0;
@@ -2342,6 +2913,13 @@ public class DeepNullInventory extends ItemStackHandler {
         Arrays.fill(targetModes, false);
         for (int i = 0; i < Math.min(storedModes.length, targetModes.length); i++) {
             targetModes[i] = storedModes[i] != 0;
+        }
+    }
+
+    private static void readIntModes(int[] storedModes, int[] targetModes) {
+        Arrays.fill(targetModes, 0);
+        for (int i = 0; i < Math.min(storedModes.length, targetModes.length); i++) {
+            targetModes[i] = storedModes[i];
         }
     }
 
@@ -2547,7 +3125,13 @@ public class DeepNullInventory extends ItemStackHandler {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             DeepNullUpgradeType type = upgradeType(stack);
-            return type != null && type.slot() == slot && supportsUpgrade(type);
+            if (type == null || type.slot() != slot || !supportsUpgrade(type)) {
+                return false;
+            }
+            if (type == DeepNullUpgradeType.ENDER) {
+                return EnderUpgradeItem.matchesNull(stack, tier, fluidOnly);
+            }
+            return true;
         }
 
         private void clearSlotSilently(int slot) {
@@ -2589,5 +3173,8 @@ public class DeepNullInventory extends ItemStackHandler {
             long total = (long) inputCount * outputPerInput;
             return outputSample.copyWithCount((int) Math.min(Integer.MAX_VALUE, total));
         }
+    }
+
+    private record LinkedDockSource(DeepNullDockBlockEntity dock) {
     }
 }

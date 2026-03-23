@@ -2,14 +2,14 @@
 navigation:
   title: Controls, JEI, and Automation
   icon: deepnullreforged:deepnull_dock
-  position: 4
+  position: 5
 item_ids:
   - deepnullreforged:deepnull_dock
 ---
 
 # Controls, JEI, and Automation
 
-This page covers normal gameplay controls, JEI support, and automation behavior.
+This page covers controls, transfer behavior, JEI integration, and docking automation.
 
 ## Hotkeys
 
@@ -30,6 +30,7 @@ This page covers normal gameplay controls, JEI support, and automation behavior.
 
 - `Left Click`: select tank
 - `Shift + Left Click`: clear tank
+- `Shift + Right Click`: transfer with compatible tanks or chemicals when transfer is unlocked
 
 ## Transfer Lock
 
@@ -60,5 +61,11 @@ The docking station exposes:
 - item storage
 - fluid storage
 - energy storage
+- chemical storage when the Chemical Upgrade is installed
 
 That makes it useful with pipes, storage buses, tanks, and other standard NeoForge automation systems.
+
+## Related Pages
+
+- [Config and Settings](config-and-settings.md)
+- [Docking Station](docking-station.md)

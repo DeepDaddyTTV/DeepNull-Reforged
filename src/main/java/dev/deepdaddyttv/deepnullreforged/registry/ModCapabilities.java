@@ -3,6 +3,9 @@ package dev.deepdaddyttv.deepnullreforged.registry;
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullEnergyStorage;
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchBlock;
+import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchPart;
+import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
@@ -79,6 +82,11 @@ public final class ModCapabilities {
                 ModCapabilities::createDockEntityHandler
         );
         event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                ModBlockEntities.NULL_WORKBENCH.get(),
+                (workbench, side) -> workbench.getAutomationHandler()
+        );
+        event.registerBlockEntity(
                 Capabilities.FluidHandler.BLOCK,
                 ModBlockEntities.DEEP_NULL_DOCK.get(),
                 ModCapabilities::createDockEntityFluidHandler
@@ -92,6 +100,11 @@ public final class ModCapabilities {
                 Capabilities.ItemHandler.BLOCK,
                 ModCapabilities::createDockHandler,
                 ModBlocks.DEEP_NULL_DOCK.get()
+        );
+        event.registerBlock(
+                Capabilities.ItemHandler.BLOCK,
+                ModCapabilities::createNullWorkbenchHandler,
+                ModBlocks.NULL_WORKBENCH.get()
         );
         event.registerBlock(
                 Capabilities.FluidHandler.BLOCK,
@@ -186,6 +199,28 @@ public final class ModCapabilities {
             return createDockEntityEnergyStorage(dock, side);
         }
         return null;
+    }
+
+    private static @Nullable IItemHandler createNullWorkbenchHandler(Level level, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, @Nullable Direction side) {
+        if (blockEntity instanceof NullWorkbenchBlockEntity workbench) {
+            return workbench.getAutomationHandler();
+        }
+        BlockPos mainPos = resolveNullWorkbenchMainPos(pos, state);
+        if (mainPos == null) {
+            return null;
+        }
+        return level.getBlockEntity(mainPos) instanceof NullWorkbenchBlockEntity workbench
+                ? workbench.getAutomationHandler()
+                : null;
+    }
+
+    private static @Nullable BlockPos resolveNullWorkbenchMainPos(BlockPos pos, BlockState state) {
+        if (!state.is(ModBlocks.NULL_WORKBENCH.get())) {
+            return null;
+        }
+        return state.getValue(NullWorkbenchBlock.PART) == NullWorkbenchPart.MAIN
+                ? pos
+                : pos.relative(state.getValue(NullWorkbenchBlock.FACING).getClockWise().getOpposite());
     }
 
     private static @Nullable HolderLookup.Provider currentRegistries() {

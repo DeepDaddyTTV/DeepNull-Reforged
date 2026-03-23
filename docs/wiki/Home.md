@@ -1,61 +1,35 @@
-# DeepNull Reforged Wiki
+# DeepNull Reforged
 
-DeepNull Reforged is a NeoForge 1.21.1 port and expansion of the classic `/dev/null`-style storage tool. It adds two storage families:
+![DeepNull Reforged](images/home.gif)
 
-- `DeepNull` for item storage
-- `DampNull` for fluid storage
+DeepNull Reforged is a modern NeoForge rebuild and expansion of the classic portable void-style storage idea. It centers around two tools:
 
-Both are items that can he held in your inventory and used to both store and directly use their contents.
+- **DeepNulls** for item storage and direct item use
+- **DampNulls** for tank-based fluid storage
 
-![DeepNull Reforged overview](images/home.gif)
+The mod is built around active use, automation, docking, upgrades, quality-of-life systems, and now a dedicated Null Workbench for reduced-cost crafting, synchronization, and style customization.
 
-## Contents
+## Main Sections
 
-- [DeepNull and Tiers](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DeepNull-and-Tiers)
-- [DampNull](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/DampNull)
-- [Upgrades](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Upgrades)
-- [Controls, JEI, and Automation](https://github.com/MMFQDEATH/DeepNull-Reforged/wiki/Controls,-JEI,-and-Automation)
+- [DeepNulls](DeepNulls): tier breakdown, storage capacity, supported upgrades, and crafting flow
+- [DampNulls](DampNulls): tank breakdown, fluid capabilities, supported upgrades, and crafting flow
+- [Upgrades](Upgrades): DeepNull and DampNull upgrade pages with per-upgrade notes
+- [Items](Items): utility blocks and crafting components
+- [Controls, JEI, and Automation](Controls-JEI-and-Automation): controls, transfers, JEI, and docking behavior
+- [Config and Settings](Config-and-Settings): client, common, and server config reference
 
-## At a Glance
+## Highlights
 
-### DeepNull
+- Massive portable item and fluid storage
+- Direct use of stored contents
+- Docking station automation
+- Null Workbench crafting, styling, and synchronization
+- GuideME item links with `G`
+- Client, common, and server config support
 
-- Stores very large amounts of items by slot
-- Supports per-slot extract and place rules
-- Can use stored buckets, food, potions, and many normal right-click items directly
-- Can auto-feed, auto-smelt, and auto-compress with upgrades
-- Works with JEI crafting transfer and automation mods
-- Can push to and pull from nearby inventories with shift-right-click when transfer is unlocked
+## Quick Start
 
-### DampNull
-
-- Stores fluids by tank instead of storing buckets as items
-- Can place and pick up source fluids directly in the world
-- Can transfer fluids through the docking station and compatible automation mods
-- Uses dedicated tank UIs and supports tank clearing from the GUI
-- Can also push to and pull from nearby tanks with shift-right-click when transfer is unlocked
-
-### Docking Station
-
-- Holds one DeepNull or DampNull
-- Exposes item, fluid, and energy capabilities to compatible mods
-- Renders the stored null hovering above the dock
-- Supports item, fluid, and energy automation through standard NeoForge capabilities
-
-## Design Goals
-
-DeepNull Reforged is built around three ideas:
-
-- Keep your inventory clean
-- Let storage stay useful in active gameplay, not just in menus
-- Revive and improve on a personal favorite mod
-
-## Update Notifications
-
-Client builds can show an update message when a newer release is detected. The message links to the CurseForge project page for downloads.
-
-## Notes
-
-- Creative tiers are intentionally special-case tiers with effectively infinite behavior.
-- Some advanced behaviors depend on upgrades being installed.
-- JEI integration is intended to be broad, including recipe transfer from inventory and carried DeepNulls.
+1. Craft a DeepNull or DampNull tier.
+2. Open it from your hotbar or use it directly in hand.
+3. Select the slot or tank you want to use.
+4. Add upgrades to unlock the behaviors you want.

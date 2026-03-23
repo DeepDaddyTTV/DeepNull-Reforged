@@ -7,24 +7,29 @@ navigation:
 
 # DeepNull Reforged Guide
 
-DeepNull Reforged adds two portable storage tools:
+DeepNull Reforged is a modern NeoForge rebuild and expansion of the classic portable void-style storage idea. It centers around two tools:
 
-- <ItemLink id="deepnullreforged:deep_null_0" /> style item storage through the **DeepNull**
-- <ItemLink id="deepnullreforged:damp_null_0" /> style fluid storage through the **DampNull**
+- <ItemLink id="deepnullreforged:deep_null_0" /> for item storage and direct item use
+- <ItemLink id="deepnullreforged:damp_null_0" /> for tank-based fluid storage
 
-It is built around direct use, automation, docking, and upgrade-driven behavior rather than passive storage only.
+The mod is built around active use, automation, docking, upgrades, and quality-of-life systems rather than passive storage alone.
 
-## Included Topics
+## Main Sections
 
 <SubPages icons={true} />
 
 ## Quick Start
 
-- Craft a DeepNull or DampNull tier.
-- Open it from the hotbar or directly in hand.
-- Select the slot or tank you want to use.
-- Use upgrades to enable filters, transfer behavior, FE storage, auto-feeding, auto-smelting, and compression.
+1. Craft a DeepNull or DampNull tier.
+2. Open it from your hotbar or use it directly in hand.
+3. Select the slot or tank you want to use.
+4. Add upgrades to unlock the behaviors you want.
 
-## Optional GuideME Support
+## Highlights
 
-If GuideME is installed, you can hold `G` over supported DeepNull Reforged items to jump directly to the matching guide page.
+- Massive portable item and fluid storage
+- Direct use of stored contents
+- Docking station automation
+- Null Workbench crafting, styling, and synchronization
+- Client, common, and server config support
+- GuideME item links with `G`

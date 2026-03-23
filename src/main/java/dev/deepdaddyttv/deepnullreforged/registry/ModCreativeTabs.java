@@ -37,6 +37,8 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.EMERALD_PANEL.get());
                 output.accept(ModItems.FILTER.get());
                 output.accept(ModItems.UPGRADE_CORE.get());
+                output.accept(ModItems.ENDER_UPGRADE_CORE.get());
+                output.accept(ModItems.SYNCHRONIZER.get());
                 output.accept(ModItems.FILTER_UPGRADE.get());
                 output.accept(ModItems.FLUID_UPGRADE.get());
                 output.accept(ModItems.ENERGY_UPGRADE.get());
@@ -52,7 +54,9 @@ public final class ModCreativeTabs {
                 if (ModList.get().isLoaded("mekanism")) {
                     output.accept(ModItems.GAS_UPGRADE.get());
                 }
+                output.accept(ModItems.ENDER_UPGRADE.get());
                 output.accept(ModItems.DEEP_NULL_DOCK.get());
+                output.accept(ModItems.NULL_WORKBENCH.get());
             })
             .build());
 

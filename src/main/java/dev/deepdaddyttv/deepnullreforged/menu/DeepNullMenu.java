@@ -257,11 +257,14 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     public boolean hasUpgrade(DeepNullUpgradeType type) {
-        return dankInventory.hasUpgrade(type);
+        if (dankInventory.hasUpgrade(type)) {
+            return true;
+        }
+        return !type.usesSharedSlot() && (syncedUpgradeMask & (1 << type.slot())) != 0;
     }
 
     public boolean hasEnergyUpgrade() {
-        return dankInventory.hasEnergyUpgrade();
+        return dankInventory.hasEnergyUpgrade() || (syncedUpgradeMask & (1 << DeepNullUpgradeType.ENERGY.slot())) != 0;
     }
 
     public boolean supportsUpgrade(DeepNullUpgradeType type) {
@@ -330,6 +333,17 @@ public class DeepNullMenu extends AbstractContainerMenu {
         }
         dankInventory.cycleExtractionMode(slot, forward);
         return true;
+    }
+
+    public boolean setCustomExtractionMinimum(int slot, int amount) {
+        if (!isStorageSlot(slot) || dankInventory.getStackInSlot(slot).isEmpty()) {
+            return false;
+        }
+        var currentMode = dankInventory.getExtractionMode(slot);
+        int currentMinimum = dankInventory.getExtractionMinimum(slot);
+        dankInventory.setCustomExtractionMinimum(slot, amount);
+        return currentMode != dankInventory.getExtractionMode(slot)
+                || currentMinimum != dankInventory.getExtractionMinimum(slot);
     }
 
     public boolean cyclePlacementMode(int slot, boolean forward) {

@@ -2,6 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.client;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
+import dev.deepdaddyttv.deepnullreforged.block.DeepNullDockBlock;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullHudState;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
@@ -9,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -235,6 +237,10 @@ public final class ClientGameEvents {
         }
 
         boolean targetingBlock = minecraft.hitResult != null && minecraft.hitResult.getType() == HitResult.Type.BLOCK;
+        if (targetingBlock && minecraft.level != null && minecraft.hitResult instanceof BlockHitResult blockHitResult
+                && minecraft.level.getBlockState(blockHitResult.getBlockPos()).getBlock() instanceof DeepNullDockBlock) {
+            return false;
+        }
         if (!player.isShiftKeyDown()) {
             event.setCanceled(true);
             event.setSwingHand(false);

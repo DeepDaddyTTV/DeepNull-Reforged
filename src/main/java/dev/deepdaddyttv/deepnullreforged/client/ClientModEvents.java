@@ -4,8 +4,12 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullDockRenderer;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullItemRendering;
+import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
+import net.minecraft.client.Minecraft;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
+import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.KeyMapping;
@@ -17,6 +21,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
@@ -38,6 +43,7 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.DEEP_NULL_MENU.get(), ClientModEvents::createDeepNullScreen);
+        event.register(ModMenus.NULL_WORKBENCH_MENU.get(), NullWorkbenchScreen::new);
     }
 
     @SubscribeEvent
@@ -66,6 +72,38 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
+        event.register((stack, tintIndex) -> {
+                    Minecraft minecraft = Minecraft.getInstance();
+                    if (!(stack.getItem() instanceof DeepNullItem deepNullItem) || tintIndex < 0 || tintIndex > 1) {
+                        return 0xFFFFFF;
+                    }
+                    if (!DeepNullInventory.hasCustomStyle(stack)) {
+                        return 0xFFFFFFFF;
+                    }
+                    DeepNullInventory inventory = minecraft.level == null
+                            ? DeepNullInventory.client(deepNullItem.tier())
+                            : new DeepNullInventory(deepNullItem.tier(), stack, minecraft.level.registryAccess(), null);
+                    int rgb = tintIndex == 0 ? inventory.getFrameColor() : inventory.getGlassColor();
+                    return 0xFF000000 | (rgb & 0xFFFFFF);
+                },
+                ModItems.REDSTONE_DEEP_NULL.get(),
+                ModItems.LAPIS_DEEP_NULL.get(),
+                ModItems.IRON_DEEP_NULL.get(),
+                ModItems.GOLD_DEEP_NULL.get(),
+                ModItems.DIAMOND_DEEP_NULL.get(),
+                ModItems.EMERALD_DEEP_NULL.get(),
+                ModItems.CREATIVE_DEEP_NULL.get(),
+                ModItems.REDSTONE_DAMP_NULL.get(),
+                ModItems.LAPIS_DAMP_NULL.get(),
+                ModItems.IRON_DAMP_NULL.get(),
+                ModItems.GOLD_DAMP_NULL.get(),
+                ModItems.DIAMOND_DAMP_NULL.get(),
+                ModItems.EMERALD_DAMP_NULL.get(),
+                ModItems.CREATIVE_DAMP_NULL.get());
     }
 
     private static AbstractContainerScreen<DeepNullMenu> createDeepNullScreen(DeepNullMenu menu, Inventory inventory, Component title) {

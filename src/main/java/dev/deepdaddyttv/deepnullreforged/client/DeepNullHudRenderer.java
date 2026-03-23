@@ -66,7 +66,7 @@ public final class DeepNullHudRenderer {
         } else {
             nameLines = font.split(selectedStack.getHoverName(), PANEL_WIDTH - 34);
             appendWrapped(detailLines, font, label("dn.count.desc", countText(inventory, selectedStack)), PANEL_WIDTH - 34);
-            appendWrapped(detailLines, font, label("dn.extract.desc", inventory.getExtractionMode(selectedSlot).tooltip()), PANEL_WIDTH - 34);
+            appendWrapped(detailLines, font, label("dn.extract.desc", inventory.getExtractionTooltip(selectedSlot)), PANEL_WIDTH - 34);
             appendWrapped(detailLines, font, label("dn.place.desc", inventory.getPlacementMode(selectedSlot).tooltip()), PANEL_WIDTH - 34);
             appendWrapped(detailLines, font, label("dn.tag_matching.desc", tagText(inventory, selectedSlot)), PANEL_WIDTH - 34);
         }

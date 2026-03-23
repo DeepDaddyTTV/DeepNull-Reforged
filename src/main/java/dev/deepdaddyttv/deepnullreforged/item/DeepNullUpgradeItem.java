@@ -26,24 +26,25 @@ public class DeepNullUpgradeItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
         tooltipComponents.add(Component.translatable("upgrade." + type.itemId() + ".desc").withStyle(ChatFormatting.GRAY));
-        tooltipComponents.add(upgradeKindLabel().withStyle(ChatFormatting.GRAY));
+        tooltipComponents.add(upgradeKindLabel(stack).withStyle(ChatFormatting.GRAY));
         tooltipComponents.add(Component.translatable("upgrade." + type.itemId() + ".tiers", supportedTierLabel()).withStyle(ChatFormatting.DARK_GRAY));
     }
 
-    private MutableComponent upgradeKindLabel() {
+    protected MutableComponent upgradeKindLabel(ItemStack stack) {
         return switch (type) {
             case STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS -> Component.translatable("upgrade.kind.dampnull");
+            case ENDER -> Component.translatable("upgrade.kind.anynull");
             default -> Component.translatable("upgrade.kind.deepnull");
         };
     }
 
-    private Component supportedTierLabel() {
+    protected Component supportedTierLabel() {
         return switch (type) {
             case FILTER -> Component.translatable("upgrade.tiers.iron_plus");
             case FLUID -> Component.translatable("upgrade.tiers.every_tier");
             case ENERGY -> Component.translatable("upgrade.tiers.diamond_plus");
             case DEEP_ENERGY -> Component.translatable("upgrade.tiers.emerald_only");
-            case AUTO_FEEDING, AUTO_SMELTING, BASIC_COMPRESSION, ADVANCED_COMPRESSION, STONEWORKS, STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS -> Component.translatable("upgrade.tiers.every_tier");
+            case AUTO_FEEDING, AUTO_SMELTING, BASIC_COMPRESSION, ADVANCED_COMPRESSION, STONEWORKS, STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS, ENDER -> Component.translatable("upgrade.tiers.every_tier");
         };
     }
 }
