@@ -19,17 +19,18 @@ The Null Workbench is the dedicated block for special Null crafting, Synchronize
 ## Tabs
 
 - Craft: reduced-cost workbench recipes
-- Sync: copy settings from one Null to another through a Synchronizer
+- Sync: copy or restore a Null configuration through a Synchronizer
 - Style: customize frame and glass colors
 
 ## Notes
 
 - Automation defaults to the crafting side only
 - Style output appears in the right output slot
+- Sync uses the two large slots on the left for input and the two large slots on the right for output
+- Copy and restore both take 3 seconds and return the Null plus Synchronizer on the right side
 - Workbench DeepNull recipes use the tier item, coal blocks, glass, and matching dye
 - Workbench DampNull recipes use a same-tier DeepNull and a Bucket Upgrade
 
 ## Crafting
 
 <RecipeFor id="deepnullreforged:null_workbench" fallbackText="See JEI for the current recipe." />
-

@@ -30,10 +30,9 @@ Lets a DampNull absorb nearby visible source blocks in one action when you right
 | Iron | 12 | 8x8x6 |
 | Gold | 16 | 10x10x8 |
 | Diamond | 32 | 12x12x10 |
-| Emerald | 32 | 12x12x10 |
-| Creative | 32 | 12x12x10 |
+| Emerald | 32 | 16x16x12 |
+| Creative | 32 | 16x16x12 |
 
 ## Crafting
 
 <RecipeFor id="deepnullreforged:sponge_upgrade" fallbackText="See JEI for the current recipe." />
-

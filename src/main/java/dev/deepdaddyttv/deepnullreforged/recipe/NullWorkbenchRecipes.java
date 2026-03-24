@@ -56,6 +56,13 @@ public final class NullWorkbenchRecipes {
             ), deepNullStack(tier)));
 
             recipes.add(new CraftRecipe(List.of(
+                    new IngredientCount(new ItemStack(tierItem, 16)),
+                    new IngredientCount(new ItemStack(Items.COAL_BLOCK, 10)),
+                    new IngredientCount(new ItemStack(Items.GLASS_PANE)),
+                    new IngredientCount(new ItemStack(dyeItem))
+            ), panelStack(tier, 5)));
+
+            recipes.add(new CraftRecipe(List.of(
                     new IngredientCount(deepNullStack(tier)),
                     new IngredientCount(new ItemStack(ModItems.FLUID_UPGRADE.get()))
             ), dampNullStack(tier)));
@@ -85,6 +92,20 @@ public final class NullWorkbenchRecipes {
             case EMERALD -> new ItemStack(ModItems.EMERALD_DAMP_NULL.get());
             case CREATIVE -> new ItemStack(ModItems.CREATIVE_DAMP_NULL.get());
         };
+    }
+
+    private static ItemStack panelStack(DeepNullTier tier, int count) {
+        ItemStack stack = switch (tier) {
+            case REDSTONE -> new ItemStack(ModItems.REDSTONE_PANEL.get());
+            case LAPIS -> new ItemStack(ModItems.LAPIS_PANEL.get());
+            case IRON -> new ItemStack(ModItems.IRON_PANEL.get());
+            case GOLD -> new ItemStack(ModItems.GOLD_PANEL.get());
+            case DIAMOND -> new ItemStack(ModItems.DIAMOND_PANEL.get());
+            case EMERALD -> new ItemStack(ModItems.EMERALD_PANEL.get());
+            case CREATIVE -> ItemStack.EMPTY;
+        };
+        stack.setCount(count);
+        return stack;
     }
 
     public record IngredientCount(ItemStack stack) {

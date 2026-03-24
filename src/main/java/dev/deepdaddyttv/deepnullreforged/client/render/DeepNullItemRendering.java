@@ -9,6 +9,7 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullContentMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
+import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullPanelItem;
@@ -74,9 +75,17 @@ public final class DeepNullItemRendering {
         for (DeepNullTier tier : DeepNullTier.values()) {
             event.register(baseModelLocation(tier));
             event.register(dampBaseModelLocation(tier));
+            event.register(variantBaseModelLocation(tier, false, StyleGlassVariant.CREEPER));
+            event.register(variantBaseModelLocation(tier, false, StyleGlassVariant.PICKAXE));
+            event.register(variantBaseModelLocation(tier, true, StyleGlassVariant.FISH));
+            event.register(variantBaseModelLocation(tier, true, StyleGlassVariant.FISHING_ROD));
         }
         event.register(styledBaseModelLocation());
         event.register(styledDampBaseModelLocation());
+        event.register(styledVariantModelLocation(false, StyleGlassVariant.CREEPER));
+        event.register(styledVariantModelLocation(false, StyleGlassVariant.PICKAXE));
+        event.register(styledVariantModelLocation(true, StyleGlassVariant.FISH));
+        event.register(styledVariantModelLocation(true, StyleGlassVariant.FISHING_ROD));
     }
 
     private static RenderContents getRenderContents(ItemStack deepNullStack) {
@@ -154,15 +163,24 @@ public final class DeepNullItemRendering {
             if (!(stack.getItem() instanceof DeepNullItem deepNullItem)) {
                 return Minecraft.getInstance().getModelManager().getMissingModel();
             }
-            if (DeepNullInventory.hasCustomStyle(stack)) {
+            boolean fluidOnly = stack.getItem() instanceof DampNullItem;
+            StyleGlassVariant styleVariant = DeepNullInventory.getStyleVariant(stack);
+            if (styleVariant != StyleGlassVariant.DEFAULT) {
                 return Minecraft.getInstance().getModelManager().getModel(
-                        stack.getItem() instanceof DampNullItem
+                        DeepNullInventory.hasColorOverrides(stack)
+                                ? styledVariantModelLocation(fluidOnly, styleVariant)
+                                : variantBaseModelLocation(deepNullItem.tier(), fluidOnly, styleVariant)
+                );
+            }
+            if (DeepNullInventory.hasColorOverrides(stack)) {
+                return Minecraft.getInstance().getModelManager().getModel(
+                        fluidOnly
                                 ? styledDampBaseModelLocation()
                                 : styledBaseModelLocation()
                 );
             }
             return Minecraft.getInstance().getModelManager().getModel(
-                    stack.getItem() instanceof DampNullItem
+                    fluidOnly
                             ? dampBaseModelLocation(deepNullItem.tier())
                             : baseModelLocation(deepNullItem.tier())
             );
@@ -483,6 +501,30 @@ public final class DeepNullItemRendering {
     private static ModelResourceLocation styledDampBaseModelLocation() {
         ResourceLocation id = DeepNullReforged.id("item/damp_null_styled");
         return ModelResourceLocation.standalone(id);
+    }
+
+    private static ModelResourceLocation variantBaseModelLocation(DeepNullTier tier, boolean fluidOnly, StyleGlassVariant variant) {
+        String path = switch (variant) {
+            case CREEPER -> "item/deep_null_creeper_base_" + tier.ordinalId();
+            case PICKAXE -> "item/deep_null_pickaxe_base_" + tier.ordinalId();
+            case FISH -> "item/damp_null_fish_base_" + tier.ordinalId();
+            case FISHING_ROD -> "item/damp_null_fishing_rod_base_" + tier.ordinalId();
+            case DEFAULT -> fluidOnly
+                    ? "item/damp_null_base_" + tier.ordinalId()
+                    : "item/deep_null_base_" + tier.ordinalId();
+        };
+        return ModelResourceLocation.standalone(DeepNullReforged.id(path));
+    }
+
+    private static ModelResourceLocation styledVariantModelLocation(boolean fluidOnly, StyleGlassVariant variant) {
+        String path = switch (variant) {
+            case CREEPER -> "item/deep_null_creeper_styled";
+            case PICKAXE -> "item/deep_null_pickaxe_styled";
+            case FISH -> "item/damp_null_fish_styled";
+            case FISHING_ROD -> "item/damp_null_fishing_rod_styled";
+            case DEFAULT -> fluidOnly ? "item/damp_null_styled" : "item/deep_null_styled";
+        };
+        return ModelResourceLocation.standalone(DeepNullReforged.id(path));
     }
 
     private record RenderContents(ItemStack selectedStack, FluidStack storedFluid, StoredChemical storedChemical, DeepNullContentMode contentMode) {

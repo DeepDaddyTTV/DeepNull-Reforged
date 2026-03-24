@@ -98,8 +98,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final int EXTRACT_DIALOG_V = 35;
     private static final int EXTRACT_DIALOG_WIDTH = 106;
     private static final int EXTRACT_DIALOG_HEIGHT = 42;
-    private static final int EXTRACT_DIALOG_TITLE_Y = 10;
-    private static final int EXTRACT_DIALOG_CONTROLS_Y = 14;
+    private static final int EXTRACT_DIALOG_TITLE_X = 8;
+    private static final int EXTRACT_DIALOG_TITLE_Y = 7;
+    private static final int EXTRACT_DIALOG_CONTROLS_Y = 18;
 
     private final ResourceLocation backgroundTexture;
     private final int baseImageWidth;
@@ -1026,7 +1027,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         stoneworksAmountBox.active = stoneworksAmountBox.visible;
         Rect2i bounds = stoneworksDialogBounds();
         stoneworksAmountBox.setX(bounds.getX() + DIALOGUE_TEXT_PADDING_X);
-        stoneworksAmountBox.setY(bounds.getY() + DIALOGUE_TEXT_PADDING_Y);
+        stoneworksAmountBox.setY(bounds.getY() + DIALOGUE_TEXT_PADDING_Y + 3);
         if (!stoneworksAmountBox.visible) {
             stoneworksAmountBox.setFocused(false);
             return;
@@ -1125,7 +1126,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
         Rect2i bounds = customExtractionDialogBounds();
         customExtractionBox.setX(bounds.getX() + DIALOGUE_TEXT_PADDING_X + 2);
-        customExtractionBox.setY(bounds.getY() + DIALOGUE_TEXT_PADDING_Y + 1);
+        customExtractionBox.setY(bounds.getY() + DIALOGUE_TEXT_PADDING_Y + 2);
         customExtractionBox.visible = true;
         customExtractionBox.active = true;
         if (!customExtractionBox.isFocused()) {
@@ -1161,7 +1162,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         Rect2i dialog = customExtractionDialogBounds();
         guiGraphics.blit(EXTRACT_DIALOG_TEXTURE, popup.getX(), popup.getY(), EXTRACT_DIALOG_U, EXTRACT_DIALOG_V, EXTRACT_DIALOG_WIDTH, EXTRACT_DIALOG_HEIGHT, EXTRACT_DIALOG_TEXTURE_SIZE, EXTRACT_DIALOG_TEXTURE_SIZE);
         Component title = Component.translatable("dn.custom_extract_limit.desc");
-        guiGraphics.drawString(font, title, popup.getX() + 34, popup.getY() + EXTRACT_DIALOG_TITLE_Y, 0xFFFFFFFF, false);
+        guiGraphics.drawString(font, title, popup.getX() + EXTRACT_DIALOG_TITLE_X, popup.getY() + EXTRACT_DIALOG_TITLE_Y, 0xFFFFFFFF, false);
         renderDialogue(guiGraphics, dialog, customExtractionBox.isFocused());
         renderStepButton(guiGraphics, customExtractionMinusButtonBounds(), MINUS_BUTTON_TEXTURE, MINUS_BUTTON_U, MINUS_BUTTON_V);
         renderStepButton(guiGraphics, customExtractionPlusButtonBounds(), PLUS_BUTTON_TEXTURE, PLUS_BUTTON_U, PLUS_BUTTON_V);
@@ -1291,7 +1292,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private Rect2i customExtractionDialogBounds() {
         Rect2i popup = customExtractionPopupBounds();
         return new Rect2i(
-                popup.getX() + 31,
+                popup.getX() + ((EXTRACT_DIALOG_WIDTH - DIALOGUE_WIDTH) / 2),
                 popup.getY() + EXTRACT_DIALOG_CONTROLS_Y,
                 DIALOGUE_WIDTH,
                 DIALOGUE_HEIGHT

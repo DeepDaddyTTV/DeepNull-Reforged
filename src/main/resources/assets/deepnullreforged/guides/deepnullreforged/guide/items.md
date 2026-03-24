@@ -36,7 +36,7 @@ This section covers the standalone utility blocks and crafting components used b
 
 - [Docking Station](docking-station.md): holds one DeepNull or DampNull and exposes it to automation.
 - [Null Workbench](null-workbench.md): handles reduced-cost workbench recipes, synchronization, and styling.
-- [Synchronizer](synchronizer.md): stores a Null configuration snapshot for backup and restore.
-- [Filter](filter-item.md): the ghost item used by Filter Upgrades.
+- [Synchronizer](synchronizer.md): stores a Null configuration snapshot for backup and restore, and can be cleared in-hand or in a crafting grid.
+- [Filter](filter-item.md): crafting component for the Filter Upgrade.
 - [Upgrade Core](upgrade-core.md): shared crafting component for most upgrades.
 - [Ender Upgrade Core](ender-upgrade-core.md): crafting component for the Ender Upgrade.

@@ -10,6 +10,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 
 import java.util.List;
 import java.util.Locale;
@@ -22,6 +26,19 @@ public class SynchronizerItem extends Item {
 
     public SynchronizerItem(Properties properties) {
         super(properties.stacksTo(1));
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
+        ItemStack stack = player.getItemInHand(usedHand);
+        if (!player.isShiftKeyDown() || !hasConfiguration(stack)) {
+            return InteractionResultHolder.pass(stack);
+        }
+        if (!level.isClientSide) {
+            clearConfiguration(stack);
+            player.displayClientMessage(Component.translatable("item.deepnullreforged.synchronizer.cleared").withStyle(ChatFormatting.GRAY), true);
+        }
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.menu;
 
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
@@ -21,6 +22,8 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
 
     private final BlockPos blockPos;
     private final @Nullable NullWorkbenchBlockEntity workbench;
+    private final boolean clientSide;
+    private final int[] syncedData = new int[5];
     private final ContainerData data;
     private ToggleableSlot inputSlot0;
     private ToggleableSlot inputSlot1;
@@ -40,9 +43,13 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
         super(ModMenus.NULL_WORKBENCH_MENU.get(), containerId);
         this.workbench = workbench;
         this.blockPos = blockPos;
+        this.clientSide = playerInventory.player.level().isClientSide;
         this.data = new ContainerData() {
             @Override
             public int get(int index) {
+                if (clientSide) {
+                    return index >= 0 && index < syncedData.length ? syncedData[index] : 0;
+                }
                 if (NullWorkbenchMenu.this.workbench == null) {
                     return 0;
                 }
@@ -58,6 +65,9 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
 
             @Override
             public void set(int index, int value) {
+                if (index >= 0 && index < syncedData.length) {
+                    syncedData[index] = value;
+                }
             }
 
             @Override
@@ -79,6 +89,9 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
             addSlot(outputSlot);
             addSlot(new SlotItemHandler(workbench.getItemHandler(), NullWorkbenchBlockEntity.NULL_SLOT, -1000, -1000));
             addSlot(new SlotItemHandler(workbench.getItemHandler(), NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT, -1000, -1000));
+            addSlot(new SlotItemHandler(workbench.getItemHandler(), NullWorkbenchBlockEntity.SYNC_NULL_OUTPUT_SLOT, -1000, -1000));
+            addSlot(new SlotItemHandler(workbench.getItemHandler(), NullWorkbenchBlockEntity.SYNC_SYNCHRONIZER_OUTPUT_SLOT, -1000, -1000));
+            addSlot(new SlotItemHandler(workbench.getItemHandler(), NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT, -1000, -1000));
         }
 
         addPlayerInventorySlots(playerInventory);
@@ -103,6 +116,26 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
 
     public ItemStack getOutputStack() {
         return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.OUTPUT_SLOT);
+    }
+
+    public ItemStack getSyncNullOutputStack() {
+        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.SYNC_NULL_OUTPUT_SLOT);
+    }
+
+    public ItemStack getSyncSynchronizerOutputStack() {
+        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.SYNC_SYNCHRONIZER_OUTPUT_SLOT);
+    }
+
+    public ItemStack getStyleModifierStack() {
+        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT);
+    }
+
+    public boolean canBackup() {
+        return workbench != null && workbench.canBackup();
+    }
+
+    public boolean canRestore() {
+        return workbench != null && workbench.canRestore();
     }
 
     public int getCraftProgress() {
@@ -180,7 +213,7 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
 
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
-        int machineSlots = hasWorkbench() ? 7 : 0;
+        int machineSlots = hasWorkbench() ? 10 : 0;
 
         if (index < machineSlots) {
             if (!moveItemStackTo(stack, machineSlots, slots.size(), true)) {
@@ -194,6 +227,10 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
                     }
                 } else if (stack.is(ModItems.SYNCHRONIZER.get())) {
                     if (!moveItemStackTo(stack, NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT, NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT + 1, false)) {
+                        return ItemStack.EMPTY;
+                    }
+                } else if (StyleGlassVariant.isSupportedModifier(stack)) {
+                    if (!moveItemStackTo(stack, NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT, NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT + 1, false)) {
                         return ItemStack.EMPTY;
                     }
                 } else if (!moveItemStackTo(stack, NullWorkbenchBlockEntity.INPUT_SLOT_START, NullWorkbenchBlockEntity.INPUT_SLOT_START + NullWorkbenchBlockEntity.INPUT_SLOT_COUNT, false)) {

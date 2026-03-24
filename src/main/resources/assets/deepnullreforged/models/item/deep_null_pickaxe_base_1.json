@@ -1,0 +1,6 @@
+{
+  "parent": "deepnullreforged:item/deep_null_base_1",
+  "textures": {
+    "1": "deepnullreforged:item/deepnull/pickaxe_glass_lapis"
+  }
+}

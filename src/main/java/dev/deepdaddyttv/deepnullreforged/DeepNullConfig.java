@@ -48,10 +48,10 @@ public final class DeepNullConfig {
             8, 10, 12, 16, 32, 32, 32
     };
     private static final int[] DEFAULT_SPONGE_RANGE_WIDTH_BY_TIER = {
-            6, 8, 8, 10, 12, 12, 12
+            6, 8, 8, 10, 12, 16, 16
     };
     private static final int[] DEFAULT_SPONGE_RANGE_HEIGHT_BY_TIER = {
-            4, 6, 6, 8, 10, 10, 10
+            4, 6, 6, 8, 10, 12, 12
     };
 
     private static final ModConfigSpec.BooleanValue CLIENT_SHOW_HUD;

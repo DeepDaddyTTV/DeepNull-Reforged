@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
@@ -38,9 +39,9 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
     private static final int TAB_V = 53;
     private static final int TAB_WIDTH = 49;
     private static final int TAB_HEIGHT = 15;
-    private static final int SLOT_SIZE = 33;
+    private static final int SLOT_SIZE = 32;
     private static final int LARGE_SLOT_HITBOX_X_OFFSET = 2;
-    private static final int LARGE_SLOT_HITBOX_Y_OFFSET = -1;
+    private static final int LARGE_SLOT_HITBOX_Y_OFFSET = 0;
     private static final int NULL_SLOT_X = 16;
     private static final int NULL_SLOT_Y = 56;
     private static final int SYNC_SLOT_X = 56;
@@ -189,6 +190,15 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
             if (activeTab == WorkbenchTab.SYNC && handleLargeSlotClick(mouseX, mouseY, button, leftPos + SYNC_SLOT_X, topPos + SYNC_SLOT_Y, NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT)) {
                 return true;
             }
+            if (activeTab == WorkbenchTab.SYNC && handleLargeSlotClick(mouseX, mouseY, button, leftPos + PREVIEW_LEFT_X, topPos + PREVIEW_LEFT_Y, NullWorkbenchBlockEntity.SYNC_NULL_OUTPUT_SLOT)) {
+                return true;
+            }
+            if (activeTab == WorkbenchTab.SYNC && handleLargeSlotClick(mouseX, mouseY, button, leftPos + PREVIEW_RIGHT_X, topPos + PREVIEW_RIGHT_Y, NullWorkbenchBlockEntity.SYNC_SYNCHRONIZER_OUTPUT_SLOT)) {
+                return true;
+            }
+            if (activeTab == WorkbenchTab.STYLE && handleLargeSlotClick(mouseX, mouseY, button, leftPos + STYLE_MODIFIER_SLOT_X, topPos + STYLE_MODIFIER_SLOT_Y, NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT)) {
+                return true;
+            }
             if (activeTab == WorkbenchTab.STYLE && handleLargeSlotClick(mouseX, mouseY, button, leftPos + STYLE_OUTPUT_PREVIEW_X, topPos + STYLE_OUTPUT_PREVIEW_Y, NullWorkbenchBlockEntity.OUTPUT_SLOT)) {
                 return true;
             }
@@ -239,12 +249,17 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
             renderSyncProgress(graphics);
             renderLargeSlotItem(graphics, menu.getNullStack(), leftPos + NULL_SLOT_X, topPos + NULL_SLOT_Y);
             renderLargeSlotItem(graphics, menu.getSynchronizerStack(), leftPos + SYNC_SLOT_X, topPos + SYNC_SLOT_Y);
-            renderLargeSlotItem(graphics, menu.getNullStack(), leftPos + PREVIEW_LEFT_X, topPos + PREVIEW_LEFT_Y);
-            renderLargeSlotItem(graphics, menu.getSynchronizerStack(), leftPos + PREVIEW_RIGHT_X, topPos + PREVIEW_RIGHT_Y);
+            renderLargeSlotFrame(graphics, leftPos + PREVIEW_LEFT_X, topPos + PREVIEW_LEFT_Y);
+            renderLargeSlotFrame(graphics, leftPos + PREVIEW_RIGHT_X, topPos + PREVIEW_RIGHT_Y);
+            renderLargeSlotItem(graphics, menu.getSyncNullOutputStack(), leftPos + PREVIEW_LEFT_X, topPos + PREVIEW_LEFT_Y);
+            renderLargeSlotItem(graphics, menu.getSyncSynchronizerOutputStack(), leftPos + PREVIEW_RIGHT_X, topPos + PREVIEW_RIGHT_Y);
             renderLargeSlotHover(graphics, mouseX, mouseY, leftPos + NULL_SLOT_X, topPos + NULL_SLOT_Y);
             renderLargeSlotHover(graphics, mouseX, mouseY, leftPos + SYNC_SLOT_X, topPos + SYNC_SLOT_Y);
+            renderLargeSlotHover(graphics, mouseX, mouseY, leftPos + PREVIEW_LEFT_X, topPos + PREVIEW_LEFT_Y);
+            renderLargeSlotHover(graphics, mouseX, mouseY, leftPos + PREVIEW_RIGHT_X, topPos + PREVIEW_RIGHT_Y);
         } else {
             renderLargeSlotItem(graphics, menu.getNullStack(), leftPos + STYLE_NULL_SLOT_X, topPos + STYLE_NULL_SLOT_Y);
+            renderLargeSlotItem(graphics, menu.getStyleModifierStack(), leftPos + STYLE_MODIFIER_SLOT_X, topPos + STYLE_MODIFIER_SLOT_Y);
             if (hasStyledNull()) {
                 renderStyleGradient(graphics);
                 renderStyleSelection(graphics);
@@ -272,7 +287,11 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
 
     @Override
     protected void renderSlot(GuiGraphics graphics, Slot slot) {
-        if (slot.index == NullWorkbenchBlockEntity.NULL_SLOT || slot.index == NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT) {
+        if (slot.index == NullWorkbenchBlockEntity.NULL_SLOT
+                || slot.index == NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT
+                || slot.index == NullWorkbenchBlockEntity.SYNC_NULL_OUTPUT_SLOT
+                || slot.index == NullWorkbenchBlockEntity.SYNC_SYNCHRONIZER_OUTPUT_SLOT
+                || slot.index == NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT) {
             return;
         }
         if (slot.index >= NullWorkbenchBlockEntity.INPUT_SLOT_START && slot.index < NullWorkbenchBlockEntity.OUTPUT_SLOT && activeTab != WorkbenchTab.CRAFT) {
@@ -287,7 +306,6 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawString(font, title, titleLabelX, titleLabelY, 0xFFFFFF, false);
-        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFFFFFF, false);
     }
 
     private void renderTabs(GuiGraphics graphics) {
@@ -367,6 +385,12 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
         }
     }
 
+    private void renderLargeSlotFrame(GuiGraphics graphics, int x, int y) {
+        int frameX = x + LARGE_SLOT_HITBOX_X_OFFSET;
+        int frameY = y + LARGE_SLOT_HITBOX_Y_OFFSET;
+        graphics.renderOutline(frameX, frameY, SLOT_SIZE, SLOT_SIZE, 0xFF8C8C8C);
+    }
+
     private boolean handleLargeSlotClick(double mouseX, double mouseY, int button, int x, int y, int slotIndex) {
         int hitboxX = x + LARGE_SLOT_HITBOX_X_OFFSET;
         int hitboxY = y + LARGE_SLOT_HITBOX_Y_OFFSET;
@@ -377,7 +401,8 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
             return false;
         }
         Slot slot = menu.slots.get(slotIndex);
-        slotClicked(slot, slot.index, button, ClickType.PICKUP);
+        ClickType clickType = hasShiftDown() && button == 0 ? ClickType.QUICK_MOVE : ClickType.PICKUP;
+        slotClicked(slot, slot.index, button, clickType);
         return true;
     }
 
@@ -454,9 +479,9 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
         boolean sync = activeTab == WorkbenchTab.SYNC;
         boolean style = activeTab == WorkbenchTab.STYLE && hasStyledNull();
         backupButton.visible = sync;
-        backupButton.active = sync && menu.hasWorkbench();
+        backupButton.active = sync && menu.canBackup();
         restoreButton.visible = sync;
-        restoreButton.active = sync && menu.hasWorkbench();
+        restoreButton.active = sync && menu.canRestore();
         frameColorBox.visible = style;
         frameColorBox.setEditable(style);
         glassColorBox.visible = style;
@@ -494,7 +519,14 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
         }
         ItemStack preview = stack.copy();
         DeepNullInventory inventory = new DeepNullInventory(deepNullItem.tier(), preview, minecraft.level.registryAccess(), null);
-        inventory.setStyleColors(parseHex(frameColorBox.getValue(), inventory.getFrameColor()), parseHex(glassColorBox.getValue(), inventory.getGlassColor()));
+        StyleGlassVariant variant = menu.getStyleModifierStack().isEmpty()
+                ? DeepNullInventory.getStyleVariant(preview)
+                : StyleGlassVariant.fromModifier(preview, menu.getStyleModifierStack());
+        inventory.setStyle(
+                parseHex(frameColorBox.getValue(), inventory.getFrameColor()),
+                parseHex(glassColorBox.getValue(), inventory.getGlassColor()),
+                variant
+        );
         return preview;
     }
 

@@ -3,6 +3,7 @@ package dev.deepdaddyttv.deepnullreforged.registry;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.recipe.DampNullUpgradeRecipe;
 import dev.deepdaddyttv.deepnullreforged.recipe.DeepNullUpgradeRecipe;
+import dev.deepdaddyttv.deepnullreforged.recipe.SynchronizerClearRecipe;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
@@ -20,6 +21,11 @@ public final class ModRecipeSerializers {
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<DampNullUpgradeRecipe>> DAMP_NULL_UPGRADE = RECIPE_SERIALIZERS.register(
             "dampnull_upgrade",
             () -> new SimpleCraftingRecipeSerializer<>(DampNullUpgradeRecipe::new)
+    );
+
+    public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<SynchronizerClearRecipe>> SYNCHRONIZER_CLEAR = RECIPE_SERIALIZERS.register(
+            "synchronizer_clear",
+            () -> new SimpleCraftingRecipeSerializer<>(SynchronizerClearRecipe::new)
     );
 
     private ModRecipeSerializers() {

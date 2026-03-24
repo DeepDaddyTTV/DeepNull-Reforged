@@ -2,6 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.block.entity;
 
 import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchPart;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
@@ -11,6 +12,7 @@ import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -29,15 +31,32 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
     public static final int OUTPUT_SLOT = 4;
     public static final int NULL_SLOT = 5;
     public static final int SYNCHRONIZER_SLOT = 6;
+    public static final int SYNC_NULL_OUTPUT_SLOT = 7;
+    public static final int SYNC_SYNCHRONIZER_OUTPUT_SLOT = 8;
+    public static final int STYLE_MODIFIER_SLOT = 9;
     private static final int CRAFT_DURATION = 72;
-    private static final int SYNC_DURATION = 40;
+    private static final int SYNC_DURATION = 60;
     private static final String ITEMS_TAG = "Items";
     private static final String CRAFT_PROGRESS_TAG = "CraftProgress";
     private static final String CRAFT_DURATION_TAG = "CraftDuration";
     private static final String SYNC_PROGRESS_TAG = "SyncProgress";
     private static final String SYNC_ACTION_TAG = "SyncAction";
 
-    private final ItemStackHandler items = new ItemStackHandler(7) {
+    private final ItemStackHandler items = new ItemStackHandler(10) {
+        @Override
+        public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+            setSize(10);
+            ListTag tagList = nbt.getList("Items", Tag.TAG_COMPOUND);
+            for (int i = 0; i < tagList.size(); i++) {
+                CompoundTag itemTags = tagList.getCompound(i);
+                int slot = itemTags.getInt("Slot");
+                if (slot >= 0 && slot < getSlots()) {
+                    ItemStack.parse(provider, itemTags).ifPresent(stack -> stacks.set(slot, stack));
+                }
+            }
+            onLoad();
+        }
+
         @Override
         protected void onContentsChanged(int slot) {
             craftProgress = 0;
@@ -59,6 +78,12 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
             }
             if (slot == SYNCHRONIZER_SLOT) {
                 return stack.is(ModItems.SYNCHRONIZER.get());
+            }
+            if (slot == STYLE_MODIFIER_SLOT) {
+                return StyleGlassVariant.isSupportedModifier(stack);
+            }
+            if (slot == SYNC_NULL_OUTPUT_SLOT || slot == SYNC_SYNCHRONIZER_OUTPUT_SLOT) {
+                return false;
             }
             return false;
         }
@@ -143,7 +168,9 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
     }
 
     public boolean canBackup() {
-        return createNullInventory() != null && !items.getStackInSlot(SYNCHRONIZER_SLOT).isEmpty();
+        return createNullInventory() != null
+                && !items.getStackInSlot(SYNCHRONIZER_SLOT).isEmpty()
+                && canSyncOutput(items.getStackInSlot(NULL_SLOT), items.getStackInSlot(SYNCHRONIZER_SLOT));
     }
 
     public boolean canRestore() {
@@ -152,7 +179,8 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
         return inventory != null
                 && !synchronizer.isEmpty()
                 && SynchronizerItem.hasConfiguration(synchronizer)
-                && SynchronizerItem.matchesNullType(synchronizer, inventory.isFluidOnly());
+                && SynchronizerItem.matchesNullType(synchronizer, inventory.isFluidOnly())
+                && canSyncOutput(items.getStackInSlot(NULL_SLOT), synchronizer);
     }
 
     public boolean applyStyleColors(int frameColor, int glassColor) {
@@ -160,10 +188,22 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
         if (!(input.getItem() instanceof DeepNullItem deepNullItem) || level == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
             return false;
         }
+        ItemStack modifier = items.getStackInSlot(STYLE_MODIFIER_SLOT);
+        StyleGlassVariant variant = modifier.isEmpty()
+                ? DeepNullInventory.getStyleVariant(input)
+                : StyleGlassVariant.fromModifier(input, modifier);
+        if (!modifier.isEmpty() && variant == StyleGlassVariant.DEFAULT) {
+            return false;
+        }
         ItemStack styled = input.copy();
         DeepNullInventory inventory = new DeepNullInventory(deepNullItem.tier(), styled, level.registryAccess(), null);
-        inventory.setStyleColors(frameColor, glassColor);
+        inventory.setStyle(frameColor, glassColor, variant);
         items.setStackInSlot(NULL_SLOT, ItemStack.EMPTY);
+        if (!modifier.isEmpty() && variant != StyleGlassVariant.DEFAULT) {
+            ItemStack remaining = modifier.copy();
+            remaining.shrink(1);
+            items.setStackInSlot(STYLE_MODIFIER_SLOT, remaining.isEmpty() ? ItemStack.EMPTY : remaining);
+        }
         items.setStackInSlot(OUTPUT_SLOT, styled);
         setChangedAndSync();
         return true;
@@ -303,22 +343,37 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
         if (inventory == null || synchronizer.isEmpty()) {
             return;
         }
-        SynchronizerItem.storeConfiguration(synchronizer, inventory.exportConfiguration(), inventory.tier(), inventory.isFluidOnly());
-        items.setStackInSlot(SYNCHRONIZER_SLOT, synchronizer);
+        ItemStack outputNull = items.getStackInSlot(NULL_SLOT).copy();
+        ItemStack outputSynchronizer = synchronizer.copy();
+        SynchronizerItem.storeConfiguration(outputSynchronizer, inventory.exportConfiguration(), inventory.tier(), inventory.isFluidOnly());
+        if (!canSyncOutput(outputNull, outputSynchronizer)) {
+            return;
+        }
+        items.setStackInSlot(NULL_SLOT, ItemStack.EMPTY);
+        items.setStackInSlot(SYNCHRONIZER_SLOT, ItemStack.EMPTY);
+        placeSyncOutputs(outputNull, outputSynchronizer);
     }
 
     private void performRestore() {
-        DeepNullInventory inventory = createNullInventory();
         ItemStack synchronizer = items.getStackInSlot(SYNCHRONIZER_SLOT);
-        if (inventory == null || synchronizer.isEmpty()) {
+        ItemStack inputNull = items.getStackInSlot(NULL_SLOT);
+        if (!(inputNull.getItem() instanceof DeepNullItem deepNullItem) || synchronizer.isEmpty() || level == null) {
             return;
         }
         CompoundTag configuration = SynchronizerItem.getConfiguration(synchronizer);
         if (configuration == null) {
             return;
         }
+        ItemStack outputNull = inputNull.copy();
+        DeepNullInventory inventory = new DeepNullInventory(deepNullItem.tier(), outputNull, level.registryAccess(), null);
         inventory.importConfiguration(configuration);
-        items.setStackInSlot(NULL_SLOT, inventory.backingStack());
+        ItemStack outputSynchronizer = synchronizer.copy();
+        if (!canSyncOutput(inventory.backingStack(), outputSynchronizer)) {
+            return;
+        }
+        items.setStackInSlot(NULL_SLOT, ItemStack.EMPTY);
+        items.setStackInSlot(SYNCHRONIZER_SLOT, ItemStack.EMPTY);
+        placeSyncOutputs(inventory.backingStack(), outputSynchronizer);
     }
 
     private boolean canOutput(ItemStack result) {
@@ -328,6 +383,41 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
         }
         return ItemStack.isSameItemSameComponents(output, result)
                 && output.getCount() + result.getCount() <= output.getMaxStackSize();
+    }
+
+    private boolean canSyncOutput(ItemStack nullResult, ItemStack synchronizerResult) {
+        return canPlaceSyncOutput(SYNC_NULL_OUTPUT_SLOT, nullResult)
+                && canPlaceSyncOutput(SYNC_SYNCHRONIZER_OUTPUT_SLOT, synchronizerResult);
+    }
+
+    private boolean canPlaceSyncOutput(int slot, ItemStack result) {
+        if (result.isEmpty()) {
+            return true;
+        }
+        ItemStack existing = items.getStackInSlot(slot);
+        if (existing.isEmpty()) {
+            return true;
+        }
+        return ItemStack.isSameItemSameComponents(existing, result)
+                && existing.getCount() + result.getCount() <= existing.getMaxStackSize();
+    }
+
+    private void placeSyncOutputs(ItemStack nullResult, ItemStack synchronizerResult) {
+        mergeIntoSlot(SYNC_NULL_OUTPUT_SLOT, nullResult);
+        mergeIntoSlot(SYNC_SYNCHRONIZER_OUTPUT_SLOT, synchronizerResult);
+    }
+
+    private void mergeIntoSlot(int slot, ItemStack result) {
+        if (result.isEmpty()) {
+            return;
+        }
+        ItemStack existing = items.getStackInSlot(slot);
+        if (existing.isEmpty()) {
+            items.setStackInSlot(slot, result.copy());
+            return;
+        }
+        existing.grow(result.getCount());
+        items.setStackInSlot(slot, existing);
     }
 
     private void consumeIngredients(NullWorkbenchRecipes.CraftRecipe recipe) {

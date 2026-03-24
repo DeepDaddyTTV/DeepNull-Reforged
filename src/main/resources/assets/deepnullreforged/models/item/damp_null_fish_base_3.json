@@ -1,0 +1,6 @@
+{
+  "parent": "deepnullreforged:item/damp_null_base_3",
+  "textures": {
+    "1": "deepnullreforged:item/dampnull/fish_glass_gold"
+  }
+}

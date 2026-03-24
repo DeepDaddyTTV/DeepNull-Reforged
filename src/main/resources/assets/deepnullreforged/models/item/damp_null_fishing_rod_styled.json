@@ -1,0 +1,6 @@
+{
+  "parent": "deepnullreforged:item/damp_null_styled",
+  "textures": {
+    "1": "deepnullreforged:item/dampnull/fishing_rod_glass_greyscale"
+  }
+}

@@ -1,6 +1,6 @@
 # Filter Item
 
-The Filter item is the ghost-item component used by the Filter Upgrade.
+The Filter item is a crafting component used by the Filter Upgrade.
 
 ## Notes
 

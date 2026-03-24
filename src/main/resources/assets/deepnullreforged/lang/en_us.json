@@ -200,6 +200,7 @@
   "upgrade.ender_upgrade.linked": "Linked to a %s at %s, %s, %s",
   "upgrade.ender_upgrade.linked_message": "Linked to a %s at %s, %s, %s",
   "item.deepnullreforged.synchronizer.empty": "No settings stored.",
+  "item.deepnullreforged.synchronizer.cleared": "Synchronizer cleared.",
   "item.deepnullreforged.synchronizer.stored_generic": "Stored settings for a %s.",
   "item.deepnullreforged.synchronizer.stored_tiered": "Stored settings for a %s at %s tier.",
   "item.deepnullreforged.deepnull": "DeepNull",

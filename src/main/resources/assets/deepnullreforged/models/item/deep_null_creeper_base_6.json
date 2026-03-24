@@ -1,0 +1,6 @@
+{
+  "parent": "deepnullreforged:item/deep_null_base_6",
+  "textures": {
+    "1": "deepnullreforged:item/deepnull/creeper_glass_creative"
+  }
+}

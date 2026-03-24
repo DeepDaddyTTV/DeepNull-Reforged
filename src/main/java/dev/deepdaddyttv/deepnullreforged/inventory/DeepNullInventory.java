@@ -79,6 +79,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String STONEWORKS_CURSOR_TAG = "StoneworksCursor";
     private static final String FRAME_COLOR_TAG = "FrameColor";
     private static final String GLASS_COLOR_TAG = "GlassColor";
+    private static final String STYLE_VARIANT_TAG = "StyleVariant";
     private static final int FILTER_SLOT_COUNT = 27;
     private static final int CREATIVE_DISPLAY_ENERGY = Integer.MAX_VALUE / 2;
     private static final int CREATIVE_DISPLAY_FLUID = Integer.MAX_VALUE / 2;
@@ -136,6 +137,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private int stoneworksCursor;
     private int frameColor = DEFAULT_STYLE_COLOR;
     private int glassColor = DEFAULT_STYLE_COLOR;
+    private StyleGlassVariant styleVariant = StyleGlassVariant.DEFAULT;
     private boolean pendingLinkCleanup;
 
     public DeepNullInventory(DeepNullTier tier, ItemStack backingStack, @Nullable HolderLookup.Provider registries, @Nullable Runnable changeListener) {
@@ -178,12 +180,24 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public static boolean hasCustomStyle(ItemStack stack) {
+        return hasColorOverrides(stack) || getStyleVariant(stack) != StyleGlassVariant.DEFAULT;
+    }
+
+    public static boolean hasColorOverrides(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         if (!tag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
             return false;
         }
         CompoundTag root = tag.getCompound(ROOT_TAG);
         return root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC) || root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
+    }
+
+    public static StyleGlassVariant getStyleVariant(ItemStack stack) {
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        if (!tag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
+            return StyleGlassVariant.DEFAULT;
+        }
+        return StyleGlassVariant.byId(tag.getCompound(ROOT_TAG).getString(STYLE_VARIANT_TAG));
     }
 
     public DeepNullTier tier() {
@@ -910,6 +924,10 @@ public class DeepNullInventory extends ItemStackHandler {
         return glassColor;
     }
 
+    public StyleGlassVariant getStyleVariant() {
+        return styleVariant;
+    }
+
     public void setFrameColor(int frameColor) {
         int next = sanitizeStyleColor(frameColor);
         if (this.frameColor == next) {
@@ -939,8 +957,34 @@ public class DeepNullInventory extends ItemStackHandler {
         save();
     }
 
+    public void setStyleVariant(StyleGlassVariant styleVariant) {
+        StyleGlassVariant next = styleVariant == null || !styleVariant.supports(fluidOnly)
+                ? StyleGlassVariant.DEFAULT
+                : styleVariant;
+        if (this.styleVariant == next) {
+            return;
+        }
+        this.styleVariant = next;
+        save();
+    }
+
+    public void setStyle(int frameColor, int glassColor, StyleGlassVariant styleVariant) {
+        int nextFrame = sanitizeStyleColor(frameColor);
+        int nextGlass = sanitizeStyleColor(glassColor);
+        StyleGlassVariant nextVariant = styleVariant == null || !styleVariant.supports(fluidOnly)
+                ? StyleGlassVariant.DEFAULT
+                : styleVariant;
+        if (this.frameColor == nextFrame && this.glassColor == nextGlass && this.styleVariant == nextVariant) {
+            return;
+        }
+        this.frameColor = nextFrame;
+        this.glassColor = nextGlass;
+        this.styleVariant = nextVariant;
+        save();
+    }
+
     public void resetStyleColors() {
-        setStyleColors(defaultFrameColor(), defaultGlassColor());
+        setStyle(defaultFrameColor(), defaultGlassColor(), StyleGlassVariant.DEFAULT);
     }
 
     public CompoundTag exportConfiguration() {
@@ -1002,6 +1046,10 @@ public class DeepNullInventory extends ItemStackHandler {
         glassColor = configuration.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
                 ? configuration.getInt(GLASS_COLOR_TAG)
                 : defaultGlassColor();
+        styleVariant = StyleGlassVariant.byId(configuration.getString(STYLE_VARIANT_TAG));
+        if (!styleVariant.supports(fluidOnly)) {
+            styleVariant = StyleGlassVariant.DEFAULT;
+        }
         sanitizeState();
         save();
         return true;
@@ -1887,6 +1935,10 @@ public class DeepNullInventory extends ItemStackHandler {
         glassColor = root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
                 ? root.getInt(GLASS_COLOR_TAG)
                 : defaultGlassColor();
+        styleVariant = StyleGlassVariant.byId(root.getString(STYLE_VARIANT_TAG));
+        if (!styleVariant.supports(fluidOnly)) {
+            styleVariant = StyleGlassVariant.DEFAULT;
+        }
 
         LinkedDockSource linkedSource = resolveLinkedDockSource(true);
         if (linkedSource != null) {
@@ -2080,6 +2132,12 @@ public class DeepNullInventory extends ItemStackHandler {
         } else {
             root.remove(GLASS_COLOR_TAG);
         }
+
+        if (styleVariant != StyleGlassVariant.DEFAULT) {
+            root.putString(STYLE_VARIANT_TAG, styleVariant.id());
+        } else {
+            root.remove(STYLE_VARIANT_TAG);
+        }
     }
 
     private void writePrimaryStorageToRoot(CompoundTag root, HolderLookup.Provider registries) {
@@ -2272,6 +2330,9 @@ public class DeepNullInventory extends ItemStackHandler {
         stoneworksCursor = Math.floorMod(stoneworksCursor, StoneworksMaterial.roundRobinOrder().length);
         frameColor = sanitizeStyleColor(frameColor);
         glassColor = sanitizeStyleColor(glassColor);
+        if (!styleVariant.supports(fluidOnly)) {
+            styleVariant = StyleGlassVariant.DEFAULT;
+        }
         autoPickupEnabled = autoPickupEnabled && DeepNullConfig.isAutoPickupEnabled();
         autoFeedingEnabled = autoFeedingEnabled && hasAutoFeedingUpgrade() && DeepNullConfig.isAutoFeedingEnabled();
         autoSmeltingEnabled = autoSmeltingEnabled && hasAutoSmeltingUpgrade() && DeepNullConfig.isAutoSmeltingEnabled();
