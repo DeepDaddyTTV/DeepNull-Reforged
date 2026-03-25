@@ -885,15 +885,15 @@ public class DeepNullItem extends Item {
 
         Level level = context.getLevel();
         Player player = context.getPlayer();
+        InteractionResult spongeResult = tryUseSpongeAbsorption(level, player, context.getItemInHand(), inventory, context.getClickedPos());
+        if (spongeResult != null) {
+            return spongeResult;
+        }
         BlockHitResult sourceHit = player == null ? null : getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
         if (sourceHit != null && sourceHit.getType() == HitResult.Type.BLOCK) {
             BlockPos sourcePos = sourceHit.getBlockPos();
             FluidState sourceFluid = level.getFluidState(sourcePos);
             if (!sourceFluid.isEmpty() && sourceFluid.isSource()) {
-                InteractionResult spongeResult = tryUseSpongeAbsorption(level, player, context.getItemInHand(), inventory, sourcePos);
-                if (spongeResult != null) {
-                    return spongeResult;
-                }
                 InteractionResult pickupResult = tryPickUpSourceFluid(level, player, context.getItemInHand(), inventory, sourcePos, sourceHit.getDirection());
                 return pickupResult == null ? InteractionResult.FAIL : pickupResult;
             }
@@ -903,10 +903,6 @@ public class DeepNullItem extends Item {
         Direction side = context.getClickedFace();
         FluidState clickedFluid = level.getFluidState(clickedPos);
         if (!clickedFluid.isEmpty() && clickedFluid.isSource()) {
-            InteractionResult spongeResult = tryUseSpongeAbsorption(level, player, context.getItemInHand(), inventory, clickedPos);
-            if (spongeResult != null) {
-                return spongeResult;
-            }
             InteractionResult pickupResult = tryPickUpSourceFluid(level, player, context.getItemInHand(), inventory, clickedPos, side);
             return pickupResult == null ? InteractionResult.FAIL : pickupResult;
         }
@@ -964,11 +960,11 @@ public class DeepNullItem extends Item {
             DeepNullInventory inventory,
             BlockPos anchorPos
     ) {
-        if (!inventory.hasSpongeUpgrade()) {
+        if (player == null || anchorPos == null || !inventory.hasSpongeUpgrade()) {
             return null;
         }
 
-        List<BlockPos> sourceBlocks = findVisibleSourceBlocks(level, player, anchorPos, inventory.tier());
+        List<BlockPos> sourceBlocks = findVisibleSourceBlocks(level, player, inventory.tier(), anchorPos);
         if (sourceBlocks.isEmpty()) {
             return null;
         }
@@ -979,10 +975,6 @@ public class DeepNullItem extends Item {
                 : inventory;
 
         for (BlockPos sourcePos : sourceBlocks) {
-            if (absorbed >= inventory.tier().spongeAbsorbLimit()) {
-                break;
-            }
-
             SourceAbsorbPlan plan = previewSourceAbsorption(level, player, simulatedInventory, sourcePos, Direction.UP);
             if (plan == null) {
                 continue;
@@ -1008,15 +1000,15 @@ public class DeepNullItem extends Item {
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    private static List<BlockPos> findVisibleSourceBlocks(Level level, Player player, BlockPos anchorPos, DeepNullTier tier) {
-        int width = tier.spongeRangeWidth();
-        int height = tier.spongeRangeHeight();
-        int minX = anchorPos.getX() - (width / 2);
-        int minY = anchorPos.getY() - (height / 2);
-        int minZ = anchorPos.getZ() - (width / 2);
-        int maxX = minX + width - 1;
-        int maxY = minY + height - 1;
-        int maxZ = minZ + width - 1;
+    private static List<BlockPos> findVisibleSourceBlocks(Level level, Player player, DeepNullTier tier, BlockPos anchorPos) {
+        int horizontalSize = Math.max(1, tier.spongeRangeWidth());
+        int verticalSize = Math.max(1, tier.spongeRangeHeight());
+        int minX = anchorPos.getX() - (horizontalSize / 2);
+        int minY = anchorPos.getY() - (verticalSize / 2);
+        int minZ = anchorPos.getZ() - (horizontalSize / 2);
+        int maxX = minX + horizontalSize - 1;
+        int maxY = minY + verticalSize - 1;
+        int maxZ = minZ + horizontalSize - 1;
         Vec3 eyePosition = player.getEyePosition();
         List<BlockPos> visibleSources = new ArrayList<>();
 
@@ -1041,8 +1033,9 @@ public class DeepNullItem extends Item {
     }
 
     private static boolean hasLineOfSightToSource(Level level, Player player, Vec3 eyePosition, BlockPos sourcePos) {
-        BlockHitResult result = level.clip(new ClipContext(eyePosition, Vec3.atCenterOf(sourcePos), Block.OUTLINE, ClipContext.Fluid.SOURCE_ONLY, player));
-        return result.getType() == HitResult.Type.BLOCK && result.getBlockPos().equals(sourcePos);
+        BlockHitResult result = level.clip(new ClipContext(eyePosition, Vec3.atCenterOf(sourcePos), Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        return result.getType() == HitResult.Type.MISS
+                || result.getType() == HitResult.Type.BLOCK && result.getBlockPos().equals(sourcePos);
     }
 
     private static double squaredDistanceToCenter(Vec3 origin, BlockPos pos) {
@@ -1081,10 +1074,27 @@ public class DeepNullItem extends Item {
         DeepNullFluidHandler internalHandler = new DeepNullFluidHandler(inventory, ItemStack.EMPTY, targetSlot);
         FluidStack transferStack = available.copyWithAmount(transferAmount);
         int accepted = internalHandler.fill(transferStack, IFluidHandler.FluidAction.SIMULATE);
-        return accepted < transferAmount ? null : new SourceAbsorbPlan(targetSlot, transferStack);
+        if (accepted >= transferAmount) {
+            return new SourceAbsorbPlan(targetSlot, transferStack, false);
+        }
+
+        if (DeepNullConfig.voidFullFluidsOnSponge()) {
+            FluidStack existing = inventory.getFluidInSlot(targetSlot);
+            if (!existing.isEmpty()
+                    && FluidStack.isSameFluidSameComponents(existing, transferStack)
+                    && existing.getAmount() >= inventory.getFluidCapacity()) {
+                return new SourceAbsorbPlan(targetSlot, transferStack, true);
+            }
+        }
+
+        return null;
     }
 
     private static boolean reserveSourceAbsorption(DeepNullInventory inventory, SourceAbsorbPlan plan) {
+        if (plan.voidExcess()) {
+            inventory.setSelectedSlot(plan.targetSlot());
+            return true;
+        }
         int inserted = inventory.fillFluid(plan.targetSlot(), plan.fluid(), false);
         if (inserted < plan.fluid().getAmount()) {
             return false;
@@ -1118,6 +1128,11 @@ public class DeepNullItem extends Item {
             return false;
         }
 
+        if (plan.voidExcess()) {
+            inventory.setSelectedSlot(plan.targetSlot());
+            return true;
+        }
+
         DeepNullFluidHandler internalHandler = new DeepNullFluidHandler(inventory, deepNullStack, plan.targetSlot());
         int inserted = internalHandler.fill(
                 pickedUp.copyWithAmount(Math.min(plan.fluid().getAmount(), pickedUp.getAmount())),
@@ -1149,7 +1164,7 @@ public class DeepNullItem extends Item {
         return FluidStack.EMPTY;
     }
 
-    private record SourceAbsorbPlan(int targetSlot, FluidStack fluid) {
+    private record SourceAbsorbPlan(int targetSlot, FluidStack fluid, boolean voidExcess) {
     }
 
 }

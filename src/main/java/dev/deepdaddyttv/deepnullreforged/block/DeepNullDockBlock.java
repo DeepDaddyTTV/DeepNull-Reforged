@@ -25,6 +25,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.common.ItemAbilities;
 import org.jetbrains.annotations.Nullable;
 
 public class DeepNullDockBlock extends BaseEntityBlock {
@@ -34,7 +35,7 @@ public class DeepNullDockBlock extends BaseEntityBlock {
     private static final VoxelShape FULL_SUPPORT_SHAPE = Shapes.block();
 
     public DeepNullDockBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(10.0F, 1200.0F).requiresCorrectToolForDrops().noOcclusion());
+        this(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0F, 6.0F).noOcclusion());
     }
 
     private DeepNullDockBlock(BlockBehaviour.Properties properties) {
@@ -63,6 +64,20 @@ public class DeepNullDockBlock extends BaseEntityBlock {
     @Override
     protected VoxelShape getBlockSupportShape(BlockState state, BlockGetter level, BlockPos pos) {
         return FULL_SUPPORT_SHAPE;
+    }
+
+    @Override
+    protected float getDestroyProgress(BlockState state, net.minecraft.world.entity.player.Player player, BlockGetter level, BlockPos pos) {
+        float hardness = state.getDestroySpeed(level, pos);
+        if (hardness == -1.0F) {
+            return 0.0F;
+        }
+        float destroySpeed = player.getDestroySpeed(state);
+        boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbilities.PICKAXE_DIG);
+        if (pickaxeLikeTool && destroySpeed > 1.0F) {
+            return destroySpeed / hardness / 15.0F;
+        }
+        return super.getDestroyProgress(state, player, level, pos);
     }
 
     @Override

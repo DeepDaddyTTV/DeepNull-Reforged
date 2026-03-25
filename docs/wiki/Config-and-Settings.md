@@ -48,6 +48,7 @@ DeepNull Reforged exposes client, common, and server config groups so players an
 | `enableStoneGenerator` | Enables or disables DampNull Stone Generator output. |
 | `enableObsidianGenerator` | Enables or disables DampNull Obsidian Generator output. |
 | `enableSpongeUpgrade` | Enables or disables the DampNull Sponge Upgrade. |
+| `voidFullFluidsOnSponge` | If enabled, the Sponge Upgrade will still absorb and void matching fluids when the matching tank is already full. |
 | `enableChemicalStorage` | Enables or disables Mekanism chemical storage and transfer support. |
 | `dockGeneratorBufferSize` | Sets the hidden dock output buffer size used by generator DampNulls. |
 
@@ -67,6 +68,6 @@ These server settings are read in tier order:
 | `deepEnergyTransferByTier` | FE transfer rate for the Deep Energy Upgrade. |
 | `dampNullTankCountByTier` | Number of DampNull tanks per tier. |
 | `stoneGenerationRateByTier` | Stone Generator output rate per tier. |
-| `spongeAbsorbLimitByTier` | Maximum source blocks absorbed per use by Sponge Upgrade. |
-| `spongeRangeWidthByTier` | Horizontal sponge scan size by tier. |
-| `spongeRangeHeightByTier` | Vertical sponge scan size by tier. |
+| `spongeAbsorbLimitByTier` | Legacy setting kept for compatibility. Sponge now absorbs all visible source blocks in range. |
+| `spongeRangeWidthByTier` | Horizontal Sponge Upgrade box size by tier. |
+| `spongeRangeHeightByTier` | Vertical Sponge Upgrade box size by tier. |

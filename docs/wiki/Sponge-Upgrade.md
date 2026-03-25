@@ -9,20 +9,24 @@ The Sponge Upgrade lets a DampNull absorb multiple visible source blocks at once
 
 ## Tier Differences
 
-| Tier | Max Sources | Range |
+| Tier | Horizontal Size | Vertical Size |
 | --- | ---: | --- |
-| Redstone | 8 | 6x6x4 |
-| Lapis | 10 | 8x8x6 |
-| Iron | 12 | 8x8x6 |
-| Gold | 16 | 10x10x8 |
-| Diamond | 32 | 12x12x10 |
-| Emerald | 32 | 16x16x12 |
-| Creative | 32 | 16x16x12 |
+| Redstone | 6 | 4 |
+| Lapis | 8 | 6 |
+| Iron | 8 | 6 |
+| Gold | 10 | 8 |
+| Diamond | 12 | 10 |
+| Emerald | 16 | 12 |
+| Creative | 16 | 12 |
 
 ## Notes
 
-- Absorbs visible source blocks around the clicked source block
-- Only stores fluids that fit into matching or empty DampNull tanks
+- Scans in a rectangular box centered on the clicked block.
+- The box reaches above and below the clicked position.
+- Only absorbs visible source blocks that are not blocked by terrain.
+- Only stores fluids that fit into matching or empty DampNull tanks.
+- If `voidFullFluidsOnSponge` is enabled, matching fluids aimed at an already full matching tank are still absorbed and voided.
+- Absorbs all visible source blocks in range in a single use.
 
 ## Crafting
 

@@ -156,6 +156,9 @@ public class DeepNullInventory extends ItemStackHandler {
         this.registriesSupplier = registriesSupplier;
         this.changeListener = changeListener;
         this.fluidOnly = backingStack.getItem() instanceof DampNullItem;
+        this.frameColor = defaultFrameColor();
+        this.glassColor = defaultGlassColor();
+        this.styleVariant = StyleGlassVariant.DEFAULT;
         this.extractionModes = new ItemExtractionMode[getSlots()];
         this.customExtractionAmounts = new int[getSlots()];
         this.placementModes = new ItemPlacementMode[getSlots()];

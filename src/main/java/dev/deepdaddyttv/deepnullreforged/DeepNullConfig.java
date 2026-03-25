@@ -83,6 +83,7 @@ public final class DeepNullConfig {
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_STONE_GENERATOR;
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_OBSIDIAN_GENERATOR;
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_SPONGE_UPGRADE;
+    private static final ModConfigSpec.BooleanValue SERVER_VOID_FULL_FLUIDS_ON_SPONGE;
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_CHEMICAL_STORAGE;
     private static final ModConfigSpec.IntValue SERVER_DOCK_GENERATOR_BUFFER_SIZE;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_ITEM_CAPACITY_BY_TIER;
@@ -126,6 +127,7 @@ public final class DeepNullConfig {
     private static volatile boolean serverEnableStoneGenerator = true;
     private static volatile boolean serverEnableObsidianGenerator = true;
     private static volatile boolean serverEnableSpongeUpgrade = true;
+    private static volatile boolean serverVoidFullFluidsOnSponge = true;
     private static volatile boolean serverEnableChemicalStorage = true;
     private static volatile int dockGeneratorBufferSize = 64;
     private static volatile int[] itemCapacityByTier = DEFAULT_ITEM_CAPACITY_BY_TIER.clone();
@@ -219,6 +221,8 @@ public final class DeepNullConfig {
                 .define("enableObsidianGenerator", true);
         SERVER_ENABLE_SPONGE_UPGRADE = SERVER_BUILDER.comment("Enable DampNull Sponge Upgrade behavior.")
                 .define("enableSpongeUpgrade", true);
+        SERVER_VOID_FULL_FLUIDS_ON_SPONGE = SERVER_BUILDER.comment("When the Sponge Upgrade hits a matching tank that is already full, still absorb and void those matching source blocks.")
+                .define("voidFullFluidsOnSponge", true);
         SERVER_ENABLE_CHEMICAL_STORAGE = SERVER_BUILDER.comment("Enable Mekanism chemical storage and transfer when Mekanism is installed.")
                 .define("enableChemicalStorage", true);
         SERVER_DOCK_GENERATOR_BUFFER_SIZE = SERVER_BUILDER.comment("Hidden dock generator buffer size used by DampNull generators.")
@@ -243,11 +247,11 @@ public final class DeepNullConfig {
         SERVER_STONE_GENERATION_RATE_BY_TIER = integerListConfig(SERVER_BUILDER, "stoneGenerationRateByTier", DEFAULT_STONE_GENERATION_RATE_BY_TIER,
                 "Stone Generator output rate per second by tier.");
         SERVER_SPONGE_ABSORB_LIMIT_BY_TIER = integerListConfig(SERVER_BUILDER, "spongeAbsorbLimitByTier", DEFAULT_SPONGE_ABSORB_LIMIT_BY_TIER,
-                "Maximum absorbed source blocks per sponge use by tier.");
+                "Legacy Sponge Upgrade absorb limit setting retained for compatibility. Sponge now absorbs all visible source blocks in range.");
         SERVER_SPONGE_RANGE_WIDTH_BY_TIER = integerListConfig(SERVER_BUILDER, "spongeRangeWidthByTier", DEFAULT_SPONGE_RANGE_WIDTH_BY_TIER,
-                "Horizontal sponge scan range by tier.");
+                "Horizontal sponge scan size by tier.");
         SERVER_SPONGE_RANGE_HEIGHT_BY_TIER = integerListConfig(SERVER_BUILDER, "spongeRangeHeightByTier", DEFAULT_SPONGE_RANGE_HEIGHT_BY_TIER,
-                "Vertical sponge scan range by tier.");
+                "Vertical sponge scan size by tier.");
         SERVER_BUILDER.pop();
         SERVER_SPEC = SERVER_BUILDER.build();
     }
@@ -380,6 +384,10 @@ public final class DeepNullConfig {
         return serverEnableSpongeUpgrade;
     }
 
+    public static boolean voidFullFluidsOnSponge() {
+        return serverVoidFullFluidsOnSponge;
+    }
+
     public static boolean isChemicalStorageEnabled() {
         return serverEnableChemicalStorage;
     }
@@ -476,6 +484,7 @@ public final class DeepNullConfig {
         serverEnableStoneGenerator = SERVER_ENABLE_STONE_GENERATOR.getAsBoolean();
         serverEnableObsidianGenerator = SERVER_ENABLE_OBSIDIAN_GENERATOR.getAsBoolean();
         serverEnableSpongeUpgrade = SERVER_ENABLE_SPONGE_UPGRADE.getAsBoolean();
+        serverVoidFullFluidsOnSponge = SERVER_VOID_FULL_FLUIDS_ON_SPONGE.getAsBoolean();
         serverEnableChemicalStorage = SERVER_ENABLE_CHEMICAL_STORAGE.getAsBoolean();
         dockGeneratorBufferSize = SERVER_DOCK_GENERATOR_BUFFER_SIZE.getAsInt();
         itemCapacityByTier = normalizeIntList(SERVER_ITEM_CAPACITY_BY_TIER.get(), DEFAULT_ITEM_CAPACITY_BY_TIER);

@@ -33,6 +33,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.common.ItemAbilities;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
@@ -57,7 +58,7 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     private static final Map<Direction, VoxelShape> EXTENSION_SHAPES = createShapes(EXTENSION_NORTH_SHAPE);
 
     public NullWorkbenchBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(3.5F).noOcclusion());
+        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(5.0F, 6.0F).noOcclusion());
     }
 
     private NullWorkbenchBlock(BlockBehaviour.Properties properties) {
@@ -113,6 +114,20 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return getShape(state, level, pos, context);
+    }
+
+    @Override
+    protected float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
+        float hardness = state.getDestroySpeed(level, pos);
+        if (hardness == -1.0F) {
+            return 0.0F;
+        }
+        float destroySpeed = player.getDestroySpeed(state);
+        boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbilities.PICKAXE_DIG);
+        if (pickaxeLikeTool && destroySpeed > 1.0F) {
+            return destroySpeed / hardness / 15.0F;
+        }
+        return super.getDestroyProgress(state, player, level, pos);
     }
 
     @Override

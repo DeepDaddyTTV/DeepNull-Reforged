@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "deepnullreforged:deepnull_dock"
+    "deepnullreforged:deepnull_dock",
+    "deepnullreforged:null_workbench"
   ]
 }
