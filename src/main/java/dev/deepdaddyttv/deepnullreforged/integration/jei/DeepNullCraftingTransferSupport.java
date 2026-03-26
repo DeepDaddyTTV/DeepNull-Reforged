@@ -1,5 +1,6 @@
 package dev.deepdaddyttv.deepnullreforged.integration.jei;
 
+import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import net.minecraft.core.NonNullList;
@@ -129,25 +130,45 @@ public final class DeepNullCraftingTransferSupport {
 
         if (menu instanceof RecipeBookMenu<?, ?> recipeBookMenu) {
             int resultSlotIndex = recipeBookMenu.getResultSlotIndex();
-            int craftSlotCount = recipeBookMenu.getSize() - 1;
-            if (craftSlotCount <= 0 || menu.slots.size() <= resultSlotIndex) {
+            if (resultSlotIndex < 0 || resultSlotIndex >= menu.slots.size()) {
                 return null;
             }
-            List<Integer> craftSlotIndices = new ArrayList<>(craftSlotCount);
-            for (int index = resultSlotIndex + 1; index <= resultSlotIndex + craftSlotCount && index < menu.slots.size(); index++) {
-                craftSlotIndices.add(index);
-            }
-            if (craftSlotIndices.size() != craftSlotCount) {
-                return null;
-            }
-            Slot firstCraftSlot = menu.getSlot(craftSlotIndices.getFirst());
-            if (!(firstCraftSlot.container instanceof CraftingContainer craftMatrix)) {
-                return null;
-            }
+
             if (!(menu.getSlot(resultSlotIndex).container instanceof ResultContainer resultContainer)) {
                 return null;
             }
-            return new CraftingContext(craftMatrix, resultContainer, craftSlotIndices, resultSlotIndex, recipeBookMenu.getGridWidth(), recipeBookMenu.getGridHeight());
+
+            CraftingContainer craftMatrix = null;
+            for (int index = 0; index < menu.slots.size(); index++) {
+                if (index == resultSlotIndex) {
+                    continue;
+                }
+                if (menu.getSlot(index).container instanceof CraftingContainer candidate) {
+                    craftMatrix = candidate;
+                    break;
+                }
+            }
+            if (craftMatrix == null) {
+                return null;
+            }
+
+            List<Integer> craftSlotIndices = new ArrayList<>(craftMatrix.getContainerSize());
+            for (int index = 0; index < menu.slots.size(); index++) {
+                if (menu.getSlot(index).container == craftMatrix) {
+                    craftSlotIndices.add(index);
+                }
+            }
+            if (craftSlotIndices.size() != craftMatrix.getContainerSize()) {
+                return null;
+            }
+            return new CraftingContext(
+                    craftMatrix,
+                    resultContainer,
+                    craftSlotIndices,
+                    resultSlotIndex,
+                    craftMatrix.getWidth(),
+                    craftMatrix.getHeight()
+            );
         }
 
         return null;
@@ -192,7 +213,6 @@ public final class DeepNullCraftingTransferSupport {
 
     private static SourceSnapshot scanSources(Player player, CraftingContext context) {
         Map<StackKey, Integer> availableCounts = new LinkedHashMap<>();
-
         for (int slotIndex : context.craftSlotIndices()) {
             ItemStack stack = context.craftMatrix().getItem(slotIndexForCraftSlot(context, slotIndex));
             addCount(availableCounts, stack, stack.getCount());
@@ -360,16 +380,58 @@ public final class DeepNullCraftingTransferSupport {
         return remaining <= 0;
     }
 
+    public static boolean returnCurrentCraftingContents(AbstractContainerMenu menu, Player player) {
+        CraftingContext context = resolveContext(menu);
+        if (context == null) {
+            return false;
+        }
+
+        boolean changed = false;
+        for (int slotIndex : context.craftSlotIndices()) {
+            Slot slot = menu.getSlot(slotIndex);
+            ItemStack stack = slot.getItem();
+            if (stack.isEmpty()) {
+                continue;
+            }
+
+            ItemStack remaining = returnStackToDeepNulls(player, stack.copy());
+            if (remaining.getCount() == stack.getCount()) {
+                continue;
+            }
+
+            slot.setByPlayer(remaining);
+            changed = true;
+        }
+
+        if (changed) {
+            menu.slotsChanged(context.craftMatrix());
+            menu.broadcastChanges();
+            player.getInventory().setChanged();
+        }
+        return changed;
+    }
+
     private static void returnStackToPlayer(Player player, ItemStack stack) {
         if (stack.isEmpty()) {
             return;
         }
 
+        ItemStack remaining = returnStackToDeepNulls(player, stack);
+        if (!remaining.isEmpty()) {
+            player.getInventory().placeItemBackInInventory(remaining);
+        }
+    }
+
+    private static ItemStack returnStackToDeepNulls(Player player, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+
         Inventory inventory = player.getInventory();
-        ItemStack remaining = stack;
+        ItemStack remaining = stack.copy();
         for (int rawSlot : eligibleInventorySlots(inventory)) {
             if (remaining.isEmpty()) {
-                return;
+                return ItemStack.EMPTY;
             }
             ItemStack containerStack = inventory.getItem(rawSlot);
             if (!(containerStack.getItem() instanceof DeepNullItem deepNullItem)) {
@@ -379,12 +441,27 @@ public final class DeepNullCraftingTransferSupport {
             if (deepNullInventory.isFluidOnly()) {
                 continue;
             }
-            remaining = deepNullInventory.insertIntoFirstAvailableSlot(remaining, false);
+            if (deepNullInventory.containsMatchingStack(remaining)) {
+                remaining = deepNullInventory.insertReturnedCraftingStack(remaining, false);
+            }
         }
 
-        if (!remaining.isEmpty()) {
-            inventory.placeItemBackInInventory(remaining);
+        for (int rawSlot : eligibleInventorySlots(inventory)) {
+            if (remaining.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack containerStack = inventory.getItem(rawSlot);
+            if (!(containerStack.getItem() instanceof DeepNullItem deepNullItem)) {
+                continue;
+            }
+            DeepNullInventory deepNullInventory = new DeepNullInventory(deepNullItem.tier(), containerStack, player.level().registryAccess(), null);
+            if (deepNullInventory.isFluidOnly()) {
+                continue;
+            }
+            remaining = deepNullInventory.insertReturnedCraftingStack(remaining, false);
         }
+
+        return remaining;
     }
 
     private static List<Integer> eligibleInventorySlots(Inventory inventory) {

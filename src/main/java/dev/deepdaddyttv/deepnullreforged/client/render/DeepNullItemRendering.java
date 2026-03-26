@@ -164,15 +164,16 @@ public final class DeepNullItemRendering {
                 return Minecraft.getInstance().getModelManager().getMissingModel();
             }
             boolean fluidOnly = stack.getItem() instanceof DampNullItem;
-            StyleGlassVariant styleVariant = DeepNullInventory.getStyleVariant(stack);
+            DeepNullInventory.StyleRenderData style = DeepNullInventory.readStyleRenderData(stack, deepNullItem.tier(), fluidOnly);
+            StyleGlassVariant styleVariant = style.styleVariant();
             if (styleVariant != StyleGlassVariant.DEFAULT) {
                 return Minecraft.getInstance().getModelManager().getModel(
-                        DeepNullInventory.hasColorOverrides(stack)
+                        style.hasColorOverrides()
                                 ? styledVariantModelLocation(fluidOnly, styleVariant)
                                 : variantBaseModelLocation(deepNullItem.tier(), fluidOnly, styleVariant)
                 );
             }
-            if (DeepNullInventory.hasColorOverrides(stack)) {
+            if (style.hasColorOverrides()) {
                 return Minecraft.getInstance().getModelManager().getModel(
                         fluidOnly
                                 ? styledDampBaseModelLocation()

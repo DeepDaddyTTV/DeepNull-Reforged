@@ -151,6 +151,12 @@ public final class DeepNullPayloads {
                         handleCraftingTransfer(payload, player);
                     }
                 }));
+        registrar.playToServer(CraftingReturnPayload.TYPE, CraftingReturnPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleCraftingReturn(payload, player);
+                    }
+                }));
     }
 
     private static void handleOpenItemMenu(OpenItemMenuPayload payload, ServerPlayer player) {
@@ -372,6 +378,13 @@ public final class DeepNullPayloads {
         @SuppressWarnings("unchecked")
         RecipeHolder<CraftingRecipe> craftingRecipeHolder = (RecipeHolder<CraftingRecipe>) rawHolder;
         DeepNullCraftingTransferSupport.executeTransfer(player.containerMenu, player, craftingRecipeHolder, payload.maxTransfer());
+    }
+
+    private static void handleCraftingReturn(CraftingReturnPayload payload, ServerPlayer player) {
+        if (player.containerMenu.containerId != payload.containerId()) {
+            return;
+        }
+        DeepNullCraftingTransferSupport.returnCurrentCraftingContents(player.containerMenu, player);
     }
 
     public record OpenItemMenuPayload(int inventorySlot) implements CustomPacketPayload {
@@ -653,6 +666,17 @@ public final class DeepNullPayloads {
                         CraftingTransferPayload::maxTransfer,
                         CraftingTransferPayload::new
                 );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record CraftingReturnPayload(int containerId) implements CustomPacketPayload {
+        public static final Type<CraftingReturnPayload> TYPE = payloadType("crafting_return");
+        public static final StreamCodec<RegistryFriendlyByteBuf, CraftingReturnPayload> STREAM_CODEC =
+                StreamCodec.composite(ByteBufCodecs.VAR_INT, CraftingReturnPayload::containerId, CraftingReturnPayload::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

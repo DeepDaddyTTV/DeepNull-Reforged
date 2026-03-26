@@ -7,6 +7,7 @@ import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullHudState;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -18,6 +19,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = DeepNullReforged.MODID, value = Dist.CLIENT)
@@ -157,6 +159,20 @@ public final class ClientGameEvents {
     @SubscribeEvent
     public static void onRenderGui(RenderGuiEvent.Post event) {
         DeepNullHudRenderer.render(event.getGuiGraphics(), event.getPartialTick());
+    }
+
+    @SubscribeEvent
+    public static void onScreenClosing(ScreenEvent.Closing event) {
+        if (!(event.getScreen() instanceof AbstractContainerScreen<?> containerScreen)) {
+            return;
+        }
+
+        if (!ClientDeepNullJeiSession.shouldReturn(containerScreen.getMenu())) {
+            return;
+        }
+
+        PacketDistributor.sendToServer(new DeepNullPayloads.CraftingReturnPayload(containerScreen.getMenu().containerId));
+        ClientDeepNullJeiSession.clear();
     }
 
     private static boolean handleTransferLockHotkey(Minecraft minecraft, Player player) {

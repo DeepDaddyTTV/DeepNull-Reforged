@@ -182,25 +182,36 @@ public class DeepNullInventory extends ItemStackHandler {
         return new DeepNullInventory(tier, ItemStack.EMPTY, () -> null, null);
     }
 
+    public static StyleRenderData readStyleRenderData(ItemStack stack, DeepNullTier tier, boolean fluidOnly) {
+        CompoundTag root = getRootTagView(stack);
+        boolean hasFrameOverride = root != null && root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
+        boolean hasGlassOverride = root != null && root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
+        return new StyleRenderData(
+                hasFrameOverride || hasGlassOverride,
+                root == null ? StyleGlassVariant.DEFAULT : StyleGlassVariant.byId(root.getString(STYLE_VARIANT_TAG)),
+                hasFrameOverride ? sanitizeStyleColor(root.getInt(FRAME_COLOR_TAG)) : defaultFrameColor(tier, fluidOnly),
+                hasGlassOverride ? sanitizeStyleColor(root.getInt(GLASS_COLOR_TAG)) : defaultGlassColor(tier, fluidOnly)
+        );
+    }
+
     public static boolean hasCustomStyle(ItemStack stack) {
         return hasColorOverrides(stack) || getStyleVariant(stack) != StyleGlassVariant.DEFAULT;
     }
 
     public static boolean hasColorOverrides(ItemStack stack) {
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!tag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
+        CompoundTag root = getRootTagView(stack);
+        if (root == null) {
             return false;
         }
-        CompoundTag root = tag.getCompound(ROOT_TAG);
         return root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC) || root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
     }
 
     public static StyleGlassVariant getStyleVariant(ItemStack stack) {
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!tag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
+        CompoundTag root = getRootTagView(stack);
+        if (root == null) {
             return StyleGlassVariant.DEFAULT;
         }
-        return StyleGlassVariant.byId(tag.getCompound(ROOT_TAG).getString(STYLE_VARIANT_TAG));
+        return StyleGlassVariant.byId(root.getString(STYLE_VARIANT_TAG));
     }
 
     public DeepNullTier tier() {
@@ -1627,6 +1638,21 @@ public class DeepNullInventory extends ItemStackHandler {
         return insertPreparedIntoFirstAvailableSlot(stack, simulate);
     }
 
+    public ItemStack insertReturnedCraftingStack(ItemStack stack, boolean simulate) {
+        if (fluidOnly || stack.isEmpty() || stack.getItem() instanceof DeepNullItem) {
+            return stack;
+        }
+
+        ItemStack remaining = insertReturnedIntoMatchingSlots(stack, simulate, true);
+        remaining = insertReturnedIntoMatchingSlots(remaining, simulate, false);
+        for (int slot = 0; slot < getSlots() && !remaining.isEmpty(); slot++) {
+            if (getStackInSlot(slot).isEmpty()) {
+                remaining = insertReturnedItem(slot, remaining, simulate);
+            }
+        }
+        return remaining;
+    }
+
     public ItemStack insertPickedUpIntoMatchingSlots(ItemStack stack, boolean simulate) {
         ItemStack transformedRemainder = tryInsertAutoTransformed(stack, simulate, true);
         if (transformedRemainder != null) {
@@ -1662,6 +1688,25 @@ public class DeepNullInventory extends ItemStackHandler {
         return remaining;
     }
 
+    private ItemStack insertReturnedIntoMatchingSlots(ItemStack stack, boolean simulate, boolean exactMatchOnly) {
+        ItemStack remaining = stack;
+        for (int slot = 0; slot < getSlots() && !remaining.isEmpty(); slot++) {
+            ItemStack existing = getStackInSlot(slot);
+            if (existing.isEmpty()) {
+                continue;
+            }
+            boolean exactMatch = ItemStack.isSameItemSameComponents(existing, remaining);
+            if (exactMatchOnly != exactMatch) {
+                continue;
+            }
+            if (!exactMatchOnly && !matchesIncoming(slot, remaining)) {
+                continue;
+            }
+            remaining = insertReturnedItem(slot, remaining, simulate);
+        }
+        return remaining;
+    }
+
     @Override
     public int getSlotLimit(int slot) {
         return tier.perSlotCapacity();
@@ -1690,6 +1735,40 @@ public class DeepNullInventory extends ItemStackHandler {
     public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
         validateSlotIndex(slot);
         if (!isItemValid(slot, stack)) {
+            return stack;
+        }
+
+        ItemStack existing = getStackInSlot(slot);
+        int limit = getSlotLimit(slot);
+        if (existing.isEmpty()) {
+            int inserted = Math.min(stack.getCount(), limit);
+            if (!simulate) {
+                setStackInSlot(slot, stack.copyWithCount(inserted));
+            }
+            return remainder(stack, inserted);
+        }
+
+        ItemStack normalizedInsert = normalizeForInsert(slot, stack);
+        if (normalizedInsert.isEmpty()) {
+            return stack;
+        }
+
+        int space = limit - existing.getCount();
+        if (space <= 0) {
+            return stack;
+        }
+
+        int inserted = Math.min(space, normalizedInsert.getCount());
+        if (!simulate) {
+            existing.grow(inserted);
+            onContentsChanged(slot);
+        }
+        return remainder(stack, inserted);
+    }
+
+    private ItemStack insertReturnedItem(int slot, ItemStack stack, boolean simulate) {
+        validateSlotIndex(slot);
+        if (stack.isEmpty() || stack.getCount() <= 0 || stack.getItem() instanceof DeepNullItem) {
             return stack;
         }
 
@@ -2406,13 +2485,30 @@ public class DeepNullInventory extends ItemStackHandler {
         return color & 0xFFFFFF;
     }
 
-    private int defaultFrameColor() {
+    private static @Nullable CompoundTag getRootTagView(ItemStack stack) {
+        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        if (customData == null || customData.isEmpty()) {
+            return null;
+        }
+        CompoundTag tag = customData.getUnsafe();
+        return tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG) : null;
+    }
+
+    private static int defaultFrameColor(DeepNullTier tier, boolean fluidOnly) {
         return DEFAULT_STYLE_COLOR;
     }
 
-    private int defaultGlassColor() {
+    private static int defaultGlassColor(DeepNullTier tier, boolean fluidOnly) {
         int tierId = Math.max(0, Math.min(tier.ordinalId(), DEFAULT_DEEPNULL_GLASS_COLORS.length - 1));
         return fluidOnly ? DEFAULT_DAMPNULL_GLASS_COLORS[tierId] : DEFAULT_DEEPNULL_GLASS_COLORS[tierId];
+    }
+
+    private int defaultFrameColor() {
+        return defaultFrameColor(tier, fluidOnly);
+    }
+
+    private int defaultGlassColor() {
+        return defaultGlassColor(tier, fluidOnly);
     }
 
     private boolean filterExplicitlyAllows(ItemStack stack) {
@@ -3236,6 +3332,12 @@ public class DeepNullInventory extends ItemStackHandler {
         private ItemStack outputForInputs(int inputCount) {
             long total = (long) inputCount * outputPerInput;
             return outputSample.copyWithCount((int) Math.min(Integer.MAX_VALUE, total));
+        }
+    }
+
+    public record StyleRenderData(boolean hasColorOverrides, StyleGlassVariant styleVariant, int frameColor, int glassColor) {
+        public boolean hasCustomStyle() {
+            return hasColorOverrides || styleVariant != StyleGlassVariant.DEFAULT;
         }
     }
 

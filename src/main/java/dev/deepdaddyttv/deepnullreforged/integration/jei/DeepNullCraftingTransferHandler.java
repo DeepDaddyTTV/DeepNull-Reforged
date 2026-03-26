@@ -1,5 +1,6 @@
 package dev.deepdaddyttv.deepnullreforged.integration.jei;
 
+import dev.deepdaddyttv.deepnullreforged.client.ClientDeepNullJeiSession;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
@@ -20,19 +21,28 @@ import java.util.Optional;
 
 public final class DeepNullCraftingTransferHandler implements IRecipeTransferHandler<AbstractContainerMenu, RecipeHolder<CraftingRecipe>> {
     private final IRecipeTransferHandlerHelper transferHelper;
+    private final Class<? extends AbstractContainerMenu> containerClass;
+    private final Optional<? extends MenuType<?>> menuType;
 
-    public DeepNullCraftingTransferHandler(IRecipeTransferHandlerHelper transferHelper) {
+    public DeepNullCraftingTransferHandler(
+            IRecipeTransferHandlerHelper transferHelper,
+            Class<? extends AbstractContainerMenu> containerClass,
+            Optional<? extends MenuType<?>> menuType
+    ) {
         this.transferHelper = transferHelper;
+        this.containerClass = containerClass;
+        this.menuType = menuType;
     }
 
     @Override
     public Class<? extends AbstractContainerMenu> getContainerClass() {
-        return AbstractContainerMenu.class;
+        return containerClass;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Optional<MenuType<AbstractContainerMenu>> getMenuType() {
-        return Optional.empty();
+        return (Optional<MenuType<AbstractContainerMenu>>) (Optional<?>) menuType;
     }
 
     @Override
@@ -49,15 +59,20 @@ public final class DeepNullCraftingTransferHandler implements IRecipeTransferHan
             boolean maxTransfer,
             boolean doTransfer
     ) {
-        if (DeepNullCraftingTransferSupport.resolveContext(container) == null) {
+        DeepNullCraftingTransferSupport.CraftingContext context = DeepNullCraftingTransferSupport.resolveContext(container);
+        if (context == null) {
             return null;
         }
 
-        if (Minecraft.getInstance().level == null || DeepNullCraftingTransferSupport.planTransfer(container, player, recipe, maxTransfer) == null) {
+        DeepNullCraftingTransferSupport.TransferPlan plan = Minecraft.getInstance().level == null
+                ? null
+                : DeepNullCraftingTransferSupport.planTransfer(container, player, recipe, maxTransfer);
+        if (plan == null) {
             return transferHelper.createUserErrorWithTooltip(Component.translatable("jei.deepnullreforged.transfer.missing"));
         }
 
         if (doTransfer) {
+            ClientDeepNullJeiSession.markTransfer(container);
             PacketDistributor.sendToServer(new DeepNullPayloads.CraftingTransferPayload(recipe.id(), maxTransfer));
         }
         return null;

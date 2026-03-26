@@ -5,9 +5,9 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullDockRenderer;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullItemRendering;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
-import net.minecraft.client.Minecraft;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
@@ -77,17 +77,18 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
         event.register((stack, tintIndex) -> {
-                    Minecraft minecraft = Minecraft.getInstance();
                     if (!(stack.getItem() instanceof DeepNullItem deepNullItem) || tintIndex < 0 || tintIndex > 1) {
                         return 0xFFFFFF;
                     }
-                    if (!DeepNullInventory.hasCustomStyle(stack)) {
+                    DeepNullInventory.StyleRenderData style = DeepNullInventory.readStyleRenderData(
+                            stack,
+                            deepNullItem.tier(),
+                            stack.getItem() instanceof DampNullItem
+                    );
+                    if (!style.hasCustomStyle()) {
                         return 0xFFFFFFFF;
                     }
-                    DeepNullInventory inventory = minecraft.level == null
-                            ? DeepNullInventory.client(deepNullItem.tier())
-                            : new DeepNullInventory(deepNullItem.tier(), stack, minecraft.level.registryAccess(), null);
-                    int rgb = tintIndex == 0 ? inventory.getFrameColor() : inventory.getGlassColor();
+                    int rgb = tintIndex == 0 ? style.frameColor() : style.glassColor();
                     return 0xFF000000 | (rgb & 0xFFFFFF);
                 },
                 ModItems.REDSTONE_DEEP_NULL.get(),
