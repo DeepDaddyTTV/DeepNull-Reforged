@@ -1,10 +1,10 @@
 package dev.deepdaddyttv.deepnullreforged.registry;
 
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -51,7 +51,7 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.STONE_GENERATOR_UPGRADE.get());
                 output.accept(ModItems.OBSIDIAN_GENERATOR_UPGRADE.get());
                 output.accept(ModItems.SPONGE_UPGRADE.get());
-                if (ModList.get().isLoaded("mekanism")) {
+                if (DeepNullConfig.isChemicalStorageAvailable()) {
                     output.accept(ModItems.GAS_UPGRADE.get());
                 }
                 output.accept(ModItems.ENDER_UPGRADE.get());

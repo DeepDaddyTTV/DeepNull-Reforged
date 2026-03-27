@@ -1,6 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismClientCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
@@ -21,7 +22,6 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.FastColor;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -421,7 +421,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private String chemicalTransferHintKey() {
-        return menu.hasUpgrade(DeepNullUpgradeType.GAS) && ModList.get().isLoaded("mekanism")
+        return menu.hasUpgrade(DeepNullUpgradeType.GAS) && DeepNullConfig.isChemicalStorageAvailable()
                 ? "dn.chemical_transfer_only.desc"
                 : "dn.fluid_empty_hint.desc";
     }

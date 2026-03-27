@@ -1,5 +1,6 @@
 package dev.deepdaddyttv.deepnullreforged.fabric;
 
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
@@ -16,6 +17,7 @@ public final class DeepNullReforgedFabric implements ModInitializer {
                 .getModContainer(DeepNullReforged.MODID)
                 .map(container -> container.getMetadata().getVersion().getFriendlyString())
                 .orElse("0.0.0");
+        DeepNullConfig.registerFabricConfigs(DeepNullReforged.MODID);
         DeepNullReforged.initialize(version);
         RegisterPayloadHandlersEvent payloadHandlersEvent = new RegisterPayloadHandlersEvent();
         DeepNullPayloads.register(payloadHandlersEvent);

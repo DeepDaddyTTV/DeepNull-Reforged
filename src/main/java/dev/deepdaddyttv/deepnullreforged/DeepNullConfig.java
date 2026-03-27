@@ -1,8 +1,11 @@
 package dev.deepdaddyttv.deepnullreforged;
 
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
+import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeConfigRegistry;
+import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeModConfigEvents;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.event.config.ModConfigEvent;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.LinkedHashSet;
@@ -269,12 +272,12 @@ public final class DeepNullConfig {
         bakeServer();
     }
 
-    public static void onLoad(ModConfigEvent.Loading event) {
-        initializeDefaults();
-    }
-
-    public static void onReload(ModConfigEvent.Reloading event) {
-        initializeDefaults();
+    public static void registerFabricConfigs(String modId) {
+        NeoForgeModConfigEvents.loading(modId).register(DeepNullConfig::bakeFabricConfig);
+        NeoForgeModConfigEvents.reloading(modId).register(DeepNullConfig::bakeFabricConfig);
+        NeoForgeConfigRegistry.INSTANCE.register(modId, ModConfig.Type.CLIENT, CLIENT_SPEC);
+        NeoForgeConfigRegistry.INSTANCE.register(modId, ModConfig.Type.COMMON, COMMON_SPEC);
+        NeoForgeConfigRegistry.INSTANCE.register(modId, ModConfig.Type.SERVER, SERVER_SPEC);
     }
 
     public static boolean isHudEnabled() {
@@ -406,6 +409,10 @@ public final class DeepNullConfig {
         return serverEnableChemicalStorage;
     }
 
+    public static boolean isChemicalStorageAvailable() {
+        return serverEnableChemicalStorage && ModList.get().isLoaded("mekanism");
+    }
+
     public static int getDockGeneratorBufferSize() {
         return dockGeneratorBufferSize;
     }
@@ -454,13 +461,15 @@ public final class DeepNullConfig {
         return tierValue(spongeRangeHeightByTier, tier, DEFAULT_SPONGE_RANGE_HEIGHT_BY_TIER[tier.ordinalId()]);
     }
 
-    private static void bakeFor(Object spec) {
-        if (spec == CLIENT_SPEC) {
+    private static void bakeFabricConfig(ModConfig config) {
+        if (config.getSpec() == CLIENT_SPEC) {
             bakeClient();
-        } else if (spec == COMMON_SPEC) {
+        } else if (config.getSpec() == COMMON_SPEC) {
             bakeCommon();
-        } else if (spec == SERVER_SPEC) {
+        } else if (config.getSpec() == SERVER_SPEC) {
             bakeServer();
+        } else {
+            initializeDefaults();
         }
     }
 

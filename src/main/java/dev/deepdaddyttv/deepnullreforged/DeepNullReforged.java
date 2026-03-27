@@ -36,7 +36,6 @@ public final class DeepNullReforged {
         ModRecipeSerializers.register();
         ModCreativeTabs.register();
         ModCapabilities.register();
-        DeepNullConfig.initializeDefaults();
     }
 
     public static ResourceLocation id(String path) {

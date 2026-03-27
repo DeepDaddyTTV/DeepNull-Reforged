@@ -32,6 +32,9 @@ dependencies {
 
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    modImplementation(include("maven.modrinth:forge-config-api-port:${forge_config_api_port_version}"))
+    implementation(include("com.electronwill.night-config:core:${night_config_version}"))
+    implementation(include("com.electronwill.night-config:toml:${night_config_version}"))
     modImplementation(include("teamreborn:energy:${team_reborn_energy_version}"))
 
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"

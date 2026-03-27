@@ -1,5 +1,6 @@
 package dev.deepdaddyttv.deepnullreforged.item;
 
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
@@ -51,7 +52,7 @@ public class DampNullItem extends DeepNullItem {
             tooltipComponents.add(Component.translatable("item.deepnullreforged.sponge_upgrade")
                     .withStyle(ChatFormatting.GRAY));
         }
-        if (inventory.hasGasUpgrade()) {
+        if (inventory.hasGasUpgrade() && DeepNullConfig.isChemicalStorageAvailable()) {
             tooltipComponents.add(Component.translatable("item.deepnullreforged.gas_upgrade")
                     .withStyle(ChatFormatting.GRAY));
         }

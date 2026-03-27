@@ -355,7 +355,7 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public boolean supportsChemicalStorage() {
-        return fluidOnly && hasGasUpgrade() && DeepNullConfig.isChemicalStorageEnabled() && ModList.get().isLoaded("mekanism");
+        return fluidOnly && hasGasUpgrade() && DeepNullConfig.isChemicalStorageAvailable();
     }
 
     public int getFluidCapacity() {

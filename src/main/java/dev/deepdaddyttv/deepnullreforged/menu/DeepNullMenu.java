@@ -1,6 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.menu;
 
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
@@ -25,7 +26,6 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
 import net.neoforged.neoforge.fluids.FluidUtil;
@@ -814,7 +814,7 @@ public class DeepNullMenu extends AbstractContainerMenu {
         return Arrays.stream(DeepNullUpgradeType.values())
                 .filter(DeepNullUpgradeType::isUpgradeScreenRepresentative)
                 .filter(dankInventory::supportsUpgrade)
-                .filter(type -> type != DeepNullUpgradeType.GAS || ModList.get().isLoaded("mekanism"))
+                .filter(type -> type != DeepNullUpgradeType.GAS || DeepNullConfig.isChemicalStorageAvailable())
                 .toList();
     }
 
