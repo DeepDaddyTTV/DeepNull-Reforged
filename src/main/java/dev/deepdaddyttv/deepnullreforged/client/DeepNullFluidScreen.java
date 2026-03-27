@@ -355,7 +355,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 : StoredChemical.EMPTY;
 
         guiGraphics.blit(INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
-        guiGraphics.drawString(font, Component.translatable("itemGroup." + DeepNullReforged.MODID), textX, lineY, 0xFFFFFFFF, false);
+        guiGraphics.drawString(font, infoPanelTitle(), textX, lineY, 0xFFFFFFFF, false);
         lineY += 18;
 
         if (fluidStack.isEmpty() && chemicalStack.isEmpty()) {
@@ -401,6 +401,10 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
 
         int detailY = startY + 54;
         drawWrapped(guiGraphics, Component.translatable("dn.stone_generator_rate.desc", menu.getDankInventory().getStoneGenerationRate()), textX, detailY, INFO_PANEL_WIDTH - 24, 0xFFE8EDF5);
+    }
+
+    private Component infoPanelTitle() {
+        return Component.translatable("item.deepnullreforged.damp_null_" + menu.getTier().ordinalId());
     }
 
     public Rect2i getInfoPanelArea() {
