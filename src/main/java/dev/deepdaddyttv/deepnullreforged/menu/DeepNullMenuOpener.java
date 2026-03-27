@@ -4,11 +4,13 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 
 public final class DeepNullMenuOpener {
     private DeepNullMenuOpener() {
@@ -41,18 +43,29 @@ public final class DeepNullMenuOpener {
         DeepNullTier tier = deepNullItem.tier();
         DeepNullInventory deepNullInventory = new DeepNullInventory(tier, stack, player.level().registryAccess(), null);
         DeepNullMenu.ViewMode normalizedView = normalizeView(viewMode, deepNullInventory);
-        player.openMenu(new SimpleMenuProvider(
-                (containerId, playerInventory, livingPlayer) -> DeepNullMenu.forItem(containerId, playerInventory, inventorySlot, tier, normalizedView),
-                stack.getHoverName()
-        ), buffer -> {
-            buffer.writeVarInt(DeepNullMenu.SourceType.ITEM.ordinal());
-            buffer.writeVarInt(normalizedView.ordinal());
-            buffer.writeVarInt(tier.ordinalId());
-            buffer.writeVarInt(inventorySlot);
-            buffer.writeBlockPos(player.blockPosition());
-            buffer.writeVarInt(upgradeMask(deepNullInventory));
-            buffer.writeVarInt(deepNullInventory.getEnergyStored());
-            buffer.writeBoolean(deepNullInventory.isChargingEnabled());
+        player.openMenu(new ExtendedScreenHandlerFactory<DeepNullMenu.OpenData>() {
+            @Override
+            public DeepNullMenu.OpenData getScreenOpeningData(ServerPlayer serverPlayer) {
+                return DeepNullMenu.OpenData.forItem(
+                        tier,
+                        normalizedView,
+                        inventorySlot,
+                        upgradeMask(deepNullInventory),
+                        deepNullInventory.getEnergyStored(),
+                        deepNullInventory.isChargingEnabled(),
+                        player.blockPosition()
+                );
+            }
+
+            @Override
+            public Component getDisplayName() {
+                return stack.getHoverName();
+            }
+
+            @Override
+            public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player livingPlayer) {
+                return DeepNullMenu.forItem(containerId, playerInventory, inventorySlot, tier, normalizedView);
+            }
         });
     }
 
@@ -69,18 +82,28 @@ public final class DeepNullMenuOpener {
         DeepNullTier tier = dock.getTier();
         DeepNullInventory inventory = dock.createInventory();
         DeepNullMenu.ViewMode normalizedView = normalizeView(viewMode, inventory);
-        player.openMenu(new SimpleMenuProvider(
-                (containerId, playerInventory, livingPlayer) -> DeepNullMenu.forDock(containerId, playerInventory, dock, normalizedView),
-                Component.translatable("block." + DeepNullReforged.MODID + ".deepnull_dock")
-        ), buffer -> {
-            buffer.writeVarInt(DeepNullMenu.SourceType.DOCK.ordinal());
-            buffer.writeVarInt(normalizedView.ordinal());
-            buffer.writeVarInt(tier.ordinalId());
-            buffer.writeVarInt(-1);
-            buffer.writeBlockPos(dock.getBlockPos());
-            buffer.writeVarInt(inventory == null ? 0 : upgradeMask(inventory));
-            buffer.writeVarInt(inventory == null ? 0 : inventory.getEnergyStored());
-            buffer.writeBoolean(inventory != null && inventory.isChargingEnabled());
+        player.openMenu(new ExtendedScreenHandlerFactory<DeepNullMenu.OpenData>() {
+            @Override
+            public DeepNullMenu.OpenData getScreenOpeningData(ServerPlayer serverPlayer) {
+                return DeepNullMenu.OpenData.forDock(
+                        tier,
+                        normalizedView,
+                        dock.getBlockPos(),
+                        inventory == null ? 0 : upgradeMask(inventory),
+                        inventory == null ? 0 : inventory.getEnergyStored(),
+                        inventory != null && inventory.isChargingEnabled()
+                );
+            }
+
+            @Override
+            public Component getDisplayName() {
+                return Component.translatable("block." + DeepNullReforged.MODID + ".deepnull_dock");
+            }
+
+            @Override
+            public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player livingPlayer) {
+                return DeepNullMenu.forDock(containerId, playerInventory, dock, normalizedView);
+            }
         });
     }
 

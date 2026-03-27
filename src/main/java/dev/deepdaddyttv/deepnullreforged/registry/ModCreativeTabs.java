@@ -11,7 +11,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class ModCreativeTabs {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, DeepNullReforged.MODID);
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> DEEP_NULL_TAB = CREATIVE_MODE_TABS.register(DeepNullReforged.MODID, () -> CreativeModeTab.builder()
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> DEEP_NULL_TAB = CREATIVE_MODE_TABS.register(DeepNullReforged.MODID, () -> CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0)
             .title(Component.translatable("itemGroup." + DeepNullReforged.MODID))
             .icon(() -> ModItems.REDSTONE_DEEP_NULL.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
@@ -61,5 +61,9 @@ public final class ModCreativeTabs {
             .build());
 
     private ModCreativeTabs() {
+    }
+
+    public static void register() {
+        CREATIVE_MODE_TABS.register();
     }
 }

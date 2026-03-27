@@ -129,7 +129,7 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
             return true;
         }
         if (button == 0 && Screen.hasShiftDown()) {
-            Slot hoveredSlot = getSlotUnderMouse();
+            Slot hoveredSlot = this.hoveredSlot;
             int hoveredMenuIndex = hoveredSlot == null ? -1 : menu.slots.indexOf(hoveredSlot);
             if (hoveredMenuIndex >= menu.getPlayerInventorySlotStartIndex() && hoveredSlot.hasItem()) {
                 int filterSlot = isAutoSmeltView()

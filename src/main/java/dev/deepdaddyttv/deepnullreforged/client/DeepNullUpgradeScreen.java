@@ -210,7 +210,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
     }
 
     private void renderUpgradeTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        Slot hovered = getSlotUnderMouse();
+        Slot hovered = hoveredSlot;
         if (!(hovered instanceof DeepNullMenu.UpgradeSlot) || hovered.hasItem()) {
             return;
         }

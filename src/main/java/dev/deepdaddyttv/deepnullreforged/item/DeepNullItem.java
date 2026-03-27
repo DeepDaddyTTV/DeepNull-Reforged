@@ -8,6 +8,7 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenuOpener;
+import dev.deepdaddyttv.deepnullreforged.registry.ModCapabilities;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -42,7 +43,6 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidActionResult;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -391,7 +391,7 @@ public class DeepNullItem extends Item {
             return null;
         }
 
-        FoodProperties foodProperties = selectedStack.getFoodProperties(player);
+        FoodProperties foodProperties = selectedStack.get(DataComponents.FOOD);
         if (foodProperties != null && !player.canEat(foodProperties.canAlwaysEat())) {
             clearProxyUseState(deepNullStack);
             return InteractionResultHolder.fail(deepNullStack);
@@ -548,7 +548,7 @@ public class DeepNullItem extends Item {
             continue;
         }
 
-            IEnergyStorage energyStorage = candidate.getCapability(Capabilities.EnergyStorage.ITEM);
+            IEnergyStorage energyStorage = ModCapabilities.getEnergyStorage(candidate);
             if (energyStorage == null || !energyStorage.canReceive()) {
                 continue;
             }
@@ -580,7 +580,7 @@ public class DeepNullItem extends Item {
 
         for (int slot = 0; slot < inventory.getSlots(); slot++) {
             ItemStack candidate = inventory.getStackInSlot(slot);
-            FoodProperties foodProperties = candidate.getFoodProperties(player);
+            FoodProperties foodProperties = candidate.get(DataComponents.FOOD);
             if (foodProperties == null || !player.canEat(foodProperties.canAlwaysEat())) {
                 continue;
             }
@@ -703,17 +703,17 @@ public class DeepNullItem extends Item {
     }
 
     private static IItemHandler getBlockItemHandler(UseOnContext context) {
-        IItemHandler target = context.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, context.getClickedPos(), context.getClickedFace());
+        IItemHandler target = ModCapabilities.getBlockItemHandler(context.getLevel(), context.getClickedPos(), context.getClickedFace());
         if (target == null) {
-            target = context.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, context.getClickedPos(), null);
+            target = ModCapabilities.getBlockItemHandler(context.getLevel(), context.getClickedPos(), null);
         }
         return target;
     }
 
     private static IFluidHandler getBlockFluidHandler(UseOnContext context) {
-        IFluidHandler target = context.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, context.getClickedPos(), context.getClickedFace());
+        IFluidHandler target = ModCapabilities.getBlockFluidHandler(context.getLevel(), context.getClickedPos(), context.getClickedFace());
         if (target == null) {
-            target = context.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, context.getClickedPos(), null);
+            target = ModCapabilities.getBlockFluidHandler(context.getLevel(), context.getClickedPos(), null);
         }
         if (target == null) {
             target = FluidUtil.getFluidHandler(context.getLevel(), context.getClickedPos(), context.getClickedFace()).orElse(null);

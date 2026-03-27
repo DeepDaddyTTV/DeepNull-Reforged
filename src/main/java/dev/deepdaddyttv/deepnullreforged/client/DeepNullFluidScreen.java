@@ -21,10 +21,7 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.FastColor;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.Slot;
 import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.client.textures.FluidSpriteCache;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -115,14 +112,6 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         guiGraphics.drawString(font, title, titleLabelX, titleLabelY, 0xFFFFFFFF, false);
-    }
-
-    @Override
-    protected void renderSlotHighlight(GuiGraphics guiGraphics, Slot slot, int mouseX, int mouseY, float partialTick) {
-        if (slot instanceof DeepNullMenu.FluidStorageSlot) {
-            return;
-        }
-        super.renderSlotHighlight(guiGraphics, slot, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -223,9 +212,8 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private void renderFluidInTank(GuiGraphics guiGraphics, Rect2i tankWindow, FluidStack fluidStack, int capacity) {
-        IClientFluidTypeExtensions clientFluid = IClientFluidTypeExtensions.of(fluidStack.getFluid());
-        ResourceLocation texture = clientFluid.getStillTexture(fluidStack);
-        int tint = clientFluid.getTintColor(fluidStack);
+        TextureAtlasSprite sprite = ClientFluidRendering.getStillSprite(fluidStack);
+        int tint = ClientFluidRendering.getTint(fluidStack);
         Rect2i fillWindow = visibleFillWindow(tankWindow);
         int tankWidth = fillWindow.getWidth();
         int tankHeight = fillWindow.getHeight();
@@ -233,12 +221,11 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         int drawX = leftPos + fillWindow.getX();
         int drawY = topPos + fillWindow.getY() + (tankHeight - fillHeight);
 
-        if (texture == null) {
+        if (sprite == null) {
             guiGraphics.fill(drawX, drawY, drawX + tankWidth, topPos + fillWindow.getY() + tankHeight, tint == 0 ? 0xFF3AA7FF : tint);
             return;
         }
 
-        TextureAtlasSprite sprite = FluidSpriteCache.getSprite(texture);
         float alpha = ((tint >> 24) & 0xFF) / 255.0F;
         float red = ((tint >> 16) & 0xFF) / 255.0F;
         float green = ((tint >> 8) & 0xFF) / 255.0F;

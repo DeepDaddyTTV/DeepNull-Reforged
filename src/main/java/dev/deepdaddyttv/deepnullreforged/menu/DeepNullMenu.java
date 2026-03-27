@@ -12,6 +12,8 @@ import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -24,7 +26,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
 import net.neoforged.neoforge.fluids.FluidUtil;
@@ -51,6 +52,68 @@ public class DeepNullMenu extends AbstractContainerMenu {
         FILTER,
         AUTO_SMELT_FILTER,
         FLUID
+    }
+
+    public record OpenData(
+            int sourceTypeId,
+            int viewModeId,
+            int tierId,
+            int inventorySlot,
+            BlockPos dockPos,
+            int syncedUpgradeMask,
+            int syncedEnergyStored,
+            boolean syncedChargingEnabled
+    ) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, OpenData> STREAM_CODEC = StreamCodec.of(
+                OpenData::encode,
+                OpenData::decode
+        );
+
+        public static OpenData forItem(DeepNullTier tier, ViewMode viewMode, int inventorySlot, int upgradeMask, int energyStored, boolean chargingEnabled, BlockPos dockPos) {
+            return new OpenData(SourceType.ITEM.ordinal(), viewMode.ordinal(), tier.ordinalId(), inventorySlot, dockPos, upgradeMask, energyStored, chargingEnabled);
+        }
+
+        public static OpenData forDock(DeepNullTier tier, ViewMode viewMode, BlockPos dockPos, int upgradeMask, int energyStored, boolean chargingEnabled) {
+            return new OpenData(SourceType.DOCK.ordinal(), viewMode.ordinal(), tier.ordinalId(), -1, dockPos, upgradeMask, energyStored, chargingEnabled);
+        }
+
+        public SourceType sourceType() {
+            int clamped = Math.max(0, Math.min(sourceTypeId, SourceType.values().length - 1));
+            return SourceType.values()[clamped];
+        }
+
+        public ViewMode viewMode() {
+            int clamped = Math.max(0, Math.min(viewModeId, ViewMode.values().length - 1));
+            return ViewMode.values()[clamped];
+        }
+
+        public DeepNullTier tier() {
+            return DeepNullTier.byId(tierId);
+        }
+
+        private static void encode(RegistryFriendlyByteBuf buffer, OpenData data) {
+            ByteBufCodecs.VAR_INT.encode(buffer, data.sourceTypeId);
+            ByteBufCodecs.VAR_INT.encode(buffer, data.viewModeId);
+            ByteBufCodecs.VAR_INT.encode(buffer, data.tierId);
+            ByteBufCodecs.VAR_INT.encode(buffer, data.inventorySlot);
+            BlockPos.STREAM_CODEC.encode(buffer, data.dockPos);
+            ByteBufCodecs.VAR_INT.encode(buffer, data.syncedUpgradeMask);
+            ByteBufCodecs.VAR_INT.encode(buffer, data.syncedEnergyStored);
+            ByteBufCodecs.BOOL.encode(buffer, data.syncedChargingEnabled);
+        }
+
+        private static OpenData decode(RegistryFriendlyByteBuf buffer) {
+            return new OpenData(
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    BlockPos.STREAM_CODEC.decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.BOOL.decode(buffer)
+            );
+        }
     }
 
     private final SourceType sourceType;
@@ -112,19 +175,19 @@ public class DeepNullMenu extends AbstractContainerMenu {
         );
     }
 
-    public DeepNullMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf buffer) {
+    public DeepNullMenu(int containerId, Inventory playerInventory, OpenData openData) {
         this(
                 containerId,
                 playerInventory,
-                SourceType.values()[buffer.readVarInt()],
-                ViewMode.values()[buffer.readVarInt()],
-                DeepNullTier.byId(buffer.readVarInt()),
+                openData.sourceType(),
+                openData.viewMode(),
+                openData.tier(),
                 null,
-                buffer.readVarInt(),
-                buffer.readBlockPos(),
-                buffer.readVarInt(),
-                buffer.readVarInt(),
-                buffer.readBoolean()
+                openData.inventorySlot(),
+                openData.dockPos(),
+                openData.syncedUpgradeMask(),
+                openData.syncedEnergyStored(),
+                openData.syncedChargingEnabled()
         );
     }
 
@@ -187,12 +250,23 @@ public class DeepNullMenu extends AbstractContainerMenu {
         addDataSlot(new DataSlot() {
             @Override
             public int get() {
-                return DeepNullMenu.this.dankInventory.getEnergyStored();
+                return DeepNullMenu.this.dankInventory.getEnergyStored() & 0xFFFF;
             }
 
             @Override
             public void set(int value) {
-                DeepNullMenu.this.syncedEnergyStored = value;
+                DeepNullMenu.this.syncedEnergyStored = (DeepNullMenu.this.syncedEnergyStored & 0xFFFF0000) | (value & 0xFFFF);
+            }
+        });
+        addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return DeepNullMenu.this.dankInventory.getEnergyStored() >>> 16;
+            }
+
+            @Override
+            public void set(int value) {
+                DeepNullMenu.this.syncedEnergyStored = (DeepNullMenu.this.syncedEnergyStored & 0x0000FFFF) | ((value & 0xFFFF) << 16);
             }
         });
         addDataSlot(new DataSlot() {
@@ -793,10 +867,6 @@ public class DeepNullMenu extends AbstractContainerMenu {
                 ? FluidStack.EMPTY
                 : FluidUtil.getFluidContained(working).orElseGet(() -> firstFluidIn(itemHandler));
         boolean rawBucket = false;
-        if (contained.isEmpty() && working.getItem() instanceof BucketItem bucketItem && bucketItem.content != Fluids.EMPTY) {
-            contained = new FluidStack(bucketItem.content, FluidType.BUCKET_VOLUME);
-            rawBucket = true;
-        }
         if (contained.isEmpty()) {
             return stack;
         }

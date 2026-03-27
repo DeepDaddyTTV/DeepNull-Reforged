@@ -11,21 +11,15 @@ import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.EntityRenderersEvent;
-import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
-import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
-@EventBusSubscriber(modid = DeepNullReforged.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class ClientModEvents {
     public static final KeyMapping NEXT_ITEM = new KeyMapping("key.next_item.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping PREVIOUS_ITEM = new KeyMapping("key.previous_item.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
@@ -36,47 +30,35 @@ public final class ClientModEvents {
     public static final KeyMapping TOGGLE_AUTO_FEEDING = new KeyMapping("key.toggle_auto_feeding.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping TOGGLE_AUTO_SMELTING = new KeyMapping("key.toggle_auto_smelting.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping CYCLE_STONE_GENERATOR = new KeyMapping("key.cycle_stone_generator.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
+    private static boolean initialized;
 
     private ClientModEvents() {
     }
 
-    @SubscribeEvent
-    public static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenus.DEEP_NULL_MENU.get(), ClientModEvents::createDeepNullScreen);
-        event.register(ModMenus.NULL_WORKBENCH_MENU.get(), NullWorkbenchScreen::new);
-    }
+    public static void initialize() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
-    @SubscribeEvent
-    public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
-        event.register(NEXT_ITEM);
-        event.register(PREVIOUS_ITEM);
-        event.register(OPEN_DEEP_NULL);
-        event.register(TOGGLE_TRANSFER_LOCK);
-        event.register(TOGGLE_HUD);
-        event.register(TOGGLE_AUTO_PICKUP);
-        event.register(TOGGLE_AUTO_FEEDING);
-        event.register(TOGGLE_AUTO_SMELTING);
-        event.register(CYCLE_STONE_GENERATOR);
-    }
+        DeepNullItemRendering.initialize();
 
-    @SubscribeEvent
-    public static void registerClientExtensions(RegisterClientExtensionsEvent event) {
-        DeepNullItemRendering.registerClientExtensions(event);
-    }
+        MenuScreens.register(ModMenus.DEEP_NULL_MENU.get(), ClientModEvents::createDeepNullScreen);
+        MenuScreens.register(ModMenus.NULL_WORKBENCH_MENU.get(), NullWorkbenchScreen::new);
 
-    @SubscribeEvent
-    public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
-        DeepNullItemRendering.registerAdditionalModels(event);
-    }
+        KeyBindingHelper.registerKeyBinding(NEXT_ITEM);
+        KeyBindingHelper.registerKeyBinding(PREVIOUS_ITEM);
+        KeyBindingHelper.registerKeyBinding(OPEN_DEEP_NULL);
+        KeyBindingHelper.registerKeyBinding(TOGGLE_TRANSFER_LOCK);
+        KeyBindingHelper.registerKeyBinding(TOGGLE_HUD);
+        KeyBindingHelper.registerKeyBinding(TOGGLE_AUTO_PICKUP);
+        KeyBindingHelper.registerKeyBinding(TOGGLE_AUTO_FEEDING);
+        KeyBindingHelper.registerKeyBinding(TOGGLE_AUTO_SMELTING);
+        KeyBindingHelper.registerKeyBinding(CYCLE_STONE_GENERATOR);
 
-    @SubscribeEvent
-    public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerBlockEntityRenderer(ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockRenderer::new);
-    }
+        BlockEntityRendererRegistry.register(ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockRenderer::new);
 
-    @SubscribeEvent
-    public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
-        event.register((stack, tintIndex) -> {
+        ColorProviderRegistry.ITEM.register((stack, tintIndex) -> {
                     if (!(stack.getItem() instanceof DeepNullItem deepNullItem) || tintIndex < 0 || tintIndex > 1) {
                         return 0xFFFFFF;
                     }
@@ -104,7 +86,8 @@ public final class ClientModEvents {
                 ModItems.GOLD_DAMP_NULL.get(),
                 ModItems.DIAMOND_DAMP_NULL.get(),
                 ModItems.EMERALD_DAMP_NULL.get(),
-                ModItems.CREATIVE_DAMP_NULL.get());
+                ModItems.CREATIVE_DAMP_NULL.get()
+        );
     }
 
     private static AbstractContainerScreen<DeepNullMenu> createDeepNullScreen(DeepNullMenu menu, Inventory inventory, Component title) {

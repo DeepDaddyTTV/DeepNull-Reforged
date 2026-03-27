@@ -259,12 +259,18 @@ public final class DeepNullConfig {
     private DeepNullConfig() {
     }
 
+    public static void initializeDefaults() {
+        bakeClient();
+        bakeCommon();
+        bakeServer();
+    }
+
     public static void onLoad(ModConfigEvent.Loading event) {
-        bakeFor(event.getConfig().getSpec());
+        initializeDefaults();
     }
 
     public static void onReload(ModConfigEvent.Reloading event) {
-        bakeFor(event.getConfig().getSpec());
+        initializeDefaults();
     }
 
     public static boolean isHudEnabled() {

@@ -1,9 +1,10 @@
 package dev.deepdaddyttv.deepnullreforged.client.render;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
+import dev.deepdaddyttv.deepnullreforged.client.ClientFluidRendering;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismClientCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullContentMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
@@ -14,78 +15,95 @@ import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullPanelItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
+import net.fabricmc.fabric.api.client.model.loading.v1.FabricBakedModelManager;
+import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
+import net.minecraft.client.color.item.ItemColors;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.client.resources.model.ModelManager;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.BannerItem;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.TorchBlock;
-import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
-import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
-import net.neoforged.neoforge.client.textures.FluidSpriteCache;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.joml.Vector3f;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
+
 public final class DeepNullItemRendering {
-    private static final IClientItemExtensions EXTENSIONS = new IClientItemExtensions() {
-        @Override
-        public BlockEntityWithoutLevelRenderer getCustomRenderer() {
-            return RendererHolder.get();
-        }
-    };
+    private static final ResourceLocation[] ADDITIONAL_MODELS = createAdditionalModels();
+    private static final BuiltinItemRendererRegistry.DynamicItemRenderer RENDERER = new DeepNullItemRenderer();
+    private static final Field ITEM_COLORS_FIELD = findItemColorsField();
+
+    private static boolean initialized;
+    private static boolean itemColorsLookupLogged;
 
     private DeepNullItemRendering() {
     }
 
-    public static void registerClientExtensions(RegisterClientExtensionsEvent event) {
-        event.registerItem(
-                EXTENSIONS,
-                ModItems.REDSTONE_DEEP_NULL.get(),
-                ModItems.LAPIS_DEEP_NULL.get(),
-                ModItems.IRON_DEEP_NULL.get(),
-                ModItems.GOLD_DEEP_NULL.get(),
-                ModItems.DIAMOND_DEEP_NULL.get(),
-                ModItems.EMERALD_DEEP_NULL.get(),
-                ModItems.CREATIVE_DEEP_NULL.get(),
-                ModItems.REDSTONE_DAMP_NULL.get(),
-                ModItems.LAPIS_DAMP_NULL.get(),
-                ModItems.IRON_DAMP_NULL.get(),
-                ModItems.GOLD_DAMP_NULL.get(),
-                ModItems.DIAMOND_DAMP_NULL.get(),
-                ModItems.EMERALD_DAMP_NULL.get(),
-                ModItems.CREATIVE_DAMP_NULL.get()
-        );
+    public static void initialize() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+
+        ModelLoadingPlugin.register(context -> context.addModels(ADDITIONAL_MODELS));
+
+        registerBuiltinRenderer(ModItems.REDSTONE_DEEP_NULL.get());
+        registerBuiltinRenderer(ModItems.LAPIS_DEEP_NULL.get());
+        registerBuiltinRenderer(ModItems.IRON_DEEP_NULL.get());
+        registerBuiltinRenderer(ModItems.GOLD_DEEP_NULL.get());
+        registerBuiltinRenderer(ModItems.DIAMOND_DEEP_NULL.get());
+        registerBuiltinRenderer(ModItems.EMERALD_DEEP_NULL.get());
+        registerBuiltinRenderer(ModItems.CREATIVE_DEEP_NULL.get());
+        registerBuiltinRenderer(ModItems.REDSTONE_DAMP_NULL.get());
+        registerBuiltinRenderer(ModItems.LAPIS_DAMP_NULL.get());
+        registerBuiltinRenderer(ModItems.IRON_DAMP_NULL.get());
+        registerBuiltinRenderer(ModItems.GOLD_DAMP_NULL.get());
+        registerBuiltinRenderer(ModItems.DIAMOND_DAMP_NULL.get());
+        registerBuiltinRenderer(ModItems.EMERALD_DAMP_NULL.get());
+        registerBuiltinRenderer(ModItems.CREATIVE_DAMP_NULL.get());
     }
 
-    public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
+    private static void registerBuiltinRenderer(Item item) {
+        BuiltinItemRendererRegistry.INSTANCE.register(item, RENDERER);
+    }
+
+    private static ResourceLocation[] createAdditionalModels() {
+        List<ResourceLocation> models = new ArrayList<>();
         for (DeepNullTier tier : DeepNullTier.values()) {
-            event.register(baseModelLocation(tier));
-            event.register(dampBaseModelLocation(tier));
-            event.register(variantBaseModelLocation(tier, false, StyleGlassVariant.CREEPER));
-            event.register(variantBaseModelLocation(tier, false, StyleGlassVariant.PICKAXE));
-            event.register(variantBaseModelLocation(tier, true, StyleGlassVariant.FISH));
-            event.register(variantBaseModelLocation(tier, true, StyleGlassVariant.FISHING_ROD));
+            models.add(baseModelLocation(tier));
+            models.add(dampBaseModelLocation(tier));
+            models.add(variantBaseModelLocation(tier, false, StyleGlassVariant.CREEPER));
+            models.add(variantBaseModelLocation(tier, false, StyleGlassVariant.PICKAXE));
+            models.add(variantBaseModelLocation(tier, true, StyleGlassVariant.FISH));
+            models.add(variantBaseModelLocation(tier, true, StyleGlassVariant.FISHING_ROD));
         }
-        event.register(styledBaseModelLocation());
-        event.register(styledDampBaseModelLocation());
-        event.register(styledVariantModelLocation(false, StyleGlassVariant.CREEPER));
-        event.register(styledVariantModelLocation(false, StyleGlassVariant.PICKAXE));
-        event.register(styledVariantModelLocation(true, StyleGlassVariant.FISH));
-        event.register(styledVariantModelLocation(true, StyleGlassVariant.FISHING_ROD));
+        models.add(styledBaseModelLocation());
+        models.add(styledDampBaseModelLocation());
+        models.add(styledVariantModelLocation(false, StyleGlassVariant.CREEPER));
+        models.add(styledVariantModelLocation(false, StyleGlassVariant.PICKAXE));
+        models.add(styledVariantModelLocation(true, StyleGlassVariant.FISH));
+        models.add(styledVariantModelLocation(true, StyleGlassVariant.FISHING_ROD));
+        return models.toArray(ResourceLocation[]::new);
     }
 
     private static RenderContents getRenderContents(ItemStack deepNullStack) {
@@ -99,26 +117,99 @@ public final class DeepNullItemRendering {
         return new RenderContents(inventory.getSelectedStack(), inventory.getSelectedFluid(), inventory.getSelectedChemical(), inventory.getContentMode());
     }
 
-    private static final class RendererHolder {
-        private static DeepNullItemRenderer INSTANCE;
+    private static ItemColors resolveItemColors(ItemRenderer itemRenderer) {
+        if (ITEM_COLORS_FIELD == null) {
+            logItemColorsLookupFailure();
+            return null;
+        }
 
-        private static DeepNullItemRenderer get() {
-            if (INSTANCE == null) {
-                Minecraft minecraft = Minecraft.getInstance();
-                BlockEntityRenderDispatcher dispatcher = minecraft.getBlockEntityRenderDispatcher();
-                INSTANCE = new DeepNullItemRenderer(dispatcher);
-            }
-            return INSTANCE;
+        try {
+            return (ItemColors) ITEM_COLORS_FIELD.get(itemRenderer);
+        } catch (IllegalAccessException exception) {
+            logItemColorsLookupFailure();
+            return null;
         }
     }
 
-    private static final class DeepNullItemRenderer extends BlockEntityWithoutLevelRenderer {
-        private DeepNullItemRenderer(BlockEntityRenderDispatcher blockEntityRenderDispatcher) {
-            super(blockEntityRenderDispatcher, Minecraft.getInstance().getEntityModels());
+    private static Field findItemColorsField() {
+        try {
+            for (Field field : ItemRenderer.class.getDeclaredFields()) {
+                if (field.getType() == ItemColors.class) {
+                    field.setAccessible(true);
+                    return field;
+                }
+            }
+        } catch (RuntimeException exception) {
+            DeepNullReforged.LOGGER.warn("Failed to make ItemRenderer item color field accessible", exception);
+        }
+        return null;
+    }
+
+    private static void logItemColorsLookupFailure() {
+        if (itemColorsLookupLogged) {
+            return;
+        }
+        itemColorsLookupLogged = true;
+        DeepNullReforged.LOGGER.warn("Falling back to untinted DeepNull item model rendering because ItemColors could not be resolved");
+    }
+
+    private static BakedModel loadAdditionalModel(ResourceLocation modelId) {
+        Minecraft minecraft = Minecraft.getInstance();
+        ModelManager modelManager = minecraft.getModelManager();
+        BakedModel model = ((FabricBakedModelManager) modelManager).getModel(modelId);
+        return model == null ? modelManager.getMissingModel() : model;
+    }
+
+    private static void renderModelLists(
+            ItemRenderer itemRenderer,
+            BakedModel model,
+            ItemStack stack,
+            int packedLight,
+            int packedOverlay,
+            PoseStack poseStack,
+            VertexConsumer buffer
+    ) {
+        RandomSource randomSource = RandomSource.create();
+        ItemColors itemColors = resolveItemColors(itemRenderer);
+
+        for (Direction direction : Direction.values()) {
+            randomSource.setSeed(42L);
+            renderQuadList(itemColors, poseStack, buffer, model.getQuads(null, direction, randomSource), stack, packedLight, packedOverlay);
         }
 
+        randomSource.setSeed(42L);
+        renderQuadList(itemColors, poseStack, buffer, model.getQuads(null, null, randomSource), stack, packedLight, packedOverlay);
+    }
+
+    private static void renderQuadList(
+            ItemColors itemColors,
+            PoseStack poseStack,
+            VertexConsumer buffer,
+            List<BakedQuad> quads,
+            ItemStack itemStack,
+            int packedLight,
+            int packedOverlay
+    ) {
+        boolean hasItemStack = !itemStack.isEmpty();
+        PoseStack.Pose pose = poseStack.last();
+
+        for (BakedQuad bakedQuad : quads) {
+            int color = -1;
+            if (hasItemStack && bakedQuad.isTinted() && itemColors != null) {
+                color = itemColors.getColor(itemStack, bakedQuad.getTintIndex());
+            }
+
+            float alpha = (float) FastColor.ARGB32.alpha(color) / 255.0F;
+            float red = (float) FastColor.ARGB32.red(color) / 255.0F;
+            float green = (float) FastColor.ARGB32.green(color) / 255.0F;
+            float blue = (float) FastColor.ARGB32.blue(color) / 255.0F;
+            buffer.putBulkData(pose, bakedQuad, red, green, blue, alpha, packedLight, packedOverlay);
+        }
+    }
+
+    private static final class DeepNullItemRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
         @Override
-        public void renderByItem(ItemStack stack, ItemDisplayContext displayContext, PoseStack poseStack, MultiBufferSource buffer, int packedLight, int packedOverlay) {
+        public void render(ItemStack stack, ItemDisplayContext displayContext, PoseStack poseStack, MultiBufferSource buffer, int packedLight, int packedOverlay) {
             Minecraft minecraft = Minecraft.getInstance();
             ItemRenderer itemRenderer = minecraft.getItemRenderer();
             BakedModel baseModel = getBaseModel(stack);
@@ -163,24 +254,24 @@ public final class DeepNullItemRendering {
             if (!(stack.getItem() instanceof DeepNullItem deepNullItem)) {
                 return Minecraft.getInstance().getModelManager().getMissingModel();
             }
+
             boolean fluidOnly = stack.getItem() instanceof DampNullItem;
-            DeepNullInventory.StyleRenderData style = DeepNullInventory.readStyleRenderData(stack, deepNullItem.tier(), fluidOnly);
-            StyleGlassVariant styleVariant = style.styleVariant();
+            StyleGlassVariant styleVariant = DeepNullInventory.getStyleVariant(stack);
             if (styleVariant != StyleGlassVariant.DEFAULT) {
-                return Minecraft.getInstance().getModelManager().getModel(
-                        style.hasColorOverrides()
+                return loadAdditionalModel(
+                        DeepNullInventory.hasColorOverrides(stack)
                                 ? styledVariantModelLocation(fluidOnly, styleVariant)
                                 : variantBaseModelLocation(deepNullItem.tier(), fluidOnly, styleVariant)
                 );
             }
-            if (style.hasColorOverrides()) {
-                return Minecraft.getInstance().getModelManager().getModel(
+            if (DeepNullInventory.hasColorOverrides(stack)) {
+                return loadAdditionalModel(
                         fluidOnly
                                 ? styledDampBaseModelLocation()
                                 : styledBaseModelLocation()
                 );
             }
-            return Minecraft.getInstance().getModelManager().getModel(
+            return loadAdditionalModel(
                     fluidOnly
                             ? dampBaseModelLocation(deepNullItem.tier())
                             : baseModelLocation(deepNullItem.tier())
@@ -196,12 +287,13 @@ public final class DeepNullItemRendering {
                 int packedLight,
                 int packedOverlay
         ) {
-            for (BakedModel renderPass : baseModel.getRenderPasses(stack, true)) {
-                for (RenderType renderType : renderPass.getRenderTypes(stack, true)) {
-                    VertexConsumer vertexConsumer = ItemRenderer.getFoilBufferDirect(buffer, renderType, true, stack.hasFoil());
-                    itemRenderer.renderModelLists(renderPass, stack, packedLight, packedOverlay, poseStack, vertexConsumer);
-                }
-            }
+            VertexConsumer vertexConsumer = ItemRenderer.getFoilBufferDirect(
+                    buffer,
+                    ItemBlockRenderTypes.getRenderType(stack, true),
+                    true,
+                    stack.hasFoil()
+            );
+            renderModelLists(itemRenderer, baseModel, stack, packedLight, packedOverlay, poseStack, vertexConsumer);
         }
 
         private static void renderSelectedItem(
@@ -228,12 +320,13 @@ public final class DeepNullItemRendering {
                 return;
             }
 
-            for (BakedModel renderPass : selectedModel.getRenderPasses(renderStack, true)) {
-                for (RenderType renderType : renderPass.getRenderTypes(renderStack, true)) {
-                    VertexConsumer vertexConsumer = ItemRenderer.getFoilBufferDirect(buffer, renderType, true, renderStack.hasFoil());
-                    itemRenderer.renderModelLists(renderPass, renderStack, packedLight, packedOverlay, poseStack, vertexConsumer);
-                }
-            }
+            VertexConsumer vertexConsumer = ItemRenderer.getFoilBufferDirect(
+                    buffer,
+                    ItemBlockRenderTypes.getRenderType(renderStack, true),
+                    true,
+                    renderStack.hasFoil()
+            );
+            renderModelLists(itemRenderer, selectedModel, renderStack, packedLight, packedOverlay, poseStack, vertexConsumer);
         }
 
         private static void applyContainedItemTransform(
@@ -321,18 +414,12 @@ public final class DeepNullItemRendering {
                 int packedLight,
                 int packedOverlay
         ) {
-            IClientFluidTypeExtensions clientFluid = IClientFluidTypeExtensions.of(storedFluid.getFluid());
-            ResourceLocation texture = clientFluid.getStillTexture(storedFluid);
-            if (texture == null) {
+            TextureAtlasSprite sprite = ClientFluidRendering.getStillSprite(storedFluid);
+            if (sprite == null) {
                 return;
             }
 
-            TextureAtlasSprite sprite = FluidSpriteCache.getSprite(texture);
-            int tint = clientFluid.getTintColor(storedFluid);
-            if ((tint >>> 24) == 0) {
-                tint |= 0xFF000000;
-            }
-
+            int tint = ClientFluidRendering.getTint(storedFluid);
             VertexConsumer vertexConsumer = buffer.getBuffer(RenderType.entityTranslucent(sprite.atlasLocation()));
             renderFluidCube(poseStack, vertexConsumer, sprite, tint, packedLight, packedOverlay);
         }
@@ -484,27 +571,23 @@ public final class DeepNullItemRendering {
         }
     }
 
-    private static ModelResourceLocation baseModelLocation(DeepNullTier tier) {
-        ResourceLocation id = DeepNullReforged.id("item/deep_null_base_" + tier.ordinalId());
-        return ModelResourceLocation.standalone(id);
+    private static ResourceLocation baseModelLocation(DeepNullTier tier) {
+        return DeepNullReforged.id("item/deep_null_base_" + tier.ordinalId());
     }
 
-    private static ModelResourceLocation dampBaseModelLocation(DeepNullTier tier) {
-        ResourceLocation id = DeepNullReforged.id("item/damp_null_base_" + tier.ordinalId());
-        return ModelResourceLocation.standalone(id);
+    private static ResourceLocation dampBaseModelLocation(DeepNullTier tier) {
+        return DeepNullReforged.id("item/damp_null_base_" + tier.ordinalId());
     }
 
-    private static ModelResourceLocation styledBaseModelLocation() {
-        ResourceLocation id = DeepNullReforged.id("item/deep_null_styled");
-        return ModelResourceLocation.standalone(id);
+    private static ResourceLocation styledBaseModelLocation() {
+        return DeepNullReforged.id("item/deep_null_styled");
     }
 
-    private static ModelResourceLocation styledDampBaseModelLocation() {
-        ResourceLocation id = DeepNullReforged.id("item/damp_null_styled");
-        return ModelResourceLocation.standalone(id);
+    private static ResourceLocation styledDampBaseModelLocation() {
+        return DeepNullReforged.id("item/damp_null_styled");
     }
 
-    private static ModelResourceLocation variantBaseModelLocation(DeepNullTier tier, boolean fluidOnly, StyleGlassVariant variant) {
+    private static ResourceLocation variantBaseModelLocation(DeepNullTier tier, boolean fluidOnly, StyleGlassVariant variant) {
         String path = switch (variant) {
             case CREEPER -> "item/deep_null_creeper_base_" + tier.ordinalId();
             case PICKAXE -> "item/deep_null_pickaxe_base_" + tier.ordinalId();
@@ -514,10 +597,10 @@ public final class DeepNullItemRendering {
                     ? "item/damp_null_base_" + tier.ordinalId()
                     : "item/deep_null_base_" + tier.ordinalId();
         };
-        return ModelResourceLocation.standalone(DeepNullReforged.id(path));
+        return DeepNullReforged.id(path);
     }
 
-    private static ModelResourceLocation styledVariantModelLocation(boolean fluidOnly, StyleGlassVariant variant) {
+    private static ResourceLocation styledVariantModelLocation(boolean fluidOnly, StyleGlassVariant variant) {
         String path = switch (variant) {
             case CREEPER -> "item/deep_null_creeper_styled";
             case PICKAXE -> "item/deep_null_pickaxe_styled";
@@ -525,7 +608,7 @@ public final class DeepNullItemRendering {
             case FISHING_ROD -> "item/damp_null_fishing_rod_styled";
             case DEFAULT -> fluidOnly ? "item/damp_null_styled" : "item/deep_null_styled";
         };
-        return ModelResourceLocation.standalone(DeepNullReforged.id(path));
+        return DeepNullReforged.id(path);
     }
 
     private record RenderContents(ItemStack selectedStack, FluidStack storedFluid, StoredChemical storedChemical, DeepNullContentMode contentMode) {

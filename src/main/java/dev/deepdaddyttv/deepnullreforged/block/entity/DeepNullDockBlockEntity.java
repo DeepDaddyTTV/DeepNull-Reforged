@@ -5,6 +5,7 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.registry.ModCapabilities;
 import net.minecraft.core.Direction;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
@@ -16,7 +17,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
@@ -187,9 +187,6 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         if (level != null && !level.isClientSide) {
             BlockState state = getBlockState();
             level.sendBlockUpdated(worldPosition, state, state, 3);
-            if (invalidateCapabilities) {
-                level.invalidateCapabilities(worldPosition);
-            }
         }
     }
 
@@ -275,9 +272,9 @@ public class DeepNullDockBlockEntity extends BlockEntity {
 
         ItemStack remaining = generatorBuffer.copy();
         for (Direction direction : Direction.values()) {
-            IItemHandler target = level.getCapability(Capabilities.ItemHandler.BLOCK, pos.relative(direction), direction.getOpposite());
+            IItemHandler target = ModCapabilities.getBlockItemHandler(level, pos.relative(direction), direction.getOpposite());
             if (target == null) {
-                target = level.getCapability(Capabilities.ItemHandler.BLOCK, pos.relative(direction), null);
+                target = ModCapabilities.getBlockItemHandler(level, pos.relative(direction), null);
             }
             if (target == null) {
                 continue;

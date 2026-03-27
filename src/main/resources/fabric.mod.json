@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "license": "${mod_license}",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.deepdaddyttv.deepnullreforged.fabric.DeepNullReforgedFabric"
+    ],
+    "client": [
+      "dev.deepdaddyttv.deepnullreforged.fabric.client.DeepNullReforgedFabricClient"
+    ],
+    "jei_mod_plugin": [
+      "dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullJeiPlugin"
+    ]
+  },
+  "mixins": [
+    "deepnullreforged.fabric.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=${java_version}",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "ae2": "*",
+    "jei": "*"
+  }
+}

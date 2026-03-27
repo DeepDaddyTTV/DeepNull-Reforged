@@ -481,10 +481,27 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public int findFluidPickupSlot(FluidStack stack) {
-        int matchingSlot = findMatchingFluidSlot(stack);
-        if (matchingSlot >= 0) {
-            return matchingSlot;
+        if (!supportsFluidStorage() || stack.isEmpty()) {
+            return -1;
         }
+
+        if (selectedSlot >= 0 && selectedSlot < fluidStacks.size() && canInsertFluidIntoSlot(selectedSlot, stack)) {
+            FluidStack selectedFluid = fluidStacks.get(selectedSlot);
+            if (!selectedFluid.isEmpty() && FluidStack.isSameFluidSameComponents(selectedFluid, stack)) {
+                return selectedSlot;
+            }
+        }
+
+        for (int slot = 0; slot < fluidStacks.size(); slot++) {
+            if (slot == selectedSlot || !canInsertFluidIntoSlot(slot, stack)) {
+                continue;
+            }
+            FluidStack existing = fluidStacks.get(slot);
+            if (!existing.isEmpty() && FluidStack.isSameFluidSameComponents(existing, stack)) {
+                return slot;
+            }
+        }
+
         if (selectedSlot >= 0 && selectedSlot < fluidStacks.size() && isTankEmpty(selectedSlot)) {
             return selectedSlot;
         }
@@ -497,6 +514,24 @@ public class DeepNullInventory extends ItemStackHandler {
             return pickupSlot;
         }
         return findFirstEmptyFluidSlot();
+    }
+
+    private boolean canInsertFluidIntoSlot(int slot, FluidStack stack) {
+        if (!supportsFluidStorage() || stack.isEmpty() || slot < 0 || slot >= fluidStacks.size()) {
+            return false;
+        }
+        if (!chemicalStacks.get(slot).isEmpty()) {
+            return false;
+        }
+
+        FluidStack existing = fluidStacks.get(slot);
+        if (existing.isEmpty()) {
+            return true;
+        }
+        if (!FluidStack.isSameFluidSameComponents(existing, stack)) {
+            return false;
+        }
+        return tier.creative() || existing.getAmount() < getFluidCapacity();
     }
 
     public int fillFluid(FluidStack resource, boolean simulate) {

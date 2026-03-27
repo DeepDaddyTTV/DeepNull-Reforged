@@ -65,6 +65,10 @@ public final class ModItems {
     private ModItems() {
     }
 
+    public static void register() {
+        ITEMS.register();
+    }
+
     private static DeferredItem<Item> registerDeepNull(DeepNullTier tier) {
         return ITEMS.register(tier.deepNullId(), () -> new DeepNullItem(tier, new Item.Properties()));
     }

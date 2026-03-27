@@ -25,8 +25,6 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.client.textures.FluidSpriteCache;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.items.SlotItemHandler;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -201,23 +199,6 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     @Override
-    protected void renderSlotContents(GuiGraphics guiGraphics, ItemStack itemstack, Slot slot, String countString) {
-        if (isStorageItemSlot(slot) && !itemstack.isEmpty()) {
-            Rect2i slotRect = new Rect2i(leftPos + slot.x, topPos + slot.y, 16, 16);
-            if (customExtractionBox != null && customExtractionBox.visible && intersects(customExtractionPopupBounds(), slotRect)) {
-                return;
-            }
-            String overlay = compactSlotCountText(itemstack);
-            super.renderSlotContents(guiGraphics, itemstack.copyWithCount(1), slot, "");
-            if (overlay != null && !overlay.isEmpty()) {
-                renderStorageCountOverlay(guiGraphics, slot, overlay);
-            }
-            return;
-        }
-        super.renderSlotContents(guiGraphics, itemstack, slot, countString);
-    }
-
-    @Override
     protected List<Component> getTooltipFromContainerItem(ItemStack stack) {
         List<Component> tooltip = new ArrayList<>(super.getTooltipFromContainerItem(stack));
         if (!isStorageItemSlot(hoveredSlot) || stack.isEmpty()) {
@@ -272,7 +253,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 closeCustomExtractionEditor(true);
             }
         }
-        Slot slot = getSlotUnderMouse();
+        Slot slot = hoveredSlot;
         if (!isFluidView() && button == 2) {
             if (slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
                 openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY));
@@ -484,13 +465,11 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return;
         }
 
-        IClientFluidTypeExtensions clientFluid = IClientFluidTypeExtensions.of(fluidStack.getFluid());
-        ResourceLocation texture = clientFluid.getStillTexture(fluidStack);
-        int tint = clientFluid.getTintColor(fluidStack);
-        if (texture == null) {
+        TextureAtlasSprite sprite = ClientFluidRendering.getStillSprite(fluidStack);
+        int tint = ClientFluidRendering.getTint(fluidStack);
+        if (sprite == null) {
             guiGraphics.fill(x, y, x + 16, y + 16, tint == 0 ? 0xFF3AA7FF : tint);
         } else {
-            TextureAtlasSprite sprite = FluidSpriteCache.getSprite(texture);
             float alpha = ((tint >> 24) & 0xFF) / 255.0F;
             float red = ((tint >> 16) & 0xFF) / 255.0F;
             float green = ((tint >> 8) & 0xFF) / 255.0F;
@@ -603,7 +582,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private Slot getContextSlot() {
-        Slot hovered = getSlotUnderMouse();
+        Slot hovered = hoveredSlot;
         if (hovered != null && hovered.index >= 0 && hovered.index < menu.getStorageSlotCount()) {
             return hovered;
         }
@@ -638,11 +617,11 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         return Component.translatable(menu.getDankInventory().isTagMatchingEnabled(slotIndex) ? "dn.enabled.desc" : "dn.disabled.desc");
     }
 
-    private boolean isStorageItemSlot(Slot slot) {
+    public boolean isStorageItemSlot(Slot slot) {
         return slot instanceof SlotItemHandler && slot.index >= 0 && slot.index < menu.getStorageSlotCount();
     }
 
-    private String compactSlotCountText(ItemStack stack) {
+    public String compactSlotCountText(ItemStack stack) {
         if (menu.getDankInventory().supportsLocking() && menu.getDankInventory().isLocked()) {
             return "inf";
         }
@@ -651,7 +630,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 : DeepNullCountFormatter.formatCompact(stack.getCount());
     }
 
-    private void renderStorageCountOverlay(GuiGraphics guiGraphics, Slot slot, String overlay) {
+    public void renderStorageCountOverlay(GuiGraphics guiGraphics, Slot slot, String overlay) {
         if (customExtractionBox != null && customExtractionBox.visible) {
             Rect2i popup = customExtractionPopupBounds();
             Rect2i slotRect = new Rect2i(leftPos + slot.x, topPos + slot.y, 16, 16);
@@ -759,7 +738,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return;
         }
 
-        Slot hovered = getSlotUnderMouse();
+        Slot hovered = hoveredSlot;
         if (!(hovered instanceof DeepNullMenu.FluidStorageSlot) || hovered.index < 0 || hovered.index >= menu.getStorageSlotCount()) {
             return;
         }
@@ -1343,7 +1322,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (latchedReorderSlot >= 0 && latchedReorderSlot < menu.getStorageSlotCount()) {
             return latchedReorderSlot;
         }
-        Slot hovered = getSlotUnderMouse();
+        Slot hovered = hoveredSlot;
         if (hovered instanceof SlotItemHandler && hovered.index < menu.getStorageSlotCount()) {
             latchedReorderSlot = hovered.index;
             return hovered.index;

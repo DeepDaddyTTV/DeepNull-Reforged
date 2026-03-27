@@ -30,4 +30,8 @@ public final class ModRecipeSerializers {
 
     private ModRecipeSerializers() {
     }
+
+    public static void register() {
+        RECIPE_SERIALIZERS.register();
+    }
 }

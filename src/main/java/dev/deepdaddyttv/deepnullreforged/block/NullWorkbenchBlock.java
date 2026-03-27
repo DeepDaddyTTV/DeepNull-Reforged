@@ -4,13 +4,13 @@ import com.mojang.serialization.MapCodec;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -29,11 +29,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.common.ItemAbilities;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
@@ -123,7 +123,7 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
             return 0.0F;
         }
         float destroySpeed = player.getDestroySpeed(state);
-        boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbilities.PICKAXE_DIG);
+        boolean pickaxeLikeTool = player.hasCorrectToolForDrops(state);
         if (pickaxeLikeTool && destroySpeed > 1.0F) {
             return destroySpeed / hardness / 15.0F;
         }
@@ -139,18 +139,22 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
         if (!(level.getBlockEntity(mainPos) instanceof NullWorkbenchBlockEntity workbench)) {
             return InteractionResult.PASS;
         }
-        MenuProvider provider = new MenuProvider() {
+        serverPlayer.openMenu(new ExtendedScreenHandlerFactory<BlockPos>() {
             @Override
             public Component getDisplayName() {
                 return Component.translatable("container.deepnullreforged.null_workbench");
             }
 
             @Override
-            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
+            public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
                 return new NullWorkbenchMenu(containerId, inventory, workbench);
             }
-        };
-        serverPlayer.openMenu(provider, buf -> buf.writeBlockPos(mainPos));
+
+            @Override
+            public BlockPos getScreenOpeningData(ServerPlayer player) {
+                return mainPos;
+            }
+        });
         return InteractionResult.CONSUME;
     }
 

@@ -23,4 +23,8 @@ public final class ModBlockEntities {
 
     private ModBlockEntities() {
     }
+
+    public static void register() {
+        BLOCK_ENTITY_TYPES.register();
+    }
 }

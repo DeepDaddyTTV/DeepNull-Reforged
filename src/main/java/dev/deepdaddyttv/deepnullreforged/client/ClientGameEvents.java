@@ -1,35 +1,44 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
-import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.DeepNullDockBlock;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullHudState;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.event.client.player.ClientPickBlockApplyCallback;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RenderGuiEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-@EventBusSubscriber(modid = DeepNullReforged.MODID, value = Dist.CLIENT)
 public final class ClientGameEvents {
+    private static boolean initialized;
+
     private ClientGameEvents() {
     }
 
-    @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
-        Minecraft minecraft = Minecraft.getInstance();
+    public static void initialize() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+
+        ClientTickEvents.END_CLIENT_TICK.register(ClientGameEvents::onClientTick);
+        HudRenderCallback.EVENT.register(DeepNullHudRenderer::render);
+        ClientPickBlockApplyCallback.EVENT.register(ClientGameEvents::onPickBlockApply);
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) ->
+                ScreenEvents.remove(screen).register(ClientGameEvents::onScreenClosing));
+    }
+
+    private static void onClientTick(Minecraft minecraft) {
         Player player = minecraft.player;
         if (player == null) {
             DeepNullHudState.clear();
@@ -45,7 +54,7 @@ public final class ClientGameEvents {
 
         if (ClientModEvents.OPEN_DEEP_NULL.consumeClick()) {
             if (isDeepNullScreen(minecraft.screen)) {
-                player.closeContainer();
+                ((LocalPlayer) player).closeContainer();
             } else if (minecraft.screen == null) {
                 int inventorySlot = ClientDeepNullAccess.findHotbarDeepNullSlot(player.getInventory());
                 if (inventorySlot >= 0) {
@@ -96,74 +105,49 @@ public final class ClientGameEvents {
         }
     }
 
-    @SubscribeEvent
-    public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+    public static boolean handleShiftScrollSelection(Player player, double scrollDeltaY) {
         Minecraft minecraft = Minecraft.getInstance();
-        Player player = minecraft.player;
         if (player == null
                 || minecraft.screen != null
                 || !DeepNullConfig.isShiftScrollSelectionEnabled()
                 || !player.isShiftKeyDown()
-                || event.getScrollDeltaY() == 0.0D) {
-            return;
+                || scrollDeltaY == 0.0D) {
+            return false;
         }
 
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
         if (held == null) {
-            return;
+            return false;
         }
 
-        held.inventory().cycleSelected(event.getScrollDeltaY() < 0.0D);
+        held.inventory().cycleSelected(scrollDeltaY < 0.0D);
         PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), held.inventory().getSelectedSlot()));
-        event.setCanceled(true);
+        return true;
     }
 
-    @SubscribeEvent
-    public static void onInteraction(InputEvent.InteractionKeyMappingTriggered event) {
+    private static ItemStack onPickBlockApply(Player player, HitResult hitResult, ItemStack pickedStack) {
         Minecraft minecraft = Minecraft.getInstance();
-        Player player = minecraft.player;
-        if (event.isUseItem() && handleInvertedDampNullUse(event, minecraft, player)) {
-            return;
-        }
-
-        if (!event.isPickBlock()) {
-            return;
-        }
-
-        if (player == null || minecraft.level == null || minecraft.hitResult == null || minecraft.hitResult.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
-            return;
+        if (player == null || minecraft.level == null || hitResult == null || pickedStack.isEmpty()) {
+            return pickedStack;
         }
 
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
-        if (held == null) {
-            return;
+        if (held == null || held.inventory().isFluidMode()) {
+            return pickedStack;
         }
 
-        if (held.inventory().isFluidMode()) {
-            return;
+        int slot = held.inventory().findMatchingSlot(pickedStack);
+        if (slot < 0) {
+            return pickedStack;
         }
 
-        net.minecraft.world.phys.BlockHitResult hitResult = (net.minecraft.world.phys.BlockHitResult) minecraft.hitResult;
-        net.minecraft.core.BlockPos pos = hitResult.getBlockPos();
-        net.minecraft.world.level.block.state.BlockState state = minecraft.level.getBlockState(pos);
-        ItemStack targetStack = state.getCloneItemStack(minecraft.hitResult, minecraft.level, pos, player);
-        int slot = held.inventory().findMatchingSlot(targetStack);
-        if (slot >= 0) {
-            held.inventory().setSelectedSlot(slot);
-            PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), slot));
-            event.setSwingHand(false);
-            event.setCanceled(true);
-        }
+        held.inventory().setSelectedSlot(slot);
+        PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), slot));
+        return ItemStack.EMPTY;
     }
 
-    @SubscribeEvent
-    public static void onRenderGui(RenderGuiEvent.Post event) {
-        DeepNullHudRenderer.render(event.getGuiGraphics(), event.getPartialTick());
-    }
-
-    @SubscribeEvent
-    public static void onScreenClosing(ScreenEvent.Closing event) {
-        if (!(event.getScreen() instanceof AbstractContainerScreen<?> containerScreen)) {
+    private static void onScreenClosing(net.minecraft.client.gui.screens.Screen screen) {
+        if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) {
             return;
         }
 
@@ -240,36 +224,6 @@ public final class ClientGameEvents {
         held.inventory().setStoneGeneratorVariant(next);
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldStoneVariantPayload(held.inventorySlot(), next.ordinal()));
         player.displayClientMessage(Component.translatable("dn.stone_type.desc").append(": ").append(next.displayName()), true);
-    }
-
-    private static boolean handleInvertedDampNullUse(InputEvent.InteractionKeyMappingTriggered event, Minecraft minecraft, Player player) {
-        if (!DeepNullConfig.isDampNullInteractionInverted() || player == null || minecraft.screen != null) {
-            return false;
-        }
-
-        ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
-        if (held == null || !held.inventory().isFluidOnly()) {
-            return false;
-        }
-
-        boolean targetingBlock = minecraft.hitResult != null && minecraft.hitResult.getType() == HitResult.Type.BLOCK;
-        if (targetingBlock && minecraft.level != null && minecraft.hitResult instanceof BlockHitResult blockHitResult
-                && minecraft.level.getBlockState(blockHitResult.getBlockPos()).getBlock() instanceof DeepNullDockBlock) {
-            return false;
-        }
-        if (!player.isShiftKeyDown()) {
-            event.setCanceled(true);
-            event.setSwingHand(false);
-            PacketDistributor.sendToServer(new DeepNullPayloads.OpenItemMenuPayload(held.inventorySlot()));
-            return true;
-        }
-
-        if (!targetingBlock) {
-            event.setCanceled(true);
-            event.setSwingHand(false);
-            return true;
-        }
-        return false;
     }
 
     private static boolean isDeepNullScreen(net.minecraft.client.gui.screens.Screen screen) {

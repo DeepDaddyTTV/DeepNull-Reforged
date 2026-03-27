@@ -25,7 +25,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.common.ItemAbilities;
 import org.jetbrains.annotations.Nullable;
 
 public class DeepNullDockBlock extends BaseEntityBlock {
@@ -73,7 +72,7 @@ public class DeepNullDockBlock extends BaseEntityBlock {
             return 0.0F;
         }
         float destroySpeed = player.getDestroySpeed(state);
-        boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbilities.PICKAXE_DIG);
+        boolean pickaxeLikeTool = player.hasCorrectToolForDrops(state);
         if (pickaxeLikeTool && destroySpeed > 1.0F) {
             return destroySpeed / hardness / 15.0F;
         }
