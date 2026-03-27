@@ -13,12 +13,12 @@ public final class ModBlockEntities {
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DeepNullDockBlockEntity>> DEEP_NULL_DOCK = BLOCK_ENTITY_TYPES.register(
             "deepnull_dock",
-            () -> BlockEntityType.Builder.of(DeepNullDockBlockEntity::new, ModBlocks.DEEP_NULL_DOCK.get()).build(null)
+            () -> new BlockEntityType<>(DeepNullDockBlockEntity::new, ModBlocks.DEEP_NULL_DOCK.get())
     );
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<NullWorkbenchBlockEntity>> NULL_WORKBENCH = BLOCK_ENTITY_TYPES.register(
             "null_workbench",
-            () -> BlockEntityType.Builder.of(NullWorkbenchBlockEntity::new, ModBlocks.NULL_WORKBENCH.get()).build(null)
+            () -> new BlockEntityType<>(NullWorkbenchBlockEntity::new, ModBlocks.NULL_WORKBENCH.get())
     );
 
     private ModBlockEntities() {

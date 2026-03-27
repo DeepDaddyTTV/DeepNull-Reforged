@@ -1,7 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged;
 
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -117,8 +117,8 @@ public final class DeepNullConfig {
     private static volatile int defaultStoneworksAmount = 1;
 
     private static volatile boolean tagMatchingDisabled;
-    private static volatile Set<ResourceLocation> tagBlacklist = Set.of();
-    private static volatile Set<ResourceLocation> tagWhitelist = Set.of();
+    private static volatile Set<Identifier> tagBlacklist = Set.of();
+    private static volatile Set<Identifier> tagWhitelist = Set.of();
     private static volatile boolean serverEnableAutoPickup = true;
     private static volatile boolean serverEnableAutoFeeding = true;
     private static volatile boolean serverEnableAutoSmelting = true;
@@ -342,7 +342,7 @@ public final class DeepNullConfig {
         return !tagMatchingDisabled;
     }
 
-    public static boolean isDictionaryTagAllowed(ResourceLocation tagId) {
+    public static boolean isDictionaryTagAllowed(Identifier tagId) {
         if (!isTagMatchingEnabled()) {
             return false;
         }
@@ -534,10 +534,10 @@ public final class DeepNullConfig {
         return normalized;
     }
 
-    private static Set<ResourceLocation> normalizeTags(List<? extends String> configuredTags) {
-        LinkedHashSet<ResourceLocation> normalized = new LinkedHashSet<>();
+    private static Set<Identifier> normalizeTags(List<? extends String> configuredTags) {
+        LinkedHashSet<Identifier> normalized = new LinkedHashSet<>();
         for (String configuredTag : configuredTags) {
-            ResourceLocation parsed = ResourceLocation.tryParse(configuredTag);
+            Identifier parsed = Identifier.tryParse(configuredTag);
             if (parsed != null) {
                 normalized.add(parsed);
             }
@@ -546,7 +546,7 @@ public final class DeepNullConfig {
     }
 
     private static boolean validateTagName(Object value) {
-        return value instanceof String tagName && ResourceLocation.tryParse(tagName) != null;
+        return value instanceof String tagName && Identifier.tryParse(tagName) != null;
     }
 
     private static boolean validateIntegerValue(Object value) {

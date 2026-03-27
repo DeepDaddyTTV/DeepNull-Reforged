@@ -43,7 +43,7 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
         super(ModMenus.NULL_WORKBENCH_MENU.get(), containerId);
         this.workbench = workbench;
         this.blockPos = blockPos;
-        this.clientSide = playerInventory.player.level().isClientSide;
+        this.clientSide = playerInventory.player.level().isClientSide();
         this.data = new ContainerData() {
             @Override
             public int get(int index) {

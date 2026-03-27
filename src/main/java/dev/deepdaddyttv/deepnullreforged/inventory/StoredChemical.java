@@ -2,7 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.inventory;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class StoredChemical {
     private static final String ID_TAG = "Id";
@@ -74,16 +74,16 @@ public final class StoredChemical {
         if (!translationKey.isBlank()) {
             return Component.translatable(translationKey);
         }
-        ResourceLocation id = chemicalLocation();
+        Identifier id = chemicalLocation();
         return id == null ? Component.literal(chemicalId) : Component.literal(id.getPath());
     }
 
-    public ResourceLocation chemicalLocation() {
-        return chemicalId.isBlank() ? null : ResourceLocation.tryParse(chemicalId);
+    public Identifier chemicalLocation() {
+        return chemicalId.isBlank() ? null : Identifier.tryParse(chemicalId);
     }
 
-    public ResourceLocation iconLocation() {
-        return iconPath.isBlank() ? null : ResourceLocation.tryParse(iconPath);
+    public Identifier iconLocation() {
+        return iconPath.isBlank() ? null : Identifier.tryParse(iconPath);
     }
 
     public CompoundTag save() {
@@ -105,12 +105,12 @@ public final class StoredChemical {
 
     public static StoredChemical load(CompoundTag tag) {
         StoredChemical chemical = new StoredChemical(
-                tag.getString(ID_TAG),
-                tag.getLong(AMOUNT_TAG),
-                tag.getString(ICON_TAG),
-                tag.contains(TINT_TAG) ? tag.getInt(TINT_TAG) : 0xFFFFFFFF,
-                tag.getString(TRANSLATION_KEY_TAG),
-                tag.getBoolean(GASEOUS_TAG)
+                tag.getStringOr(ID_TAG, ""),
+                tag.getLongOr(AMOUNT_TAG, 0L),
+                tag.getStringOr(ICON_TAG, ""),
+                tag.contains(TINT_TAG) ? tag.getIntOr(TINT_TAG, 0xFFFFFFFF) : 0xFFFFFFFF,
+                tag.getStringOr(TRANSLATION_KEY_TAG, ""),
+                tag.getBooleanOr(GASEOUS_TAG, false)
         );
         return chemical.isEmpty() ? EMPTY : chemical;
     }

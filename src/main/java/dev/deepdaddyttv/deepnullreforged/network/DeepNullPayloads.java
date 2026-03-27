@@ -9,12 +9,15 @@ import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransfe
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenuOpener;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
@@ -370,7 +373,10 @@ public final class DeepNullPayloads {
     }
 
     private static void handleCraftingTransfer(CraftingTransferPayload payload, ServerPlayer player) {
-        RecipeHolder<?> recipeHolder = player.serverLevel().getRecipeManager().byKey(payload.recipeId()).orElse(null);
+        ResourceKey<net.minecraft.world.item.crafting.Recipe<?>> recipeKey = ResourceKey.create(Registries.RECIPE, payload.recipeId());
+        RecipeHolder<?> recipeHolder = player.level() instanceof ServerLevel serverLevel
+                ? serverLevel.recipeAccess().byKey(recipeKey).orElse(null)
+                : null;
         if (!(recipeHolder instanceof RecipeHolder<?> rawHolder) || !(rawHolder.value() instanceof CraftingRecipe)) {
             return;
         }
@@ -656,11 +662,11 @@ public final class DeepNullPayloads {
         }
     }
 
-    public record CraftingTransferPayload(ResourceLocation recipeId, boolean maxTransfer) implements CustomPacketPayload {
+    public record CraftingTransferPayload(Identifier recipeId, boolean maxTransfer) implements CustomPacketPayload {
         public static final Type<CraftingTransferPayload> TYPE = payloadType("crafting_transfer");
         public static final StreamCodec<RegistryFriendlyByteBuf, CraftingTransferPayload> STREAM_CODEC =
                 StreamCodec.composite(
-                        ResourceLocation.STREAM_CODEC,
+                        Identifier.STREAM_CODEC,
                         CraftingTransferPayload::recipeId,
                         ByteBufCodecs.BOOL,
                         CraftingTransferPayload::maxTransfer,

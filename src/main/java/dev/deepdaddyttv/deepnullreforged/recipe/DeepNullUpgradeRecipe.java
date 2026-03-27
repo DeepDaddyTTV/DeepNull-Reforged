@@ -4,18 +4,14 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullPanelItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModRecipeSerializers;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 
 public class DeepNullUpgradeRecipe extends CustomRecipe {
-    public DeepNullUpgradeRecipe(CraftingBookCategory category) {
-        super(category);
-    }
+    public static final DeepNullUpgradeRecipe INSTANCE = new DeepNullUpgradeRecipe();
 
     @Override
     public boolean matches(CraftingInput input, Level level) {
@@ -45,7 +41,7 @@ public class DeepNullUpgradeRecipe extends CustomRecipe {
     }
 
     @Override
-    public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
+    public ItemStack assemble(CraftingInput input) {
         ItemStack center = input.getItem(1, 1);
         if (!(center.getItem() instanceof DeepNullItem deepNullItem)) {
             return ItemStack.EMPTY;
@@ -68,12 +64,7 @@ public class DeepNullUpgradeRecipe extends CustomRecipe {
     }
 
     @Override
-    public boolean canCraftInDimensions(int width, int height) {
-        return width >= 3 && height >= 3;
-    }
-
-    @Override
-    public RecipeSerializer<?> getSerializer() {
+    public RecipeSerializer<DeepNullUpgradeRecipe> getSerializer() {
         return ModRecipeSerializers.DEEP_NULL_UPGRADE.get();
     }
 

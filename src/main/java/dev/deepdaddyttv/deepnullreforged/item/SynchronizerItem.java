@@ -4,19 +4,19 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
-import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 public class SynchronizerItem extends Item {
     private static final String ROOT_TAG = "Synchronizer";
@@ -29,55 +29,55 @@ public class SynchronizerItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
+    public InteractionResult use(Level level, Player player, InteractionHand usedHand) {
         ItemStack stack = player.getItemInHand(usedHand);
         if (!player.isShiftKeyDown() || !hasConfiguration(stack)) {
-            return InteractionResultHolder.pass(stack);
+            return InteractionResult.PASS;
         }
-        if (!level.isClientSide) {
+        if (!level.isClientSide()) {
             clearConfiguration(stack);
-            player.displayClientMessage(Component.translatable("item.deepnullreforged.synchronizer.cleared").withStyle(ChatFormatting.GRAY), true);
+            player.sendSystemMessage(Component.translatable("item.deepnullreforged.synchronizer.cleared").withStyle(ChatFormatting.GRAY));
         }
-        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+        return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {
         CompoundTag root = getRootTag(stack);
-        if (!root.contains(CONFIGURATION_TAG, Tag.TAG_COMPOUND)) {
-            tooltipComponents.add(Component.translatable("item.deepnullreforged.synchronizer.empty").withStyle(ChatFormatting.GRAY));
+        if (!root.getCompound(CONFIGURATION_TAG).isPresent()) {
+            builder.accept(Component.translatable("item.deepnullreforged.synchronizer.empty").withStyle(ChatFormatting.GRAY));
             return;
         }
 
-        boolean fluidOnly = root.getBoolean(FLUID_ONLY_TAG);
-        DeepNullTier tier = parseTier(root.getString(SOURCE_TIER_TAG));
+        boolean fluidOnly = root.getBooleanOr(FLUID_ONLY_TAG, false);
+        DeepNullTier tier = parseTier(root.getStringOr(SOURCE_TIER_TAG, ""));
         Component kind = fluidOnly
                 ? Component.translatable("item.deepnullreforged.dampnull")
                 : Component.translatable("item.deepnullreforged.deepnull");
         if (tier == null) {
-            tooltipComponents.add(Component.translatable("item.deepnullreforged.synchronizer.stored_generic", kind).withStyle(ChatFormatting.AQUA));
+            builder.accept(Component.translatable("item.deepnullreforged.synchronizer.stored_generic", kind).withStyle(ChatFormatting.AQUA));
         } else {
-            tooltipComponents.add(Component.translatable("item.deepnullreforged.synchronizer.stored_tiered", kind, formatTierName(tier)).withStyle(ChatFormatting.AQUA));
+            builder.accept(Component.translatable("item.deepnullreforged.synchronizer.stored_tiered", kind, formatTierName(tier)).withStyle(ChatFormatting.AQUA));
         }
     }
 
     public static boolean hasConfiguration(ItemStack stack) {
-        return getRootTag(stack).contains(CONFIGURATION_TAG, Tag.TAG_COMPOUND);
+        return getRootTag(stack).getCompound(CONFIGURATION_TAG).isPresent();
     }
 
     public static @org.jetbrains.annotations.Nullable CompoundTag getConfiguration(ItemStack stack) {
         CompoundTag root = getRootTag(stack);
-        return root.contains(CONFIGURATION_TAG, Tag.TAG_COMPOUND) ? root.getCompound(CONFIGURATION_TAG).copy() : null;
+        return root.getCompound(CONFIGURATION_TAG).map(CompoundTag::copy).orElse(null);
     }
 
     public static boolean matchesNullType(ItemStack stack, boolean fluidOnly) {
         CompoundTag root = getRootTag(stack);
-        return root.contains(CONFIGURATION_TAG, Tag.TAG_COMPOUND) && root.getBoolean(FLUID_ONLY_TAG) == fluidOnly;
+        return root.getCompound(CONFIGURATION_TAG).isPresent() && root.getBooleanOr(FLUID_ONLY_TAG, false) == fluidOnly;
     }
 
     public static void storeConfiguration(ItemStack stack, CompoundTag configuration, DeepNullTier tier, boolean fluidOnly) {
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-            CompoundTag root = tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG).copy() : new CompoundTag();
+            CompoundTag root = tag.getCompound(ROOT_TAG).map(CompoundTag::copy).orElseGet(CompoundTag::new);
             root.put(CONFIGURATION_TAG, configuration.copy());
             root.putBoolean(FLUID_ONLY_TAG, fluidOnly);
             root.putString(SOURCE_TIER_TAG, tier.name());
@@ -91,7 +91,7 @@ public class SynchronizerItem extends Item {
 
     private static CompoundTag getRootTag(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        return tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG) : new CompoundTag();
+        return tag.getCompound(ROOT_TAG).orElseGet(CompoundTag::new);
     }
 
     private static DeepNullTier parseTier(String value) {

@@ -70,7 +70,7 @@ public final class DeepNullUpdateChecker {
             return;
         }
 
-        minecraft.player.displayClientMessage(buildUpdateMessage(info.version()), false);
+        minecraft.player.sendSystemMessage(buildUpdateMessage(info.version()));
     }
 
     private static CompletableFuture<ReleaseInfo> requestLatestRelease() {
@@ -113,8 +113,8 @@ public final class DeepNullUpdateChecker {
                 .setStyle(Style.EMPTY
                         .withColor(ChatFormatting.GOLD)
                         .withUnderlined(true)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, CURSEFORGE_PROJECT_URL))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(CURSEFORGE_PROJECT_URL))));
+                        .withClickEvent(new ClickEvent.OpenUrl(URI.create(CURSEFORGE_PROJECT_URL)))
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal(CURSEFORGE_PROJECT_URL))));
         return prefix.append(body).append(link);
     }
 

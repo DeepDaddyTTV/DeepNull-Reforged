@@ -4,7 +4,6 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.client.ClientDeepNullAccess;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullContentMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
-import net.minecraft.Util;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -20,12 +19,12 @@ public final class DeepNullHudState {
         HudKey nextKey = HudKey.from(ClientDeepNullAccess.findHeldDeepNull(player));
         if (!nextKey.equals(lastKey)) {
             lastKey = nextKey;
-            visibleUntil = nextKey.active() ? Util.getMillis() + DeepNullConfig.getHudDisplayMs() : 0L;
+            visibleUntil = nextKey.active() ? System.currentTimeMillis() + DeepNullConfig.getHudDisplayMs() : 0L;
         }
     }
 
     public static boolean shouldRender() {
-        return DeepNullConfig.isHudEnabled() && visibleUntil > Util.getMillis();
+        return DeepNullConfig.isHudEnabled() && visibleUntil > System.currentTimeMillis();
     }
 
     public static void clear() {

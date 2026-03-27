@@ -4,7 +4,7 @@ import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -15,9 +15,9 @@ public final class NullWorkbenchTransferSupport {
     private NullWorkbenchTransferSupport() {
     }
 
-    public static NullWorkbenchRecipes.CraftRecipe findRecipe(ResourceLocation resultItemId) {
+    public static NullWorkbenchRecipes.CraftRecipe findRecipe(Identifier resultItemId) {
         for (NullWorkbenchRecipes.CraftRecipe recipe : NullWorkbenchRecipes.all()) {
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(recipe.result().getItem());
+            Identifier id = BuiltInRegistries.ITEM.getKey(recipe.result().getItem());
             if (Objects.equals(id, resultItemId)) {
                 return recipe;
             }
@@ -80,7 +80,8 @@ public final class NullWorkbenchTransferSupport {
 
     private static int countInInventory(Inventory inventory, ItemStack template) {
         int total = 0;
-        for (ItemStack stack : inventory.items) {
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
             if (stack.is(template.getItem())) {
                 total += stack.getCount();
             }
@@ -90,7 +91,8 @@ public final class NullWorkbenchTransferSupport {
 
     private static int extractFromInventory(Inventory inventory, ItemStack template, int amount) {
         int remaining = amount;
-        for (ItemStack stack : inventory.items) {
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
             if (!stack.is(template.getItem())) {
                 continue;
             }

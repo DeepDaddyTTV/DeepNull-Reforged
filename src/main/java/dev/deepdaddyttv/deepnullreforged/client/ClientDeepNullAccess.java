@@ -21,7 +21,7 @@ public final class ClientDeepNullAccess {
     }
 
     public static int findHotbarDeepNullSlot(Inventory inventory) {
-        int selected = inventory.selected;
+        int selected = inventory.getSelectedSlot();
         if (selected >= 0 && selected < Inventory.getSelectionSize() && inventory.getItem(selected).getItem() instanceof DeepNullItem) {
             return selected;
         }
@@ -34,7 +34,7 @@ public final class ClientDeepNullAccess {
     }
 
     public static @Nullable HeldDeepNull findHeldDeepNull(Player player) {
-        int mainHandSlot = player.getInventory().selected;
+        int mainHandSlot = player.getInventory().getSelectedSlot();
         ItemStack mainHandStack = player.getInventory().getItem(mainHandSlot);
         if (mainHandStack.getItem() instanceof DeepNullItem deepNullItem) {
             return new HeldDeepNull(

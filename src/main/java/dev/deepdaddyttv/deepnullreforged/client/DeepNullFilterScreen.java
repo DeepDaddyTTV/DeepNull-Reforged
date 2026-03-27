@@ -5,17 +5,21 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+
+import java.util.List;
 
 public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final int SLOT_SPACING = 21;
@@ -23,26 +27,25 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
     private static final int TOP_PADDING = 19;
     private static final int FILTER_ROWS = 3;
     private static final int FILTER_COLUMNS = 9;
-    private static final ResourceLocation BACKGROUND_TEXTURE = DeepNullReforged.id("textures/gui/deepnull_filter.png");
-    private static final ResourceLocation ENERGY_BACKGROUND_TEXTURE = DeepNullReforged.id("textures/gui/deepnull_filter_energy.png");
-    private static final ResourceLocation ENERGY_FILL_TEXTURE = DeepNullReforged.id("textures/gui/deepnull_filter_energy_fill.png");
+    private static final Identifier BACKGROUND_TEXTURE = DeepNullReforged.id("textures/gui/deepnull_filter.png");
+    private static final Identifier ENERGY_BACKGROUND_TEXTURE = DeepNullReforged.id("textures/gui/deepnull_filter_energy.png");
+    private static final Identifier ENERGY_FILL_TEXTURE = DeepNullReforged.id("textures/gui/deepnull_filter_energy_fill.png");
     private static final int BASE_IMAGE_WIDTH = 202;
     private static final int ENERGY_IMAGE_WIDTH = 252;
+    private static final int IMAGE_HEIGHT = 183;
     private static final int ENERGY_LABEL_X = 57;
     private static final int ENERGY_TOOLTIP_WIDTH = 50;
 
     private final Inventory playerInventory;
     private final boolean integratedEnergyGui;
-    private final ResourceLocation backgroundTexture;
+    private final Identifier backgroundTexture;
     private Button modeButton;
 
     public DeepNullFilterScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title);
+        super(menu, playerInventory, title, imageWidthFor(menu), IMAGE_HEIGHT);
         this.playerInventory = playerInventory;
         this.integratedEnergyGui = menu.hasEnergyUpgrade() && menu.getTier().supportsEnergyUpgrade();
         this.backgroundTexture = integratedEnergyGui ? ENERGY_BACKGROUND_TEXTURE : BACKGROUND_TEXTURE;
-        this.imageWidth = integratedEnergyGui ? ENERGY_IMAGE_WIDTH : BASE_IMAGE_WIDTH;
-        this.imageHeight = 183;
         this.inventoryLabelX = integratedEnergyGui ? ENERGY_LABEL_X : 7;
         this.inventoryLabelY = this.imageHeight - 103;
         this.titleLabelX = 7;
@@ -54,14 +57,13 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
         super.init();
 
         addRenderableWidget(Button.builder(Component.translatable("dn.back.desc"), button ->
-                        PacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.UPGRADES.ordinal())))
+                        ClientPacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.UPGRADES.ordinal())))
                 .bounds(leftPos, topPos - 20, 50, 18)
                 .build());
 
-        modeButton = Button.builder(filterModeLabel(), button -> cycleFilterMode())
+        modeButton = addRenderableWidget(Button.builder(filterModeLabel(), button -> cycleFilterMode())
                 .bounds(leftPos + 55, topPos - 20, 146, 18)
-                .build();
-        addRenderableWidget(modeButton);
+                .build());
     }
 
     @Override
@@ -73,14 +75,14 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
             return;
         }
         if (isAutoSmeltView() ? !menu.hasUpgrade(DeepNullUpgradeType.AUTO_SMELTING) : !menu.hasUpgrade(DeepNullUpgradeType.FILTER)) {
-            PacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.UPGRADES.ordinal()));
+            ClientPacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.UPGRADES.ordinal()));
         }
     }
 
     @Override
-    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        guiGraphics.blit(backgroundTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
-        renderEnergyFill(guiGraphics);
+    public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.blit(RenderPipelines.GUI_TEXTURED, backgroundTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
+        renderEnergyFill(graphics);
 
         int hovered = getFilterSlotAt(mouseX, mouseY);
         for (int slot = 0; slot < menu.getDankInventory().getFilterSlotCount(); slot++) {
@@ -88,76 +90,83 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
             int y = topPos + TOP_PADDING + (slot / FILTER_COLUMNS) * SLOT_SPACING;
             ItemStack filterStack = displayedFilterStack(slot);
             if (!filterStack.isEmpty()) {
-                guiGraphics.renderItem(filterStack, x, y);
-                guiGraphics.fill(x, y, x + 16, y + 16, 0x55000000);
+                graphics.item(filterStack, x, y);
+                graphics.fill(x, y, x + 16, y + 16, 0x55000000);
             }
             if (slot == hovered) {
-                guiGraphics.renderOutline(x - 1, y - 1, 18, 18, 0xFFD8DCE5);
+                graphics.outline(x - 1, y - 1, 18, 18, 0xFFD8DCE5);
             }
         }
+
+        super.extractContents(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override
-    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_filter_screen.desc" : "dn.filter_screen.desc"), titleLabelX, titleLabelY, 0xFFFFFFFF, false);
-        guiGraphics.drawString(font, playerInventory.getDisplayName(), inventoryLabelX, inventoryLabelY, 0xFFFFFFFF, false);
-        guiGraphics.drawString(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_mode_label.desc" : "dn.filter_mode_label.desc"), 118, 6, 0xFFE8EDF5, false);
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (modeButton != null) {
             modeButton.setMessage(filterModeLabel());
         }
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
-        renderTooltip(guiGraphics, mouseX, mouseY);
-        renderEnergyTooltip(guiGraphics, mouseX, mouseY);
+        graphics.text(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_filter_screen.desc" : "dn.filter_screen.desc"), titleLabelX, titleLabelY, 0xFFFFFFFF, false);
+        graphics.text(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFFFFFFFF, false);
+        graphics.text(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_mode_label.desc" : "dn.filter_mode_label.desc"), 118, 6, 0xFFE8EDF5, false);
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
         int hovered = getFilterSlotAt(mouseX, mouseY);
         if (hovered >= 0) {
             ItemStack filterStack = displayedFilterStack(hovered);
-            if (!filterStack.isEmpty()) {
-                guiGraphics.renderTooltip(font, filterStack, mouseX, mouseY);
+            if (!filterStack.isEmpty() && minecraft != null) {
+                graphics.setTooltipForNextFrame(font, getTooltipFromItem(minecraft, filterStack), filterStack.getTooltipImage(), filterStack, mouseX, mouseY);
             }
         }
+
+        renderEnergyTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 2 && isWithin(mouseX, mouseY, leftPos, topPos, imageWidth, imageHeight)) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (super.mouseClicked(event, doubleClick)) {
             return true;
         }
-        if (button == 0 && Screen.hasShiftDown()) {
-            Slot hoveredSlot = getSlotUnderMouse();
+
+        if (event.button() == 2 && isWithin(event.x(), event.y(), leftPos, topPos, imageWidth, imageHeight)) {
+            return true;
+        }
+
+        if (event.button() == 0 && event.hasShiftDown()) {
+            Slot hoveredSlot = findMenuSlot(event.x(), event.y());
             int hoveredMenuIndex = hoveredSlot == null ? -1 : menu.slots.indexOf(hoveredSlot);
             if (hoveredMenuIndex >= menu.getPlayerInventorySlotStartIndex() && hoveredSlot.hasItem()) {
                 int filterSlot = isAutoSmeltView()
                         ? menu.addGhostAutoSmeltFilterStack(hoveredSlot.getItem())
                         : menu.addGhostFilterStack(hoveredSlot.getItem());
                 if (filterSlot >= 0) {
-                    PacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterSlotPayload(filterSlot, hoveredSlot.getItem().copyWithCount(1)));
+                    ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterSlotPayload(filterSlot, hoveredSlot.getItem().copyWithCount(1)));
                     return true;
                 }
             }
         }
 
-        int filterSlot = getFilterSlotAt(mouseX, mouseY);
+        int filterSlot = getFilterSlotAt(event.x(), event.y());
         if (filterSlot >= 0) {
             ItemStack carried = menu.getCarried();
-            if (button == 1 || carried.isEmpty()) {
+            if (event.button() == 1 || carried.isEmpty()) {
                 setDisplayedFilterStack(filterSlot, ItemStack.EMPTY);
-                PacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterSlotPayload(filterSlot, ItemStack.EMPTY));
+                ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterSlotPayload(filterSlot, ItemStack.EMPTY));
                 return true;
             }
-            if (button == 0) {
+            if (event.button() == 0) {
                 ItemStack ghostStack = carried.copyWithCount(1);
                 setDisplayedFilterStack(filterSlot, ghostStack);
-                PacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterSlotPayload(filterSlot, ghostStack));
+                ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterSlotPayload(filterSlot, ghostStack));
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+
+        return false;
     }
 
     private static boolean isWithin(double mouseX, double mouseY, int x, int y, int width, int height) {
@@ -173,7 +182,7 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
         } else {
             menu.setFilterMode(next);
         }
-        PacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterModePayload(next.ordinal()));
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuFilterModePayload(next.ordinal()));
     }
 
     private Component filterModeLabel() {
@@ -183,7 +192,7 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
     private int getFilterSlotAt(double mouseX, double mouseY) {
         int relativeX = (int) mouseX - leftPos;
         int relativeY = (int) mouseY - topPos;
-        for (int slot = 0; slot < menu.getDankInventory().getFilterSlotCount(); slot++) {
+        for (int slot = 0; slot < FILTER_ROWS * FILTER_COLUMNS; slot++) {
             int x = filterLeftPadding() + (slot % FILTER_COLUMNS) * SLOT_SPACING;
             int y = TOP_PADDING + (slot / FILTER_COLUMNS) * SLOT_SPACING;
             if (relativeX >= x - 1 && relativeX < x + 17 && relativeY >= y - 1 && relativeY < y + 17) {
@@ -191,6 +200,15 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
             }
         }
         return -1;
+    }
+
+    private Slot findMenuSlot(double mouseX, double mouseY) {
+        for (Slot slot : menu.slots) {
+            if (slot.isActive() && isHovering(slot.x, slot.y, 16, 16, mouseX, mouseY)) {
+                return slot;
+            }
+        }
+        return null;
     }
 
     private int filterLeftPadding() {
@@ -217,17 +235,17 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
         }
     }
 
-    private void renderEnergyFill(GuiGraphics guiGraphics) {
+    private void renderEnergyFill(GuiGraphicsExtractor graphics) {
         if (!integratedEnergyGui || menu.getDisplayedEnergyCapacity() <= 0 || menu.getDisplayedEnergyStored() <= 0) {
             return;
         }
         int fillHeight = Math.max(1, Math.round(imageHeight * Math.min(1.0F, menu.getDisplayedEnergyStored() / (float) menu.getDisplayedEnergyCapacity())));
         int drawY = topPos + (imageHeight - fillHeight);
         int sourceY = imageHeight - fillHeight;
-        guiGraphics.blit(ENERGY_FILL_TEXTURE, leftPos, drawY, 0.0F, sourceY, imageWidth, fillHeight, 256, 256);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, ENERGY_FILL_TEXTURE, leftPos, drawY, 0.0F, sourceY, imageWidth, fillHeight, 256, 256);
     }
 
-    private void renderEnergyTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    private void renderEnergyTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (!integratedEnergyGui) {
             return;
         }
@@ -236,16 +254,18 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
         if (mouseX < x || mouseX >= x + ENERGY_TOOLTIP_WIDTH || mouseY < y || mouseY >= y + imageHeight) {
             return;
         }
-        guiGraphics.renderTooltip(
+        graphics.setComponentTooltipForNextFrame(
                 font,
-                java.util.List.of(
-                        Component.translatable("dn.energy.desc"),
-                        Component.literal(menu.getDisplayedEnergyStored() + " / " + menu.getDisplayedEnergyCapacity() + " FE")
+                List.of(
+                        Component.translatable("dn.energy.desc").withStyle(ChatFormatting.AQUA),
+                        Component.literal(menu.getDisplayedEnergyStored() + " / " + menu.getDisplayedEnergyCapacity() + " FE").withStyle(ChatFormatting.GRAY)
                 ),
-                java.util.Optional.empty(),
                 mouseX,
                 mouseY
         );
     }
 
+    private static int imageWidthFor(DeepNullMenu menu) {
+        return menu.hasEnergyUpgrade() && menu.getTier().supportsEnergyUpgrade() ? ENERGY_IMAGE_WIDTH : BASE_IMAGE_WIDTH;
+    }
 }

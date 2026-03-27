@@ -17,7 +17,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -628,11 +628,11 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        if (clickType == ClickType.CLONE || clickType == ClickType.PICKUP_ALL) {
+    public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
+        if (clickType == ContainerInput.CLONE || clickType == ContainerInput.PICKUP_ALL) {
             return;
         }
-        if (isFluidStorageView() && clickType == ClickType.PICKUP && slotId >= 0 && slotId < storageSlotCount) {
+        if (isFluidStorageView() && clickType == ContainerInput.PICKUP && slotId >= 0 && slotId < storageSlotCount) {
             ItemStack carried = getCarried();
             if (!carried.isEmpty()) {
                 ItemStack updated = tryStoreFluidFromContainer(carried, slotId, false);

@@ -8,21 +8,21 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item.TooltipContext;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 public class EnderUpgradeItem extends DeepNullUpgradeItem {
     private static final String LINK_DIMENSION_TAG = "LinkDimension";
@@ -48,7 +48,7 @@ public class EnderUpgradeItem extends DeepNullUpgradeItem {
             return InteractionResult.PASS;
         }
 
-        if (!context.getLevel().isClientSide) {
+        if (!context.getLevel().isClientSide()) {
             setLink(
                     context.getItemInHand(),
                     context.getLevel().dimension(),
@@ -56,29 +56,28 @@ public class EnderUpgradeItem extends DeepNullUpgradeItem {
                     storedNullItem instanceof DampNullItem,
                     storedNullItem.tier()
             );
-            context.getPlayer().displayClientMessage(
+            context.getPlayer().sendSystemMessage(
                     Component.translatable(
                             "upgrade.ender_upgrade.linked_message",
                             linkedTargetName(storedNullItem instanceof DampNullItem, storedNullItem.tier()),
                             dock.getBlockPos().getX(),
                             dock.getBlockPos().getY(),
                             dock.getBlockPos().getZ()
-                    ).withStyle(ChatFormatting.AQUA),
-                    true
+                    ).withStyle(ChatFormatting.AQUA)
             );
         }
-        return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
+        return context.getLevel().isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
-        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {
+        super.appendHoverText(stack, context, display, builder, tooltipFlag);
         LinkData link = getLink(stack);
         if (link == null) {
-            tooltipComponents.add(Component.translatable("upgrade.ender_upgrade.unlinked").withStyle(ChatFormatting.DARK_GRAY));
+            builder.accept(Component.translatable("upgrade.ender_upgrade.unlinked").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        tooltipComponents.add(Component.translatable(
+        builder.accept(Component.translatable(
                 "upgrade.ender_upgrade.linked",
                 linkedTargetName(link.fluidOnly(), link.tier()),
                 link.pos().getX(),
@@ -109,22 +108,22 @@ public class EnderUpgradeItem extends DeepNullUpgradeItem {
 
     public static @Nullable LinkData getLink(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        ResourceLocation dimensionId = ResourceLocation.tryParse(tag.getString(LINK_DIMENSION_TAG));
-        if (dimensionId == null || !tag.contains(LINK_X_TAG, Tag.TAG_INT) || !tag.contains(LINK_Y_TAG, Tag.TAG_INT) || !tag.contains(LINK_Z_TAG, Tag.TAG_INT)) {
+        Identifier dimensionId = Identifier.tryParse(tag.getStringOr(LINK_DIMENSION_TAG, ""));
+        if (dimensionId == null || !tag.contains(LINK_X_TAG) || !tag.contains(LINK_Y_TAG) || !tag.contains(LINK_Z_TAG)) {
             return null;
         }
         ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
         return new LinkData(
                 dimension,
-                new BlockPos(tag.getInt(LINK_X_TAG), tag.getInt(LINK_Y_TAG), tag.getInt(LINK_Z_TAG)),
-                tag.getBoolean(LINK_FLUID_ONLY_TAG),
-                DeepNullTier.byId(tag.getInt(LINK_TIER_TAG))
+                new BlockPos(tag.getIntOr(LINK_X_TAG, 0), tag.getIntOr(LINK_Y_TAG, 0), tag.getIntOr(LINK_Z_TAG, 0)),
+                tag.getBooleanOr(LINK_FLUID_ONLY_TAG, false),
+                DeepNullTier.byId(tag.getIntOr(LINK_TIER_TAG, 0))
         );
     }
 
     public static void setLink(ItemStack stack, ResourceKey<Level> dimension, BlockPos pos, boolean fluidOnly, DeepNullTier tier) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        tag.putString(LINK_DIMENSION_TAG, dimension.location().toString());
+        tag.putString(LINK_DIMENSION_TAG, dimension.identifier().toString());
         tag.putInt(LINK_X_TAG, pos.getX());
         tag.putInt(LINK_Y_TAG, pos.getY());
         tag.putInt(LINK_Z_TAG, pos.getZ());

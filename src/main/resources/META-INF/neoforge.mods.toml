@@ -46,7 +46,7 @@ displayName="${mod_name}" #mandatory
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-DeepNull Reforged ports the classic DeepNull storage tool to NeoForge for Minecraft 1.21.1.
+DeepNull Reforged ports the classic DeepNull storage tool to NeoForge for Minecraft 26.1.
 '''
 
 # The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
@@ -86,13 +86,6 @@ DeepNull Reforged ports the classic DeepNull storage tool to NeoForge for Minecr
     # This version range declares a minimum of the current minecraft version up to but not including the next major version
     versionRange="${minecraft_version_range}"
     ordering="NONE"
-    side="BOTH"
-
-[[dependencies.${mod_id}]]
-    modId="mekanism"
-    type="optional"
-    versionRange="${mekanism_version_range}"
-    ordering="AFTER"
     side="BOTH"
 
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares

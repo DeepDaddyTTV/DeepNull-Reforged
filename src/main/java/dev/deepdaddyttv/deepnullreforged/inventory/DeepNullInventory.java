@@ -10,8 +10,10 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NumericTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.network.chat.Component;
@@ -184,13 +186,13 @@ public class DeepNullInventory extends ItemStackHandler {
 
     public static StyleRenderData readStyleRenderData(ItemStack stack, DeepNullTier tier, boolean fluidOnly) {
         CompoundTag root = getRootTagView(stack);
-        boolean hasFrameOverride = root != null && root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
-        boolean hasGlassOverride = root != null && root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
+        boolean hasFrameOverride = root != null && hasNumeric(root, FRAME_COLOR_TAG);
+        boolean hasGlassOverride = root != null && hasNumeric(root, GLASS_COLOR_TAG);
         return new StyleRenderData(
                 hasFrameOverride || hasGlassOverride,
-                root == null ? StyleGlassVariant.DEFAULT : StyleGlassVariant.byId(root.getString(STYLE_VARIANT_TAG)),
-                hasFrameOverride ? sanitizeStyleColor(root.getInt(FRAME_COLOR_TAG)) : defaultFrameColor(tier, fluidOnly),
-                hasGlassOverride ? sanitizeStyleColor(root.getInt(GLASS_COLOR_TAG)) : defaultGlassColor(tier, fluidOnly)
+                root == null ? StyleGlassVariant.DEFAULT : StyleGlassVariant.byId(root.getStringOr(STYLE_VARIANT_TAG, StyleGlassVariant.DEFAULT.id())),
+                hasFrameOverride ? sanitizeStyleColor(root.getIntOr(FRAME_COLOR_TAG, defaultFrameColor(tier, fluidOnly))) : defaultFrameColor(tier, fluidOnly),
+                hasGlassOverride ? sanitizeStyleColor(root.getIntOr(GLASS_COLOR_TAG, defaultGlassColor(tier, fluidOnly))) : defaultGlassColor(tier, fluidOnly)
         );
     }
 
@@ -203,7 +205,7 @@ public class DeepNullInventory extends ItemStackHandler {
         if (root == null) {
             return false;
         }
-        return root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC) || root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC);
+        return hasNumeric(root, FRAME_COLOR_TAG) || hasNumeric(root, GLASS_COLOR_TAG);
     }
 
     public static StyleGlassVariant getStyleVariant(ItemStack stack) {
@@ -211,7 +213,7 @@ public class DeepNullInventory extends ItemStackHandler {
         if (root == null) {
             return StyleGlassVariant.DEFAULT;
         }
-        return StyleGlassVariant.byId(root.getString(STYLE_VARIANT_TAG));
+        return StyleGlassVariant.byId(root.getStringOr(STYLE_VARIANT_TAG, StyleGlassVariant.DEFAULT.id()));
     }
 
     public DeepNullTier tier() {
@@ -1020,47 +1022,47 @@ public class DeepNullInventory extends ItemStackHandler {
 
         clearFilterStacks();
         clearAutoSmeltFilterStacks();
-        readItemList(registries, configuration.getList(FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), filterStacks);
-        readItemList(registries, configuration.getList(AUTO_SMELT_FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), autoSmeltFilterStacks);
-        selectedSlot = configuration.getInt(SELECTED_TAG);
-        readEnumModes(configuration.getIntArray(EXTRACTION_TAG), extractionModes, ItemExtractionMode.values(), ItemExtractionMode.KEEP_1);
-        readIntModes(configuration.getIntArray(CUSTOM_EXTRACTION_TAG), customExtractionAmounts);
-        readEnumModes(configuration.getIntArray(PLACEMENT_TAG), placementModes, ItemPlacementMode.values(), ItemPlacementMode.KEEP_1);
-        readBooleanModes(configuration.getByteArray(TAG_MATCHING_TAG), tagMatchingModes);
-        locked = supportsLocking() && configuration.getBoolean(LOCKED_TAG);
-        filterMode = DeepNullFilterMode.byId(configuration.getInt(FILTER_MODE_TAG));
-        autoSmeltFilterMode = normalizeAutoSmeltFilterMode(DeepNullFilterMode.byId(configuration.getInt(AUTO_SMELT_FILTER_MODE_TAG)));
+        readItemList(registries, configuration.getListOrEmpty(FILTER_ITEMS_TAG), filterStacks);
+        readItemList(registries, configuration.getListOrEmpty(AUTO_SMELT_FILTER_ITEMS_TAG), autoSmeltFilterStacks);
+        selectedSlot = configuration.getIntOr(SELECTED_TAG, -1);
+        readEnumModes(configuration.getIntArray(EXTRACTION_TAG).orElseGet(() -> new int[0]), extractionModes, ItemExtractionMode.values(), ItemExtractionMode.KEEP_1);
+        readIntModes(configuration.getIntArray(CUSTOM_EXTRACTION_TAG).orElseGet(() -> new int[0]), customExtractionAmounts);
+        readEnumModes(configuration.getIntArray(PLACEMENT_TAG).orElseGet(() -> new int[0]), placementModes, ItemPlacementMode.values(), ItemPlacementMode.KEEP_1);
+        readBooleanModes(configuration.getByteArray(TAG_MATCHING_TAG).orElseGet(() -> new byte[0]), tagMatchingModes);
+        locked = supportsLocking() && configuration.getBooleanOr(LOCKED_TAG, false);
+        filterMode = DeepNullFilterMode.byId(configuration.getIntOr(FILTER_MODE_TAG, DeepNullFilterMode.WHITELIST.ordinal()));
+        autoSmeltFilterMode = normalizeAutoSmeltFilterMode(DeepNullFilterMode.byId(configuration.getIntOr(AUTO_SMELT_FILTER_MODE_TAG, DeepNullFilterMode.WHITELIST.ordinal())));
         contentMode = fluidOnly
                 ? DeepNullContentMode.FLUIDS
-                : DeepNullContentMode.byId(configuration.getInt(CONTENT_MODE_TAG));
-        chargingEnabled = configuration.getBoolean(CHARGING_TAG);
-        transferLocked = configuration.getBoolean(TRANSFER_LOCKED_TAG);
-        autoPickupEnabled = configuration.contains(AUTO_PICKUP_TAG, Tag.TAG_BYTE)
-                ? configuration.getBoolean(AUTO_PICKUP_TAG)
+                : DeepNullContentMode.byId(configuration.getIntOr(CONTENT_MODE_TAG, DeepNullContentMode.ITEMS.ordinal()));
+        chargingEnabled = configuration.getBooleanOr(CHARGING_TAG, false);
+        transferLocked = configuration.getBooleanOr(TRANSFER_LOCKED_TAG, false);
+        autoPickupEnabled = configuration.contains(AUTO_PICKUP_TAG)
+                ? configuration.getBooleanOr(AUTO_PICKUP_TAG, DeepNullConfig.defaultAutoPickupEnabled())
                 : DeepNullConfig.defaultAutoPickupEnabled();
-        autoFeedingEnabled = configuration.contains(AUTO_FEEDING_TAG, Tag.TAG_BYTE)
-                ? configuration.getBoolean(AUTO_FEEDING_TAG)
+        autoFeedingEnabled = configuration.contains(AUTO_FEEDING_TAG)
+                ? configuration.getBooleanOr(AUTO_FEEDING_TAG, DeepNullConfig.defaultAutoFeedingEnabled())
                 : DeepNullConfig.defaultAutoFeedingEnabled();
-        autoSmeltingEnabled = configuration.contains(AUTO_SMELTING_TAG, Tag.TAG_BYTE)
-                ? configuration.getBoolean(AUTO_SMELTING_TAG)
+        autoSmeltingEnabled = configuration.contains(AUTO_SMELTING_TAG)
+                ? configuration.getBooleanOr(AUTO_SMELTING_TAG, DeepNullConfig.defaultAutoSmeltingEnabled())
                 : DeepNullConfig.defaultAutoSmeltingEnabled();
-        stoneGeneratorVariant = StoneGeneratorVariant.byId(configuration.getInt(STONE_GENERATOR_VARIANT_TAG));
-        stoneworksTargetStacks = configuration.contains(STONEWORKS_AMOUNT_TAG, Tag.TAG_ANY_NUMERIC)
-                ? configuration.getInt(STONEWORKS_AMOUNT_TAG)
+        stoneGeneratorVariant = StoneGeneratorVariant.byId(configuration.getIntOr(STONE_GENERATOR_VARIANT_TAG, StoneGeneratorVariant.COBBLESTONE.ordinal()));
+        stoneworksTargetStacks = hasNumeric(configuration, STONEWORKS_AMOUNT_TAG)
+                ? configuration.getIntOr(STONEWORKS_AMOUNT_TAG, DeepNullConfig.defaultStoneworksAmount())
                 : DeepNullConfig.defaultStoneworksAmount();
-        if (configuration.contains(STONEWORKS_MONITOR_TAG, Tag.TAG_BYTE_ARRAY)) {
-            readBooleanModes(configuration.getByteArray(STONEWORKS_MONITOR_TAG), stoneworksMonitoring);
+        if (hasByteArray(configuration, STONEWORKS_MONITOR_TAG)) {
+            readBooleanModes(configuration.getByteArray(STONEWORKS_MONITOR_TAG).orElseGet(() -> new byte[0]), stoneworksMonitoring);
         } else {
             Arrays.fill(stoneworksMonitoring, true);
         }
-        stoneworksCursor = configuration.getInt(STONEWORKS_CURSOR_TAG);
-        frameColor = configuration.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
-                ? configuration.getInt(FRAME_COLOR_TAG)
+        stoneworksCursor = configuration.getIntOr(STONEWORKS_CURSOR_TAG, 0);
+        frameColor = hasNumeric(configuration, FRAME_COLOR_TAG)
+                ? configuration.getIntOr(FRAME_COLOR_TAG, defaultFrameColor())
                 : defaultFrameColor();
-        glassColor = configuration.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
-                ? configuration.getInt(GLASS_COLOR_TAG)
+        glassColor = hasNumeric(configuration, GLASS_COLOR_TAG)
+                ? configuration.getIntOr(GLASS_COLOR_TAG, defaultGlassColor())
                 : defaultGlassColor();
-        styleVariant = StyleGlassVariant.byId(configuration.getString(STYLE_VARIANT_TAG));
+        styleVariant = StyleGlassVariant.byId(configuration.getStringOr(STYLE_VARIANT_TAG, StyleGlassVariant.DEFAULT.id()));
         if (!styleVariant.supports(fluidOnly)) {
             styleVariant = StyleGlassVariant.DEFAULT;
         }
@@ -1967,57 +1969,57 @@ public class DeepNullInventory extends ItemStackHandler {
             return;
         }
         CompoundTag tag = backingStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!tag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
+        if (!hasCompound(tag, ROOT_TAG)) {
             return;
         }
-        CompoundTag root = tag.getCompound(ROOT_TAG);
+        CompoundTag root = tag.getCompoundOrEmpty(ROOT_TAG);
         readPrimaryStorageFromRoot(registries, root);
-        if (root.contains(UPGRADES_TAG, Tag.TAG_COMPOUND)) {
-            upgradeHandler.deserializeNBT(registries, root.getCompound(UPGRADES_TAG));
+        if (hasList(root, UPGRADES_TAG)) {
+            readItemList(registries, root.getListOrEmpty(UPGRADES_TAG), upgradeHandler.rawStacks());
             upgradeHandler.ensureSlotCount();
         }
-        readItemList(registries, root.getList(FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), filterStacks);
-        readItemList(registries, root.getList(AUTO_SMELT_FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), autoSmeltFilterStacks);
-        selectedSlot = root.getInt(SELECTED_TAG);
-        readEnumModes(root.getIntArray(EXTRACTION_TAG), extractionModes, ItemExtractionMode.values(), ItemExtractionMode.KEEP_1);
-        readIntModes(root.getIntArray(CUSTOM_EXTRACTION_TAG), customExtractionAmounts);
-        readEnumModes(root.getIntArray(PLACEMENT_TAG), placementModes, ItemPlacementMode.values(), ItemPlacementMode.KEEP_1);
-        readBooleanModes(root.getByteArray(TAG_MATCHING_TAG), tagMatchingModes);
-        locked = supportsLocking() && root.getBoolean(LOCKED_TAG);
-        filterMode = DeepNullFilterMode.byId(root.getInt(FILTER_MODE_TAG));
-        autoSmeltFilterMode = normalizeAutoSmeltFilterMode(DeepNullFilterMode.byId(root.getInt(AUTO_SMELT_FILTER_MODE_TAG)));
+        readItemList(registries, root.getListOrEmpty(FILTER_ITEMS_TAG), filterStacks);
+        readItemList(registries, root.getListOrEmpty(AUTO_SMELT_FILTER_ITEMS_TAG), autoSmeltFilterStacks);
+        selectedSlot = root.getIntOr(SELECTED_TAG, -1);
+        readEnumModes(root.getIntArray(EXTRACTION_TAG).orElseGet(() -> new int[0]), extractionModes, ItemExtractionMode.values(), ItemExtractionMode.KEEP_1);
+        readIntModes(root.getIntArray(CUSTOM_EXTRACTION_TAG).orElseGet(() -> new int[0]), customExtractionAmounts);
+        readEnumModes(root.getIntArray(PLACEMENT_TAG).orElseGet(() -> new int[0]), placementModes, ItemPlacementMode.values(), ItemPlacementMode.KEEP_1);
+        readBooleanModes(root.getByteArray(TAG_MATCHING_TAG).orElseGet(() -> new byte[0]), tagMatchingModes);
+        locked = supportsLocking() && root.getBooleanOr(LOCKED_TAG, false);
+        filterMode = DeepNullFilterMode.byId(root.getIntOr(FILTER_MODE_TAG, DeepNullFilterMode.WHITELIST.ordinal()));
+        autoSmeltFilterMode = normalizeAutoSmeltFilterMode(DeepNullFilterMode.byId(root.getIntOr(AUTO_SMELT_FILTER_MODE_TAG, DeepNullFilterMode.WHITELIST.ordinal())));
         contentMode = fluidOnly
                 ? DeepNullContentMode.FLUIDS
-                : DeepNullContentMode.byId(root.getInt(CONTENT_MODE_TAG));
-        storedEnergy = Math.max(0, root.getInt(ENERGY_TAG));
-        chargingEnabled = root.getBoolean(CHARGING_TAG);
-        transferLocked = root.getBoolean(TRANSFER_LOCKED_TAG);
-        autoPickupEnabled = root.contains(AUTO_PICKUP_TAG, Tag.TAG_BYTE)
-                ? root.getBoolean(AUTO_PICKUP_TAG)
+                : DeepNullContentMode.byId(root.getIntOr(CONTENT_MODE_TAG, DeepNullContentMode.ITEMS.ordinal()));
+        storedEnergy = Math.max(0, root.getIntOr(ENERGY_TAG, 0));
+        chargingEnabled = root.getBooleanOr(CHARGING_TAG, false);
+        transferLocked = root.getBooleanOr(TRANSFER_LOCKED_TAG, false);
+        autoPickupEnabled = root.contains(AUTO_PICKUP_TAG)
+                ? root.getBooleanOr(AUTO_PICKUP_TAG, DeepNullConfig.defaultAutoPickupEnabled())
                 : DeepNullConfig.defaultAutoPickupEnabled();
-        autoFeedingEnabled = root.contains(AUTO_FEEDING_TAG, Tag.TAG_BYTE)
-                ? root.getBoolean(AUTO_FEEDING_TAG)
+        autoFeedingEnabled = root.contains(AUTO_FEEDING_TAG)
+                ? root.getBooleanOr(AUTO_FEEDING_TAG, DeepNullConfig.defaultAutoFeedingEnabled())
                 : DeepNullConfig.defaultAutoFeedingEnabled();
-        autoSmeltingEnabled = root.contains(AUTO_SMELTING_TAG, Tag.TAG_BYTE)
-                ? root.getBoolean(AUTO_SMELTING_TAG)
+        autoSmeltingEnabled = root.contains(AUTO_SMELTING_TAG)
+                ? root.getBooleanOr(AUTO_SMELTING_TAG, DeepNullConfig.defaultAutoSmeltingEnabled())
                 : DeepNullConfig.defaultAutoSmeltingEnabled();
-        stoneGeneratorVariant = StoneGeneratorVariant.byId(root.getInt(STONE_GENERATOR_VARIANT_TAG));
-        stoneworksTargetStacks = root.contains(STONEWORKS_AMOUNT_TAG, Tag.TAG_ANY_NUMERIC)
-                ? root.getInt(STONEWORKS_AMOUNT_TAG)
+        stoneGeneratorVariant = StoneGeneratorVariant.byId(root.getIntOr(STONE_GENERATOR_VARIANT_TAG, StoneGeneratorVariant.COBBLESTONE.ordinal()));
+        stoneworksTargetStacks = hasNumeric(root, STONEWORKS_AMOUNT_TAG)
+                ? root.getIntOr(STONEWORKS_AMOUNT_TAG, DeepNullConfig.defaultStoneworksAmount())
                 : DeepNullConfig.defaultStoneworksAmount();
-        if (root.contains(STONEWORKS_MONITOR_TAG, Tag.TAG_BYTE_ARRAY)) {
-            readBooleanModes(root.getByteArray(STONEWORKS_MONITOR_TAG), stoneworksMonitoring);
+        if (hasByteArray(root, STONEWORKS_MONITOR_TAG)) {
+            readBooleanModes(root.getByteArray(STONEWORKS_MONITOR_TAG).orElseGet(() -> new byte[0]), stoneworksMonitoring);
         } else {
             Arrays.fill(stoneworksMonitoring, true);
         }
-        stoneworksCursor = root.getInt(STONEWORKS_CURSOR_TAG);
-        frameColor = root.contains(FRAME_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
-                ? root.getInt(FRAME_COLOR_TAG)
+        stoneworksCursor = root.getIntOr(STONEWORKS_CURSOR_TAG, 0);
+        frameColor = hasNumeric(root, FRAME_COLOR_TAG)
+                ? root.getIntOr(FRAME_COLOR_TAG, defaultFrameColor())
                 : defaultFrameColor();
-        glassColor = root.contains(GLASS_COLOR_TAG, Tag.TAG_ANY_NUMERIC)
-                ? root.getInt(GLASS_COLOR_TAG)
+        glassColor = hasNumeric(root, GLASS_COLOR_TAG)
+                ? root.getIntOr(GLASS_COLOR_TAG, defaultGlassColor())
                 : defaultGlassColor();
-        styleVariant = StyleGlassVariant.byId(root.getString(STYLE_VARIANT_TAG));
+        styleVariant = StyleGlassVariant.byId(root.getStringOr(STYLE_VARIANT_TAG, StyleGlassVariant.DEFAULT.id()));
         if (!styleVariant.supports(fluidOnly)) {
             styleVariant = StyleGlassVariant.DEFAULT;
         }
@@ -2052,7 +2054,7 @@ public class DeepNullInventory extends ItemStackHandler {
         sanitizeState();
 
         CompoundTag tag = backingStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        CompoundTag root = tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG).copy() : new CompoundTag();
+        CompoundTag root = hasCompound(tag, ROOT_TAG) ? tag.getCompoundOrEmpty(ROOT_TAG).copy() : new CompoundTag();
         LinkedDockSource linkedSource = resolveLinkedDockSource(false);
 
         writeLocalStateToRoot(root, registries);
@@ -2074,34 +2076,34 @@ public class DeepNullInventory extends ItemStackHandler {
     private void readPrimaryStorageFromRoot(HolderLookup.Provider registries, CompoundTag root) {
         clearStorageContents();
         if (!fluidOnly) {
-            if (root.contains(ITEMS_TAG, Tag.TAG_LIST)) {
-                readStoredItemList(registries, root.getList(ITEMS_TAG, Tag.TAG_COMPOUND), stacks);
-            } else if (root.contains(ITEMS_TAG, Tag.TAG_COMPOUND)) {
-                deserializeNBT(registries, root.getCompound(ITEMS_TAG));
+            if (hasList(root, ITEMS_TAG)) {
+                readStoredItemList(registries, root.getListOrEmpty(ITEMS_TAG), stacks);
+            } else if (hasCompound(root, ITEMS_TAG)) {
+                readStoredItemList(registries, root.getCompoundOrEmpty(ITEMS_TAG).getListOrEmpty("Items"), stacks);
             }
         }
         if (supportsFluidStorage()) {
-            if (root.contains(FLUIDS_TAG, Tag.TAG_LIST)) {
-                readFluidList(registries, root.getList(FLUIDS_TAG, Tag.TAG_COMPOUND), fluidStacks);
-            } else if (root.contains("Fluid", Tag.TAG_COMPOUND)) {
-                FluidStack migrated = FluidStack.parseOptional(registries, root.getCompound("Fluid"));
+            if (hasList(root, FLUIDS_TAG)) {
+                readFluidList(registries, root.getListOrEmpty(FLUIDS_TAG), fluidStacks);
+            } else if (hasCompound(root, "Fluid")) {
+                FluidStack migrated = readFluidValue(root, "Fluid");
                 if (!migrated.isEmpty() && !fluidStacks.isEmpty()) {
                     fluidStacks.set(0, migrated);
                 }
             }
-            if (root.contains(CHEMICALS_TAG, Tag.TAG_LIST)) {
-                readChemicalList(root.getList(CHEMICALS_TAG, Tag.TAG_COMPOUND), chemicalStacks);
+            if (hasList(root, CHEMICALS_TAG)) {
+                readChemicalList(root.getListOrEmpty(CHEMICALS_TAG), chemicalStacks);
             }
         }
     }
 
     private void overlayLinkedStorage(HolderLookup.Provider registries, ItemStack sourceStack) {
         CompoundTag sourceTag = sourceStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!sourceTag.contains(ROOT_TAG, Tag.TAG_COMPOUND)) {
+        if (!hasCompound(sourceTag, ROOT_TAG)) {
             clearStorageContents();
             return;
         }
-        readStorageFromRoot(registries, sourceTag.getCompound(ROOT_TAG), ITEMS_TAG, FLUIDS_TAG, CHEMICALS_TAG);
+        readStorageFromRoot(registries, sourceTag.getCompoundOrEmpty(ROOT_TAG), ITEMS_TAG, FLUIDS_TAG, CHEMICALS_TAG);
     }
 
     private void overlayMirrorStorageFromRoot(HolderLookup.Provider registries, CompoundTag root) {
@@ -2116,21 +2118,21 @@ public class DeepNullInventory extends ItemStackHandler {
             String chemicalsKey
     ) {
         clearStorageContents();
-        if (!fluidOnly && root.contains(itemsKey, Tag.TAG_LIST)) {
-            readStoredItemList(registries, root.getList(itemsKey, Tag.TAG_COMPOUND), stacks);
+        if (!fluidOnly && hasList(root, itemsKey)) {
+            readStoredItemList(registries, root.getListOrEmpty(itemsKey), stacks);
         }
         if (supportsFluidStorage()) {
-            if (root.contains(fluidsKey, Tag.TAG_LIST)) {
-                readFluidList(registries, root.getList(fluidsKey, Tag.TAG_COMPOUND), fluidStacks);
+            if (hasList(root, fluidsKey)) {
+                readFluidList(registries, root.getListOrEmpty(fluidsKey), fluidStacks);
             }
-            if (root.contains(chemicalsKey, Tag.TAG_LIST)) {
-                readChemicalList(root.getList(chemicalsKey, Tag.TAG_COMPOUND), chemicalStacks);
+            if (hasList(root, chemicalsKey)) {
+                readChemicalList(root.getListOrEmpty(chemicalsKey), chemicalStacks);
             }
         }
     }
 
     private void writeLocalStateToRoot(CompoundTag root, HolderLookup.Provider registries) {
-        root.put(UPGRADES_TAG, upgradeHandler.serializeNBT(registries));
+        root.put(UPGRADES_TAG, writeItemList(registries, upgradeHandler.rawStacks()));
         root.put(FILTER_ITEMS_TAG, writeItemList(registries, filterStacks));
         root.put(AUTO_SMELT_FILTER_ITEMS_TAG, writeItemList(registries, autoSmeltFilterStacks));
         root.putInt(SELECTED_TAG, selectedSlot);
@@ -2260,7 +2262,7 @@ public class DeepNullInventory extends ItemStackHandler {
             return;
         }
         CustomData.update(DataComponents.CUSTOM_DATA, sourceStack, tag -> {
-            CompoundTag root = tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG).copy() : new CompoundTag();
+            CompoundTag root = hasCompound(tag, ROOT_TAG) ? tag.getCompoundOrEmpty(ROOT_TAG).copy() : new CompoundTag();
             if (!fluidOnly) {
                 root.put(ITEMS_TAG, writeStoredItemList(registries, stacks));
             }
@@ -2275,7 +2277,7 @@ public class DeepNullInventory extends ItemStackHandler {
 
     private void cacheLinkedStorageLocallyIfChanged(HolderLookup.Provider registries) {
         CompoundTag currentTag = backingStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        CompoundTag currentRoot = currentTag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? currentTag.getCompound(ROOT_TAG).copy() : new CompoundTag();
+        CompoundTag currentRoot = hasCompound(currentTag, ROOT_TAG) ? currentTag.getCompoundOrEmpty(ROOT_TAG).copy() : new CompoundTag();
         CompoundTag updatedRoot = currentRoot.copy();
         writeMirrorStorageToRoot(updatedRoot, registries);
         if (updatedRoot.equals(currentRoot)) {
@@ -2490,8 +2492,40 @@ public class DeepNullInventory extends ItemStackHandler {
         if (customData == null || customData.isEmpty()) {
             return null;
         }
-        CompoundTag tag = customData.getUnsafe();
-        return tag.contains(ROOT_TAG, Tag.TAG_COMPOUND) ? tag.getCompound(ROOT_TAG) : null;
+        CompoundTag tag = customData.copyTag();
+        return hasCompound(tag, ROOT_TAG) ? tag.getCompoundOrEmpty(ROOT_TAG) : null;
+    }
+
+    private static boolean hasCompound(CompoundTag tag, String key) {
+        return tag.get(key) instanceof CompoundTag;
+    }
+
+    private static boolean hasList(CompoundTag tag, String key) {
+        return tag.get(key) instanceof ListTag;
+    }
+
+    private static boolean hasByteArray(CompoundTag tag, String key) {
+        return tag.getByteArray(key).isPresent();
+    }
+
+    private static boolean hasNumeric(CompoundTag tag, String key) {
+        return tag.get(key) instanceof NumericTag;
+    }
+
+    private static ItemStack readItemValue(CompoundTag tag, String key) {
+        return tag.read(key, ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+    }
+
+    private static void storeItemValue(CompoundTag tag, String key, ItemStack stack) {
+        tag.store(key, ItemStack.OPTIONAL_CODEC, stack);
+    }
+
+    private static FluidStack readFluidValue(CompoundTag tag, String key) {
+        return tag.read(key, FluidStack.OPTIONAL_CODEC).orElse(FluidStack.EMPTY);
+    }
+
+    private static void storeFluidValue(CompoundTag tag, String key, FluidStack stack) {
+        tag.store(key, FluidStack.OPTIONAL_CODEC, stack);
     }
 
     private static int defaultFrameColor(DeepNullTier tier, boolean fluidOnly) {
@@ -2634,7 +2668,7 @@ public class DeepNullInventory extends ItemStackHandler {
 
         HolderLookup.Provider registries = registriesSupplier.get();
         HolderLookup.Provider resultRegistries = registries == null ? server.registryAccess() : registries;
-        ItemStack result = recipe.value().assemble(input, resultRegistries);
+        ItemStack result = recipe.value().assemble(input);
         if (result.isEmpty() || ItemStack.isSameItemSameComponents(result, stack) || !containsCompressionSeed(result)) {
             return null;
         }
@@ -2646,17 +2680,17 @@ public class DeepNullInventory extends ItemStackHandler {
             return false;
         }
 
-        ResourceLocation itemKey = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier itemKey = BuiltInRegistries.ITEM.getKey(stack.getItem());
         String itemPath = itemKey.getPath().toLowerCase(Locale.ROOT);
         if (itemPath.contains("_ore") || itemPath.startsWith("ore_") || itemPath.endsWith("_ore")) {
             return true;
         }
 
         return Stream.concat(
-                        stack.getTags().map(TagKey::location),
+                        stack.typeHolder().tags().map(TagKey::location),
                         blockItem.getBlock().builtInRegistryHolder().tags().map(TagKey::location)
                 )
-                .map(ResourceLocation::getPath)
+                .map(Identifier::getPath)
                 .map(path -> path.toLowerCase(Locale.ROOT))
                 .anyMatch(path -> path.equals("ores")
                         || path.startsWith("ores/")
@@ -2910,15 +2944,15 @@ public class DeepNullInventory extends ItemStackHandler {
             return false;
         }
 
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         String path = itemId.getPath().toLowerCase(Locale.ROOT);
         if (path.equals("dust") || path.endsWith("_dust") || path.startsWith("dust_")) {
             return true;
         }
 
-        return stack.getTags()
+        return stack.typeHolder().tags()
                 .map(TagKey::location)
-                .map(ResourceLocation::getPath)
+                .map(Identifier::getPath)
                 .map(tagPath -> tagPath.toLowerCase(Locale.ROOT))
                 .anyMatch(tagPath -> tagPath.equals("dusts")
                         || tagPath.startsWith("dusts/")
@@ -2942,7 +2976,7 @@ public class DeepNullInventory extends ItemStackHandler {
             return ItemStack.EMPTY;
         }
 
-        ItemStack result = recipe.value().getResultItem(resultRegistries);
+        ItemStack result = recipe.value().assemble(new SingleRecipeInput(stack.copyWithCount(1)));
         return result.isEmpty() ? ItemStack.EMPTY : result.copy();
     }
 
@@ -3087,21 +3121,21 @@ public class DeepNullInventory extends ItemStackHandler {
         for (int i = 0; i < targetStacks.size(); i++) {
             targetStacks.set(i, ItemStack.EMPTY);
         }
-        if (!(storedList instanceof net.minecraft.nbt.ListTag listTag)) {
+        if (!(storedList instanceof ListTag listTag)) {
             return;
         }
         for (int i = 0; i < listTag.size(); i++) {
-            CompoundTag entry = listTag.getCompound(i);
-            int slot = entry.getInt(SLOT_TAG);
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            int slot = entry.getIntOr(SLOT_TAG, -1);
             if (slot < 0 || slot >= targetStacks.size()) {
                 continue;
             }
-            targetStacks.set(slot, ItemStack.parseOptional(registries, entry.getCompound(STACK_TAG)));
+            targetStacks.set(slot, readItemValue(entry, STACK_TAG));
         }
     }
 
-    private static net.minecraft.nbt.ListTag writeItemList(HolderLookup.Provider registries, NonNullList<ItemStack> sourceStacks) {
-        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+    private static ListTag writeItemList(HolderLookup.Provider registries, NonNullList<ItemStack> sourceStacks) {
+        ListTag list = new ListTag();
         for (int slot = 0; slot < sourceStacks.size(); slot++) {
             ItemStack stack = sourceStacks.get(slot);
             if (stack.isEmpty()) {
@@ -3109,7 +3143,7 @@ public class DeepNullInventory extends ItemStackHandler {
             }
             CompoundTag entry = new CompoundTag();
             entry.putInt(SLOT_TAG, slot);
-            entry.put(STACK_TAG, stack.saveOptional(registries));
+            storeItemValue(entry, STACK_TAG, stack);
             list.add(entry);
         }
         return list;
@@ -3119,22 +3153,22 @@ public class DeepNullInventory extends ItemStackHandler {
         for (int i = 0; i < targetStacks.size(); i++) {
             targetStacks.set(i, ItemStack.EMPTY);
         }
-        if (!(storedList instanceof net.minecraft.nbt.ListTag listTag)) {
+        if (!(storedList instanceof ListTag listTag)) {
             return;
         }
         for (int i = 0; i < listTag.size(); i++) {
-            CompoundTag entry = listTag.getCompound(i);
-            int slot = entry.getInt(SLOT_TAG);
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            int slot = entry.getIntOr(SLOT_TAG, -1);
             if (slot < 0 || slot >= targetStacks.size()) {
                 continue;
             }
 
-            ItemStack stack = ItemStack.parseOptional(registries, entry.getCompound(STACK_TAG));
+            ItemStack stack = readItemValue(entry, STACK_TAG);
             if (stack.isEmpty()) {
                 continue;
             }
 
-            int storedCount = entry.contains(COUNT_TAG, Tag.TAG_INT) ? entry.getInt(COUNT_TAG) : stack.getCount();
+            int storedCount = hasNumeric(entry, COUNT_TAG) ? entry.getIntOr(COUNT_TAG, stack.getCount()) : stack.getCount();
             if (storedCount <= 0) {
                 continue;
             }
@@ -3144,8 +3178,8 @@ public class DeepNullInventory extends ItemStackHandler {
         }
     }
 
-    private static net.minecraft.nbt.ListTag writeStoredItemList(HolderLookup.Provider registries, NonNullList<ItemStack> sourceStacks) {
-        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+    private static ListTag writeStoredItemList(HolderLookup.Provider registries, NonNullList<ItemStack> sourceStacks) {
+        ListTag list = new ListTag();
         for (int slot = 0; slot < sourceStacks.size(); slot++) {
             ItemStack stack = sourceStacks.get(slot);
             if (stack.isEmpty()) {
@@ -3156,7 +3190,7 @@ public class DeepNullInventory extends ItemStackHandler {
             ItemStack storedStack = stack.copyWithCount(1);
             entry.putInt(SLOT_TAG, slot);
             entry.putInt(COUNT_TAG, stack.getCount());
-            entry.put(STACK_TAG, storedStack.saveOptional(registries));
+            storeItemValue(entry, STACK_TAG, storedStack);
             list.add(entry);
         }
         return list;
@@ -3166,21 +3200,21 @@ public class DeepNullInventory extends ItemStackHandler {
         for (int i = 0; i < targetStacks.size(); i++) {
             targetStacks.set(i, FluidStack.EMPTY);
         }
-        if (!(storedList instanceof net.minecraft.nbt.ListTag listTag)) {
+        if (!(storedList instanceof ListTag listTag)) {
             return;
         }
         for (int i = 0; i < listTag.size(); i++) {
-            CompoundTag entry = listTag.getCompound(i);
-            int slot = entry.getInt(SLOT_TAG);
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            int slot = entry.getIntOr(SLOT_TAG, -1);
             if (slot < 0 || slot >= targetStacks.size()) {
                 continue;
             }
-            targetStacks.set(slot, FluidStack.parseOptional(registries, entry.getCompound(STACK_TAG)));
+            targetStacks.set(slot, readFluidValue(entry, STACK_TAG));
         }
     }
 
-    private static net.minecraft.nbt.ListTag writeFluidList(HolderLookup.Provider registries, NonNullList<FluidStack> sourceStacks) {
-        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+    private static ListTag writeFluidList(HolderLookup.Provider registries, NonNullList<FluidStack> sourceStacks) {
+        ListTag list = new ListTag();
         for (int slot = 0; slot < sourceStacks.size(); slot++) {
             FluidStack stack = sourceStacks.get(slot);
             if (stack.isEmpty()) {
@@ -3188,7 +3222,7 @@ public class DeepNullInventory extends ItemStackHandler {
             }
             CompoundTag entry = new CompoundTag();
             entry.putInt(SLOT_TAG, slot);
-            entry.put(STACK_TAG, stack.saveOptional(registries));
+            storeFluidValue(entry, STACK_TAG, stack);
             list.add(entry);
         }
         return list;
@@ -3198,21 +3232,21 @@ public class DeepNullInventory extends ItemStackHandler {
         for (int i = 0; i < targetStacks.size(); i++) {
             targetStacks.set(i, StoredChemical.EMPTY);
         }
-        if (!(storedList instanceof net.minecraft.nbt.ListTag listTag)) {
+        if (!(storedList instanceof ListTag listTag)) {
             return;
         }
         for (int i = 0; i < listTag.size(); i++) {
-            CompoundTag entry = listTag.getCompound(i);
-            int slot = entry.getInt(SLOT_TAG);
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            int slot = entry.getIntOr(SLOT_TAG, -1);
             if (slot < 0 || slot >= targetStacks.size()) {
                 continue;
             }
-            targetStacks.set(slot, StoredChemical.load(entry.getCompound(STACK_TAG)));
+            targetStacks.set(slot, StoredChemical.load(entry.getCompoundOrEmpty(STACK_TAG)));
         }
     }
 
-    private static net.minecraft.nbt.ListTag writeChemicalList(NonNullList<StoredChemical> sourceStacks) {
-        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+    private static ListTag writeChemicalList(NonNullList<StoredChemical> sourceStacks) {
+        ListTag list = new ListTag();
         for (int slot = 0; slot < sourceStacks.size(); slot++) {
             StoredChemical stack = sourceStacks.get(slot);
             if (stack.isEmpty()) {
@@ -3297,6 +3331,11 @@ public class DeepNullInventory extends ItemStackHandler {
         private void clearSlotSilently(int slot) {
             ensureSlotCount();
             stacks.set(slot, ItemStack.EMPTY);
+        }
+
+        private NonNullList<ItemStack> rawStacks() {
+            ensureSlotCount();
+            return stacks;
         }
 
         @Override

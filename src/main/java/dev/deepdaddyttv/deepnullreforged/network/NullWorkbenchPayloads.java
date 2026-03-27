@@ -5,7 +5,7 @@ import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.NullWorkbenchTransferSupport;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -83,13 +83,13 @@ public final class NullWorkbenchPayloads {
         }
     }
 
-    public record TransferRecipePayload(BlockPos blockPos, ResourceLocation resultItemId, boolean maxTransfer) implements CustomPacketPayload {
+    public record TransferRecipePayload(BlockPos blockPos, Identifier resultItemId, boolean maxTransfer) implements CustomPacketPayload {
         public static final Type<TransferRecipePayload> TYPE = payloadType("null_workbench_transfer_recipe");
         public static final StreamCodec<RegistryFriendlyByteBuf, TransferRecipePayload> STREAM_CODEC =
                 StreamCodec.composite(
                         BlockPos.STREAM_CODEC,
                         TransferRecipePayload::blockPos,
-                        ResourceLocation.STREAM_CODEC,
+                        Identifier.STREAM_CODEC,
                         TransferRecipePayload::resultItemId,
                         ByteBufCodecs.BOOL,
                         TransferRecipePayload::maxTransfer,

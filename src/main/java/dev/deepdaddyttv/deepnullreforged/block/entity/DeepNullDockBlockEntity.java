@@ -1,25 +1,26 @@
 package dev.deepdaddyttv.deepnullreforged.block.entity;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.capability.LegacyCapabilityBridge;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
-import net.minecraft.core.Direction;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.Containers;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 
 public class DeepNullDockBlockEntity extends BlockEntity {
@@ -146,33 +147,21 @@ public class DeepNullDockBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
-        if (hasStoredDeepNull()) {
-            tag.put(STORED_DANK_TAG, storedDeepNull.saveOptional(registries));
-        }
-        if (!generatorBuffer.isEmpty()) {
-            tag.put(GENERATOR_BUFFER_TAG, generatorBuffer.saveOptional(registries));
-        }
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        storeItem(output, STORED_DANK_TAG, storedDeepNull);
+        storeItem(output, GENERATOR_BUFFER_TAG, generatorBuffer);
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
-        if (tag.contains(STORED_DANK_TAG, Tag.TAG_COMPOUND)) {
-            storedDeepNull = ItemStack.parseOptional(registries, tag.getCompound(STORED_DANK_TAG));
-        } else {
-            storedDeepNull = ItemStack.EMPTY;
-        }
-        if (tag.contains(GENERATOR_BUFFER_TAG, Tag.TAG_COMPOUND)) {
-            generatorBuffer = ItemStack.parseOptional(registries, tag.getCompound(GENERATOR_BUFFER_TAG));
-        } else {
-            generatorBuffer = ItemStack.EMPTY;
-        }
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        storedDeepNull = readItem(input, STORED_DANK_TAG);
+        generatorBuffer = readItem(input, GENERATOR_BUFFER_TAG);
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+    public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
         return saveWithoutMetadata(registries);
     }
 
@@ -181,10 +170,24 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
+    @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        if (level != null) {
+            if (!storedDeepNull.isEmpty()) {
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), storedDeepNull.copy());
+                storedDeepNull = ItemStack.EMPTY;
+            }
+            if (!generatorBuffer.isEmpty()) {
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), generatorBuffer.copy());
+                generatorBuffer = ItemStack.EMPTY;
+            }
+        }
+    }
+
     private void setChangedAndSync(boolean invalidateCapabilities) {
         setChanged();
         Level level = getLevel();
-        if (level != null && !level.isClientSide) {
+        if (level != null && !level.isClientSide()) {
             BlockState state = getBlockState();
             level.sendBlockUpdated(worldPosition, state, state, 3);
             if (invalidateCapabilities) {
@@ -275,9 +278,9 @@ public class DeepNullDockBlockEntity extends BlockEntity {
 
         ItemStack remaining = generatorBuffer.copy();
         for (Direction direction : Direction.values()) {
-            IItemHandler target = level.getCapability(Capabilities.ItemHandler.BLOCK, pos.relative(direction), direction.getOpposite());
+            IItemHandler target = LegacyCapabilityBridge.getItemHandler(level, pos.relative(direction), direction.getOpposite());
             if (target == null) {
-                target = level.getCapability(Capabilities.ItemHandler.BLOCK, pos.relative(direction), null);
+                target = LegacyCapabilityBridge.getItemHandler(level, pos.relative(direction), null);
             }
             if (target == null) {
                 continue;
@@ -302,6 +305,16 @@ public class DeepNullDockBlockEntity extends BlockEntity {
             return ItemStack.EMPTY;
         }
         return stack.copyWithCount(stack.getCount() - extracted);
+    }
+
+    private static void storeItem(ValueOutput output, String key, ItemStack stack) {
+        if (!stack.isEmpty()) {
+            output.store(key, ItemStack.OPTIONAL_CODEC, stack);
+        }
+    }
+
+    private static ItemStack readItem(ValueInput input, String key) {
+        return input.read(key, ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
     }
 
     private static boolean hasGeneratorUpgrade(DeepNullInventory inventory) {

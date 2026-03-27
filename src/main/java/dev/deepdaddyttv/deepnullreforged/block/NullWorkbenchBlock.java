@@ -7,6 +7,7 @@ import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -33,7 +34,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.common.ItemAbilities;
+import net.neoforged.neoforge.common.ItemAbility;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
@@ -96,7 +97,7 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable net.minecraft.world.entity.LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (level.isClientSide) {
+        if (level.isClientSide()) {
             return;
         }
         BlockPos extensionPos = pos.relative(extensionDirection(state.getValue(FACING)));
@@ -123,7 +124,7 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
             return 0.0F;
         }
         float destroySpeed = player.getDestroySpeed(state);
-        boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbilities.PICKAXE_DIG);
+        boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbility.get("pickaxe_dig"));
         if (pickaxeLikeTool && destroySpeed > 1.0F) {
             return destroySpeed / hardness / 15.0F;
         }
@@ -132,8 +133,8 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (level.isClientSide || !(player instanceof ServerPlayer serverPlayer)) {
-            return InteractionResult.sidedSuccess(level.isClientSide);
+        if (level.isClientSide() || !(player instanceof ServerPlayer serverPlayer)) {
+            return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
         }
         BlockPos mainPos = resolveMainPos(state, pos);
         if (!(level.getBlockEntity(mainPos) instanceof NullWorkbenchBlockEntity workbench)) {
@@ -155,30 +156,16 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (state.is(newState.getBlock())) {
-            super.onRemove(state, level, pos, newState, movedByPiston);
-            return;
-        }
-
+    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
         BlockPos mainPos = resolveMainPos(state, pos);
         BlockPos extensionPos = mainPos.relative(extensionDirection(state.getValue(FACING)));
-        boolean removingMain = pos.equals(mainPos);
-
-        if (removingMain && level.getBlockEntity(mainPos) instanceof NullWorkbenchBlockEntity workbench) {
-            for (int slot = 0; slot < workbench.getItemHandler().getSlots(); slot++) {
-                popResource(level, mainPos, workbench.getItemHandler().getStackInSlot(slot));
-            }
-        }
-
-        if (removingMain) {
+        if (pos.equals(mainPos)) {
             if (!extensionPos.equals(pos) && level.getBlockState(extensionPos).is(this)) {
                 level.removeBlock(extensionPos, false);
             }
         } else if (!mainPos.equals(pos) && level.getBlockState(mainPos).is(this)) {
             level.removeBlock(mainPos, false);
         }
-        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override
