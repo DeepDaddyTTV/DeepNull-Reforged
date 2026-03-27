@@ -1674,6 +1674,26 @@ public class DeepNullInventory extends ItemStackHandler {
         return insertPreparedIntoFirstAvailableSlot(stack, simulate);
     }
 
+    public boolean shouldVoidOverflowingPickup(ItemStack stack) {
+        if (fluidOnly || stack.isEmpty() || stack.getItem() instanceof DeepNullItem) {
+            return false;
+        }
+
+        boolean matchedStoredSlot = false;
+        for (int slot = 0; slot < getSlots(); slot++) {
+            ItemStack existing = getStackInSlot(slot);
+            if (existing.isEmpty() || !matchesIncoming(slot, stack)) {
+                continue;
+            }
+            matchedStoredSlot = true;
+            if (existing.getCount() < getSlotLimit(slot)) {
+                return false;
+            }
+        }
+
+        return matchedStoredSlot;
+    }
+
     private ItemStack insertPreparedIntoFirstAvailableSlot(ItemStack stack, boolean simulate) {
         if (!passesFilter(stack)) {
             return stack;

@@ -1,5 +1,6 @@
 package dev.deepdaddyttv.deepnullreforged.event;
 
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -21,6 +22,7 @@ public final class CommonEvents {
 
         ItemStack remaining = stack.copy();
         boolean insertedAny = false;
+        boolean voidOverflow = false;
 
         for (int slot = 0; slot < player.getInventory().getContainerSize() && !remaining.isEmpty(); slot++) {
             ItemStack candidate = player.getInventory().getItem(slot);
@@ -37,13 +39,16 @@ public final class CommonEvents {
                     ? inventory.insertPickedUpIntoFirstAvailableSlot(remaining, false)
                     : inventory.insertPickedUpIntoMatchingSlots(remaining, false);
             insertedAny |= remaining.getCount() != before;
+            if (DeepNullConfig.voidFullItemsOnPickup() && !remaining.isEmpty() && inventory.shouldVoidOverflowingPickup(remaining)) {
+                voidOverflow = true;
+            }
         }
 
-        if (!insertedAny) {
+        if (!insertedAny && !voidOverflow) {
             return;
         }
 
-        if (remaining.isEmpty()) {
+        if (remaining.isEmpty() || voidOverflow) {
             itemEntity.discard();
             event.setCanPickup(TriState.FALSE);
         } else {
