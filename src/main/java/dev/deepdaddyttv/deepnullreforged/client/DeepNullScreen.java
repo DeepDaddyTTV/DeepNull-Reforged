@@ -115,6 +115,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private int customExtractionSlot = -1;
     private int customExtractionAnchorX;
     private int customExtractionAnchorY;
+    private int customExtractionInitialValue;
 
     public DeepNullScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -245,6 +246,11 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!isFluidView() && button == 2) {
+            if (handleBlockedMiddleClick(mouseX, mouseY)) {
+                return true;
+            }
+        }
         if (customExtractionBox != null && customExtractionBox.visible) {
             if (handleCustomExtractionEditorClick(mouseX, mouseY, button)) {
                 return true;
@@ -254,15 +260,6 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             }
         }
         Slot slot = hoveredSlot;
-        if (!isFluidView() && button == 2) {
-            if (slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
-                openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY));
-                return true;
-            }
-            if (isWithin(mouseX, mouseY, leftPos, topPos, baseImageWidth, imageHeight)) {
-                return true;
-            }
-        }
         if (handleIconButtonClick(mouseX, mouseY, button)) {
             return true;
         }
@@ -313,6 +310,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         clearShiftQuickMoveState();
+        if (!isFluidView() && button == 2 && handleBlockedMiddleRelease(mouseX, mouseY)) {
+            return true;
+        }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -330,6 +330,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return customExtractionBox.keyPressed(keyCode, scanCode, modifiers);
         }
         if (stoneworksAmountBox != null && stoneworksAmountBox.isFocused()) {
+            if (stoneworksAmountBox.keyPressed(keyCode, scanCode, modifiers)) {
+                return true;
+            }
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
         if (!isFluidView() && Screen.hasAltDown()) {
@@ -356,6 +359,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     public boolean charTyped(char codePoint, int modifiers) {
         if (customExtractionBox != null && customExtractionBox.isFocused()) {
             return customExtractionBox.charTyped(codePoint, modifiers);
+        }
+        if (stoneworksAmountBox != null && stoneworksAmountBox.isFocused()) {
+            return stoneworksAmountBox.charTyped(codePoint, modifiers);
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -523,7 +529,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         int textWidth = INFO_TAB_WIDTH - 24;
 
         guiGraphics.blit(INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
-        guiGraphics.drawString(font, Component.translatable("itemGroup." + DeepNullReforged.MODID), textX, lineY, 0xFFFFFFFF, false);
+        guiGraphics.drawString(font, infoPanelTitle(), textX, lineY, 0xFFFFFFFF, false);
         lineY += 18;
 
         if (isFluidView()) {
@@ -596,6 +602,13 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     private Component label(String key, Component value) {
         return Component.translatable(key).append(": ").append(value);
+    }
+
+    private Component infoPanelTitle() {
+        String key = menu.getDankInventory().isFluidOnly()
+                ? "item.deepnullreforged.damp_null_"
+                : "item.deepnullreforged.deep_null_";
+        return Component.translatable(key + menu.getTier().ordinalId());
     }
 
     private Component countText(ItemStack stack) {
@@ -1053,6 +1066,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         customExtractionAnchorX = mouseX;
         customExtractionAnchorY = mouseY;
         int currentMinimum = currentCustomExtractionEditorValue(slot, stack);
+        customExtractionInitialValue = currentMinimum;
         customExtractionBox.setValue(Integer.toString(currentMinimum));
         updateCustomExtractionBox();
         customExtractionBox.visible = true;
@@ -1074,7 +1088,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             if (!stack.isEmpty() && !customExtractionBox.getValue().isEmpty()) {
                 try {
                     int amount = Integer.parseInt(customExtractionBox.getValue());
-                    if (menu.setCustomExtractionMinimum(customExtractionSlot, amount)) {
+                    if (amount != customExtractionInitialValue) {
                         PacketDistributor.sendToServer(new DeepNullPayloads.MenuCustomExtractionPayload(customExtractionSlot, amount));
                     }
                 } catch (NumberFormatException ignored) {
@@ -1084,6 +1098,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         customExtractionSlot = -1;
         customExtractionAnchorX = 0;
         customExtractionAnchorY = 0;
+        customExtractionInitialValue = 0;
         customExtractionBox.setFocused(false);
         customExtractionBox.visible = false;
         customExtractionBox.active = false;
@@ -1228,9 +1243,6 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         long unclamped = (long) current + delta;
         int next = (int) Math.max(0L, Math.min((long) menu.getDankInventory().getSlotLimit(customExtractionSlot), unclamped));
         customExtractionBox.setValue(Integer.toString(next));
-        if (menu.setCustomExtractionMinimum(customExtractionSlot, next)) {
-            PacketDistributor.sendToServer(new DeepNullPayloads.MenuCustomExtractionPayload(customExtractionSlot, next));
-        }
     }
 
     private int parseNumericBox(EditBox box, int fallback) {
@@ -1246,6 +1258,26 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     private int customExtractionDialogStep() {
         return Screen.hasShiftDown() ? 10 : 1;
+    }
+
+    boolean handleBlockedMiddleClick(double mouseX, double mouseY) {
+        if (!isWithin(mouseX, mouseY, leftPos, topPos, baseImageWidth, imageHeight)) {
+            return false;
+        }
+        if (customExtractionBox != null && customExtractionBox.visible) {
+            return true;
+        }
+
+        Slot slot = findSlotAt(mouseX, mouseY);
+        if (slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
+            openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY));
+        }
+        return true;
+    }
+
+    boolean handleBlockedMiddleRelease(double mouseX, double mouseY) {
+        return (customExtractionBox != null && customExtractionBox.visible && isWithin(customExtractionEditorBounds(), mouseX, mouseY))
+                || isWithin(mouseX, mouseY, leftPos, topPos, baseImageWidth, imageHeight);
     }
 
     private int stoneworksDialogStep() {

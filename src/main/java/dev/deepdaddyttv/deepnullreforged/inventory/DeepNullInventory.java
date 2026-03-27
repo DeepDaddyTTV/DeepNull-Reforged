@@ -1847,7 +1847,7 @@ public class DeepNullInventory extends ItemStackHandler {
     @Override
     protected void onContentsChanged(int slot) {
         super.onContentsChanged(slot);
-        if (getStackInSlot(slot).isEmpty() && extractionModes[slot] == ItemExtractionMode.CUSTOM) {
+        if (getStackInSlot(slot).isEmpty()) {
             extractionModes[slot] = ItemExtractionMode.KEEP_1;
             customExtractionAmounts[slot] = 0;
         }
@@ -2395,11 +2395,16 @@ public class DeepNullInventory extends ItemStackHandler {
     private void sanitizeState() {
         migrateLegacyUpgradeSlots();
         for (int slot = 0; slot < getSlots(); slot++) {
-            if (getStackInSlot(slot).isEmpty() && extractionModes[slot] == ItemExtractionMode.CUSTOM) {
+            if (getStackInSlot(slot).isEmpty()) {
                 extractionModes[slot] = ItemExtractionMode.KEEP_1;
                 customExtractionAmounts[slot] = 0;
             } else if (extractionModes[slot] == ItemExtractionMode.CUSTOM) {
-                customExtractionAmounts[slot] = Math.max(1, Math.min(customExtractionAmounts[slot], getSlotLimit(slot)));
+                if (customExtractionAmounts[slot] <= 0) {
+                    extractionModes[slot] = ItemExtractionMode.KEEP_NONE;
+                    customExtractionAmounts[slot] = 0;
+                } else {
+                    customExtractionAmounts[slot] = Math.min(customExtractionAmounts[slot], getSlotLimit(slot));
+                }
             } else {
                 customExtractionAmounts[slot] = 0;
             }

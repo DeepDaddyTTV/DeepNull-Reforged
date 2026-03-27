@@ -7,6 +7,7 @@ import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.event.client.player.ClientPickBlockApplyCallback;
 import net.minecraft.client.Minecraft;
@@ -34,6 +35,16 @@ public final class ClientGameEvents {
         ClientTickEvents.END_CLIENT_TICK.register(ClientGameEvents::onClientTick);
         HudRenderCallback.EVENT.register(DeepNullHudRenderer::render);
         ClientPickBlockApplyCallback.EVENT.register(ClientGameEvents::onPickBlockApply);
+        ScreenEvents.BEFORE_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (!(screen instanceof DeepNullScreen deepNullScreen)) {
+                return;
+            }
+
+            ScreenMouseEvents.allowMouseClick(screen).register((currentScreen, mouseX, mouseY, button) ->
+                    button != 2 || !deepNullScreen.handleBlockedMiddleClick(mouseX, mouseY));
+            ScreenMouseEvents.allowMouseRelease(screen).register((currentScreen, mouseX, mouseY, button) ->
+                    button != 2 || !deepNullScreen.handleBlockedMiddleRelease(mouseX, mouseY));
+        });
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) ->
                 ScreenEvents.remove(screen).register(ClientGameEvents::onScreenClosing));
     }
