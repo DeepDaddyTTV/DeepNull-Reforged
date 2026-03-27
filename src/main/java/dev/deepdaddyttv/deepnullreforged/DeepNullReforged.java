@@ -13,9 +13,11 @@ import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import dev.deepdaddyttv.deepnullreforged.registry.ModRecipeSerializers;
 import net.minecraft.resources.Identifier;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.InterModComms;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.InterModEnqueueEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 
@@ -39,6 +41,7 @@ public final class DeepNullReforged {
         modEventBus.addListener(ModCapabilities::register);
         modEventBus.addListener(DeepNullConfig::onLoad);
         modEventBus.addListener(DeepNullConfig::onReload);
+        modEventBus.addListener(DeepNullReforged::registerInventorySorterCompat);
         modContainer.registerConfig(ModConfig.Type.CLIENT, DeepNullConfig.CLIENT_SPEC);
         modContainer.registerConfig(ModConfig.Type.COMMON, DeepNullConfig.COMMON_SPEC);
         modContainer.registerConfig(ModConfig.Type.SERVER, DeepNullConfig.SERVER_SPEC);
@@ -57,5 +60,12 @@ public final class DeepNullReforged {
 
     public static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath(MODID, path);
+    }
+
+    private static void registerInventorySorterCompat(InterModEnqueueEvent event) {
+        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$StorageSlot");
+        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$DockStorageSlot");
+        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$FluidStorageSlot");
+        InterModComms.sendTo("inventorysorter", "containerblacklist", () -> id("deep_null"));
     }
 }

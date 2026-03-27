@@ -511,7 +511,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         int textWidth = INFO_TAB_WIDTH - 24;
 
         graphics.blit(RenderPipelines.GUI_TEXTURED, INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
-        graphics.text(font, Component.translatable("itemGroup." + DeepNullReforged.MODID), textX, lineY, 0xFFFFFFFF, false);
+        graphics.text(font, infoPanelTitle(), textX, lineY, 0xFFFFFFFF, false);
         lineY += 18;
 
         if (slot == null || !slot.hasItem() || !(slot instanceof SlotItemHandler)) {
@@ -552,6 +552,13 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return menu.slots.get(selectedSlot);
         }
         return null;
+    }
+
+    private Component infoPanelTitle() {
+        String key = menu.getDankInventory().isFluidOnly()
+                ? "item.deepnullreforged.damp_null_"
+                : "item.deepnullreforged.deep_null_";
+        return Component.translatable(key + menu.getTier().ordinalId());
     }
 
     private Component label(String key, Component value) {

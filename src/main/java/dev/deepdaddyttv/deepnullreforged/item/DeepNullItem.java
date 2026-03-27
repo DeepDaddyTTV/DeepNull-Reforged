@@ -28,6 +28,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.item.Items;
@@ -198,6 +199,10 @@ public class DeepNullItem extends Item {
         if (consumableResult != null) {
             return consumableResult;
         }
+        InteractionResult proxiedUseOnResult = tryUseStoredStatefulItem(context, inventory);
+        if (proxiedUseOnResult != null) {
+            return proxiedUseOnResult;
+        }
 
         int selectedSlot = inventory.getSelectedSlot();
         ItemStack selectedStack = inventory.getSelectedStack();
@@ -231,6 +236,29 @@ public class DeepNullItem extends Item {
             }
         }
         return result;
+    }
+
+    @Override
+    public InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity interactionTarget, InteractionHand usedHand) {
+        DeepNullInventory inventory = new DeepNullInventory(tier, stack, player.level().registryAccess(), null);
+        if (inventory.isFluidOnly()) {
+            return InteractionResult.PASS;
+        }
+
+        ItemStack selectedStack = inventory.getSelectedStack();
+        if (!shouldProxyStoredInteraction(selectedStack)) {
+            return InteractionResult.PASS;
+        }
+
+        InteractionResult result = proxyStoredItemUse(
+                player.level(),
+                player,
+                usedHand,
+                stack,
+                inventory,
+                proxyStack -> proxyStack.interactLivingEntity(player, interactionTarget, usedHand)
+        );
+        return result == null ? InteractionResult.PASS : result;
     }
 
     @Override
@@ -405,6 +433,38 @@ public class DeepNullItem extends Item {
         return InteractionResult.CONSUME;
     }
 
+    private static InteractionResult tryUseStoredStatefulItem(UseOnContext context, DeepNullInventory inventory) {
+        Player player = context.getPlayer();
+        if (player == null || !shouldProxyStoredInteraction(inventory.getSelectedStack())) {
+            return null;
+        }
+
+        return proxyStoredItemUse(
+                context.getLevel(),
+                player,
+                context.getHand(),
+                context.getItemInHand(),
+                inventory,
+                proxyStack -> {
+                    BlockHitResult hitResult = new BlockHitResult(
+                            context.getClickLocation(),
+                            context.getClickedFace(),
+                            context.getClickedPos(),
+                            context.isInside()
+                    );
+                    return proxyStack.useOn(new UseOnContext(context.getLevel(), player, context.getHand(), proxyStack, hitResult));
+                }
+        );
+    }
+
+    private static boolean shouldProxyStoredInteraction(ItemStack selectedStack) {
+        return !selectedStack.isEmpty()
+                && selectedStack.getMaxStackSize() == 1
+                && !(selectedStack.getItem() instanceof BlockItem)
+                && !(selectedStack.getItem() instanceof BucketItem)
+                && !supportsStoredConsumeUse(selectedStack, null);
+    }
+
     private static boolean supportsStoredConsumeUse(ItemStack selectedStack, LivingEntity entity) {
         if (selectedStack.isEmpty()) {
             return false;
@@ -413,7 +473,7 @@ public class DeepNullItem extends Item {
         if (useAnim != ItemUseAnimation.EAT && useAnim != ItemUseAnimation.DRINK) {
             return false;
         }
-        return selectedStack.getUseDuration(entity) > 0;
+        return entity == null || selectedStack.getUseDuration(entity) > 0;
     }
 
     private static InteractionResult proxyStoredItemUse(

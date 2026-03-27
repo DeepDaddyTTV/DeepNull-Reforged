@@ -83,6 +83,7 @@ public final class DeepNullConfig {
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_STONE_GENERATOR;
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_OBSIDIAN_GENERATOR;
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_SPONGE_UPGRADE;
+    private static final ModConfigSpec.BooleanValue SERVER_VOID_FULL_ITEMS_ON_PICKUP;
     private static final ModConfigSpec.BooleanValue SERVER_VOID_FULL_FLUIDS_ON_SPONGE;
     private static final ModConfigSpec.BooleanValue SERVER_ENABLE_CHEMICAL_STORAGE;
     private static final ModConfigSpec.IntValue SERVER_DOCK_GENERATOR_BUFFER_SIZE;
@@ -127,6 +128,7 @@ public final class DeepNullConfig {
     private static volatile boolean serverEnableStoneGenerator = true;
     private static volatile boolean serverEnableObsidianGenerator = true;
     private static volatile boolean serverEnableSpongeUpgrade = true;
+    private static volatile boolean serverVoidFullItemsOnPickup = true;
     private static volatile boolean serverVoidFullFluidsOnSponge = true;
     private static volatile boolean serverEnableChemicalStorage = true;
     private static volatile int dockGeneratorBufferSize = 64;
@@ -221,6 +223,8 @@ public final class DeepNullConfig {
                 .define("enableObsidianGenerator", true);
         SERVER_ENABLE_SPONGE_UPGRADE = SERVER_BUILDER.comment("Enable DampNull Sponge Upgrade behavior.")
                 .define("enableSpongeUpgrade", true);
+        SERVER_VOID_FULL_ITEMS_ON_PICKUP = SERVER_BUILDER.comment("When auto-pickup hits an item that is already stored in a matching DeepNull slot and that matching storage is full, still absorb and void the overflow instead of rejecting it.")
+                .define("voidFullItemsOnPickup", true);
         SERVER_VOID_FULL_FLUIDS_ON_SPONGE = SERVER_BUILDER.comment("When the Sponge Upgrade hits a matching tank that is already full, still absorb and void those matching source blocks.")
                 .define("voidFullFluidsOnSponge", true);
         SERVER_ENABLE_CHEMICAL_STORAGE = SERVER_BUILDER.comment("Enable Mekanism chemical storage and transfer when Mekanism is installed.")
@@ -384,6 +388,10 @@ public final class DeepNullConfig {
         return serverEnableSpongeUpgrade;
     }
 
+    public static boolean voidFullItemsOnPickup() {
+        return serverVoidFullItemsOnPickup;
+    }
+
     public static boolean voidFullFluidsOnSponge() {
         return serverVoidFullFluidsOnSponge;
     }
@@ -484,6 +492,7 @@ public final class DeepNullConfig {
         serverEnableStoneGenerator = SERVER_ENABLE_STONE_GENERATOR.getAsBoolean();
         serverEnableObsidianGenerator = SERVER_ENABLE_OBSIDIAN_GENERATOR.getAsBoolean();
         serverEnableSpongeUpgrade = SERVER_ENABLE_SPONGE_UPGRADE.getAsBoolean();
+        serverVoidFullItemsOnPickup = SERVER_VOID_FULL_ITEMS_ON_PICKUP.getAsBoolean();
         serverVoidFullFluidsOnSponge = SERVER_VOID_FULL_FLUIDS_ON_SPONGE.getAsBoolean();
         serverEnableChemicalStorage = SERVER_ENABLE_CHEMICAL_STORAGE.getAsBoolean();
         dockGeneratorBufferSize = SERVER_DOCK_GENERATOR_BUFFER_SIZE.getAsInt();
