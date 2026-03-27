@@ -175,6 +175,26 @@ public final class ClientGameEvents {
         ClientDeepNullJeiSession.clear();
     }
 
+    @SubscribeEvent
+    public static void onDeepNullMiddleClick(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (event.getButton() != 2 || !(event.getScreen() instanceof DeepNullScreen screen)) {
+            return;
+        }
+        if (screen.handleBlockedMiddleClick(event.getMouseX(), event.getMouseY())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onDeepNullMiddleRelease(ScreenEvent.MouseButtonReleased.Pre event) {
+        if (event.getButton() != 2 || !(event.getScreen() instanceof DeepNullScreen screen)) {
+            return;
+        }
+        if (screen.handleBlockedMiddleRelease(event.getMouseX(), event.getMouseY())) {
+            event.setCanceled(true);
+        }
+    }
+
     private static boolean handleTransferLockHotkey(Minecraft minecraft, Player player) {
         if (minecraft.screen instanceof DeepNullScreen screen) {
             boolean next = screen.toggleTransferLock();

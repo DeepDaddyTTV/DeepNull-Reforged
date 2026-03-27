@@ -9,10 +9,17 @@ import dev.deepdaddyttv.deepnullreforged.item.DeepNullPanelItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullUpgradeItem;
 import dev.deepdaddyttv.deepnullreforged.item.EnderUpgradeItem;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public final class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(DeepNullReforged.MODID);
@@ -40,10 +47,10 @@ public final class ModItems {
     public static final DeferredItem<Item> DIAMOND_PANEL = registerPanel(DeepNullTier.DIAMOND);
     public static final DeferredItem<Item> EMERALD_PANEL = registerPanel(DeepNullTier.EMERALD);
 
-    public static final DeferredItem<Item> FILTER = ITEMS.register("filter", () -> new Item(new Item.Properties()));
-    public static final DeferredItem<Item> UPGRADE_CORE = ITEMS.register("upgrade_core", () -> new Item(new Item.Properties()));
-    public static final DeferredItem<Item> ENDER_UPGRADE_CORE = ITEMS.register("ender_upgrade_core", () -> new Item(new Item.Properties()));
-    public static final DeferredItem<Item> SYNCHRONIZER = ITEMS.register("synchronizer", () -> new SynchronizerItem(new Item.Properties()));
+    public static final DeferredItem<Item> FILTER = registerItem("filter", Item::new);
+    public static final DeferredItem<Item> UPGRADE_CORE = registerItem("upgrade_core", Item::new);
+    public static final DeferredItem<Item> ENDER_UPGRADE_CORE = registerItem("ender_upgrade_core", Item::new);
+    public static final DeferredItem<Item> SYNCHRONIZER = registerItem("synchronizer", SynchronizerItem::new);
     public static final DeferredItem<Item> FILTER_UPGRADE = registerUpgrade(DeepNullUpgradeType.FILTER);
     public static final DeferredItem<Item> FLUID_UPGRADE = registerUpgrade(DeepNullUpgradeType.FLUID);
     public static final DeferredItem<Item> ENERGY_UPGRADE = registerUpgrade(DeepNullUpgradeType.ENERGY);
@@ -59,28 +66,40 @@ public final class ModItems {
     public static final DeferredItem<Item> GAS_UPGRADE = registerUpgrade(DeepNullUpgradeType.GAS);
     public static final DeferredItem<Item> ENDER_UPGRADE = registerUpgrade(DeepNullUpgradeType.ENDER);
 
-    public static final DeferredItem<Item> DEEP_NULL_DOCK = ITEMS.register("deepnull_dock", () -> new BlockItem(ModBlocks.DEEP_NULL_DOCK.get(), new Item.Properties()));
-    public static final DeferredItem<Item> NULL_WORKBENCH = ITEMS.register("null_workbench", () -> new BlockItem(ModBlocks.NULL_WORKBENCH.get(), new Item.Properties()));
+    public static final DeferredItem<Item> DEEP_NULL_DOCK = registerBlockItem("deepnull_dock", ModBlocks.DEEP_NULL_DOCK);
+    public static final DeferredItem<Item> NULL_WORKBENCH = registerBlockItem("null_workbench", ModBlocks.NULL_WORKBENCH);
 
     private ModItems() {
     }
 
+    private static DeferredItem<Item> registerItem(String name, Function<Item.Properties, ? extends Item> factory) {
+        return ITEMS.register(name, () -> factory.apply(itemProperties(name)));
+    }
+
     private static DeferredItem<Item> registerDeepNull(DeepNullTier tier) {
-        return ITEMS.register(tier.deepNullId(), () -> new DeepNullItem(tier, new Item.Properties()));
+        return registerItem(tier.deepNullId(), properties -> new DeepNullItem(tier, properties));
     }
 
     private static DeferredItem<Item> registerDampNull(DeepNullTier tier) {
-        return ITEMS.register(tier.dampNullId(), () -> new DampNullItem(tier, new Item.Properties()));
+        return registerItem(tier.dampNullId(), properties -> new DampNullItem(tier, properties));
     }
 
     private static DeferredItem<Item> registerPanel(DeepNullTier tier) {
-        return ITEMS.register(tier.panelId(), () -> new DeepNullPanelItem(tier, new Item.Properties()));
+        return registerItem(tier.panelId(), properties -> new DeepNullPanelItem(tier, properties));
     }
 
     private static DeferredItem<Item> registerUpgrade(DeepNullUpgradeType type) {
         if (type == DeepNullUpgradeType.ENDER) {
-            return ITEMS.register(type.itemId(), () -> new EnderUpgradeItem(new Item.Properties()));
+            return registerItem(type.itemId(), EnderUpgradeItem::new);
         }
-        return ITEMS.register(type.itemId(), () -> new DeepNullUpgradeItem(type, new Item.Properties()));
+        return registerItem(type.itemId(), properties -> new DeepNullUpgradeItem(type, properties));
+    }
+
+    private static DeferredItem<Item> registerBlockItem(String name, Supplier<? extends Block> block) {
+        return registerItem(name, properties -> new BlockItem(block.get(), properties.useBlockDescriptionPrefix()));
+    }
+
+    private static Item.Properties itemProperties(String name) {
+        return new Item.Properties().setId(ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(DeepNullReforged.MODID, name)));
     }
 }

@@ -99,6 +99,16 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         return generatorBuffer;
     }
 
+    public DockState snapshotState() {
+        return new DockState(storedDeepNull.copy(), generatorBuffer.copy());
+    }
+
+    public void restoreState(DockState state) {
+        this.storedDeepNull = state.storedDeepNull().copy();
+        this.generatorBuffer = state.generatorBuffer().copy();
+        setChangedAndSync(false);
+    }
+
     public static void serverTick(Level level, BlockPos pos, BlockState state, DeepNullDockBlockEntity dock) {
         if (!dock.hasStoredDeepNull()) {
             return;
@@ -319,6 +329,9 @@ public class DeepNullDockBlockEntity extends BlockEntity {
 
     private static boolean hasGeneratorUpgrade(DeepNullInventory inventory) {
         return inventory.hasStoneGeneratorUpgrade() || inventory.hasObsidianGeneratorUpgrade();
+    }
+
+    public record DockState(ItemStack storedDeepNull, ItemStack generatorBuffer) {
     }
 
     private static final class DockAutomationHandler implements IItemHandlerModifiable {

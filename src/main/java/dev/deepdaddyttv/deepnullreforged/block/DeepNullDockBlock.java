@@ -1,10 +1,14 @@
 package dev.deepdaddyttv.deepnullreforged.block;
 
 import com.mojang.serialization.MapCodec;
+import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenuOpener;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -33,12 +37,16 @@ public class DeepNullDockBlock extends BaseEntityBlock {
     private static final VoxelShape FILLED_SHAPE = box(0.0D, 0.0D, 0.0D, 16.0D, 12.0D, 16.0D);
     private static final VoxelShape FULL_SUPPORT_SHAPE = Shapes.block();
 
-    public DeepNullDockBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0F, 6.0F).noOcclusion());
+    public DeepNullDockBlock(BlockBehaviour.Properties properties) {
+        super(properties);
     }
 
-    private DeepNullDockBlock(BlockBehaviour.Properties properties) {
-        super(properties);
+    public static BlockBehaviour.Properties createProperties() {
+        return BlockBehaviour.Properties.of()
+                .setId(ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(DeepNullReforged.MODID, "deepnull_dock")))
+                .mapColor(MapColor.METAL)
+                .strength(5.0F, 6.0F)
+                .noOcclusion();
     }
 
     @Override
@@ -95,7 +103,19 @@ public class DeepNullDockBlock extends BaseEntityBlock {
             return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
         }
 
-        if (dock.hasStoredDeepNull() && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
+        if (dock.hasStoredDeepNull() && player.isShiftKeyDown()) {
+            if (level.isClientSide()) {
+                dock.setStoredDeepNullClient(ItemStack.EMPTY);
+            } else {
+                ItemStack stored = dock.removeStoredDeepNull();
+                if (!player.addItem(stored)) {
+                    player.drop(stored, false);
+                }
+            }
+            return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
+        }
+
+        if (dock.hasStoredDeepNull() && player instanceof ServerPlayer serverPlayer) {
             DeepNullMenuOpener.openDock(serverPlayer, dock);
             return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
         }

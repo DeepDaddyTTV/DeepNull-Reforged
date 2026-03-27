@@ -42,8 +42,17 @@ public final class DeepNullReforged {
         modContainer.registerConfig(ModConfig.Type.CLIENT, DeepNullConfig.CLIENT_SPEC);
         modContainer.registerConfig(ModConfig.Type.COMMON, DeepNullConfig.COMMON_SPEC);
         modContainer.registerConfig(ModConfig.Type.SERVER, DeepNullConfig.SERVER_SPEC);
+        registerClientEvents(modEventBus);
 
         NeoForge.EVENT_BUS.register(new CommonEvents());
+    }
+
+    private static void registerClientEvents(IEventBus modEventBus) {
+        try {
+            Class<?> clientModEvents = Class.forName("dev.deepdaddyttv.deepnullreforged.client.ClientModEvents");
+            clientModEvents.getMethod("register", IEventBus.class).invoke(null, modEventBus);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+        }
     }
 
     public static Identifier id(String path) {

@@ -1,6 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.inventory;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
@@ -1814,7 +1815,7 @@ public class DeepNullInventory extends ItemStackHandler {
     @Override
     protected void onContentsChanged(int slot) {
         super.onContentsChanged(slot);
-        if (getStackInSlot(slot).isEmpty() && extractionModes[slot] == ItemExtractionMode.CUSTOM) {
+        if (getStackInSlot(slot).isEmpty()) {
             extractionModes[slot] = ItemExtractionMode.KEEP_1;
             customExtractionAmounts[slot] = 0;
         }
@@ -2362,11 +2363,16 @@ public class DeepNullInventory extends ItemStackHandler {
     private void sanitizeState() {
         migrateLegacyUpgradeSlots();
         for (int slot = 0; slot < getSlots(); slot++) {
-            if (getStackInSlot(slot).isEmpty() && extractionModes[slot] == ItemExtractionMode.CUSTOM) {
+            if (getStackInSlot(slot).isEmpty()) {
                 extractionModes[slot] = ItemExtractionMode.KEEP_1;
                 customExtractionAmounts[slot] = 0;
             } else if (extractionModes[slot] == ItemExtractionMode.CUSTOM) {
-                customExtractionAmounts[slot] = Math.max(1, Math.min(customExtractionAmounts[slot], getSlotLimit(slot)));
+                if (customExtractionAmounts[slot] <= 0) {
+                    extractionModes[slot] = ItemExtractionMode.KEEP_NONE;
+                    customExtractionAmounts[slot] = 0;
+                } else {
+                    customExtractionAmounts[slot] = Math.min(customExtractionAmounts[slot], getSlotLimit(slot));
+                }
             } else {
                 customExtractionAmounts[slot] = 0;
             }
@@ -3130,7 +3136,11 @@ public class DeepNullInventory extends ItemStackHandler {
             if (slot < 0 || slot >= targetStacks.size()) {
                 continue;
             }
-            targetStacks.set(slot, readItemValue(entry, STACK_TAG));
+            try {
+                targetStacks.set(slot, readItemValue(entry, STACK_TAG));
+            } catch (RuntimeException exception) {
+                DeepNullReforged.LOGGER.warn("Skipping unreadable DeepNull item entry in slot {}", slot, exception);
+            }
         }
     }
 
@@ -3163,7 +3173,13 @@ public class DeepNullInventory extends ItemStackHandler {
                 continue;
             }
 
-            ItemStack stack = readItemValue(entry, STACK_TAG);
+            ItemStack stack;
+            try {
+                stack = readItemValue(entry, STACK_TAG);
+            } catch (RuntimeException exception) {
+                DeepNullReforged.LOGGER.warn("Skipping unreadable DeepNull stored item entry in slot {}", slot, exception);
+                continue;
+            }
             if (stack.isEmpty()) {
                 continue;
             }
@@ -3209,7 +3225,11 @@ public class DeepNullInventory extends ItemStackHandler {
             if (slot < 0 || slot >= targetStacks.size()) {
                 continue;
             }
-            targetStacks.set(slot, readFluidValue(entry, STACK_TAG));
+            try {
+                targetStacks.set(slot, readFluidValue(entry, STACK_TAG));
+            } catch (RuntimeException exception) {
+                DeepNullReforged.LOGGER.warn("Skipping unreadable DeepNull fluid entry in slot {}", slot, exception);
+            }
         }
     }
 
@@ -3241,7 +3261,11 @@ public class DeepNullInventory extends ItemStackHandler {
             if (slot < 0 || slot >= targetStacks.size()) {
                 continue;
             }
-            targetStacks.set(slot, StoredChemical.load(entry.getCompoundOrEmpty(STACK_TAG)));
+            try {
+                targetStacks.set(slot, StoredChemical.load(entry.getCompoundOrEmpty(STACK_TAG)));
+            } catch (RuntimeException exception) {
+                DeepNullReforged.LOGGER.warn("Skipping unreadable DeepNull chemical entry in slot {}", slot, exception);
+            }
         }
     }
 

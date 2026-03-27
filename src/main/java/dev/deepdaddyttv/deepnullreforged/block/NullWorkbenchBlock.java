@@ -1,12 +1,16 @@
 package dev.deepdaddyttv.deepnullreforged.block;
 
 import com.mojang.serialization.MapCodec;
+import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -58,15 +62,19 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     private static final Map<Direction, VoxelShape> MAIN_SHAPES = createShapes(MAIN_NORTH_SHAPE);
     private static final Map<Direction, VoxelShape> EXTENSION_SHAPES = createShapes(EXTENSION_NORTH_SHAPE);
 
-    public NullWorkbenchBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(5.0F, 6.0F).noOcclusion());
-    }
-
-    private NullWorkbenchBlock(BlockBehaviour.Properties properties) {
+    public NullWorkbenchBlock(BlockBehaviour.Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
                 .setValue(PART, NullWorkbenchPart.MAIN));
+    }
+
+    public static BlockBehaviour.Properties createProperties() {
+        return BlockBehaviour.Properties.of()
+                .setId(ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(DeepNullReforged.MODID, "null_workbench")))
+                .mapColor(MapColor.WOOD)
+                .strength(5.0F, 6.0F)
+                .noOcclusion();
     }
 
     @Override
