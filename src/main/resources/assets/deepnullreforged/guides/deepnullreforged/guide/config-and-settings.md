@@ -55,6 +55,7 @@ DeepNull Reforged exposes client, common, and server config groups so players an
 | `enableStoneGenerator` | Enables or disables DampNull Stone Generator output. |
 | `enableObsidianGenerator` | Enables or disables DampNull Obsidian Generator output. |
 | `enableSpongeUpgrade` | Enables or disables the DampNull Sponge Upgrade. |
+| `voidFullItemsOnPickup` | If enabled, DeepNull auto-pickup will still absorb and void matching items when the matching stored slot capacity is already full. |
 | `voidFullFluidsOnSponge` | If enabled, the Sponge Upgrade will still absorb and void matching fluids when the matching tank is already full. |
 | `enableChemicalStorage` | Enables or disables Mekanism chemical storage and transfer support. |
 | `dockGeneratorBufferSize` | Sets the hidden dock output buffer size used by generator DampNulls. |

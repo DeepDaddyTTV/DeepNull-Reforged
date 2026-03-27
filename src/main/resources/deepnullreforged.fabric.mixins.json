@@ -2,6 +2,9 @@
   "required": true,
   "package": "dev.deepdaddyttv.deepnullreforged.fabric.mixin",
   "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ItemEntityMixin"
+  ],
   "client": [
     "client.AbstractContainerScreenMixin",
     "client.MouseHandlerMixin"
