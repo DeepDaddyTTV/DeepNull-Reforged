@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,7 @@ public final class DeepNullCraftingTransferSupport {
             }
         }
 
+        LinkedHashSet<Integer> usedDeepNullInventorySlots = new LinkedHashSet<>();
         for (int gridIndex = 0; gridIndex < plan.slotItems().length; gridIndex++) {
             int slotIndex = plan.context().craftSlotIndices().get(gridIndex);
             ItemStack slotItem = plan.slotItems()[gridIndex];
@@ -76,7 +78,7 @@ public final class DeepNullCraftingTransferSupport {
                 continue;
             }
 
-            if (!pullMatchingItems(player, slotItem, temporaryCraftContents)) {
+            if (!pullMatchingItems(player, slotItem, temporaryCraftContents, usedDeepNullInventorySlots)) {
                 restoreCraftingContents(menu, player, plan.context(), temporaryCraftContents);
                 return false;
             }
@@ -84,9 +86,11 @@ public final class DeepNullCraftingTransferSupport {
             slot.setByPlayer(slotItem.copy());
         }
 
+        ServerDeepNullJeiSession.mark(player, menu, List.copyOf(usedDeepNullInventorySlots));
+        List<Integer> preferredInventorySlots = ServerDeepNullJeiSession.preferredInventorySlots(player, menu);
         for (ItemStack leftover : temporaryCraftContents) {
             if (!leftover.isEmpty()) {
-                returnStackToPlayer(player, leftover);
+                returnStackToPlayer(player, leftover, preferredInventorySlots);
             }
         }
 
@@ -322,7 +326,12 @@ public final class DeepNullCraftingTransferSupport {
         }
     }
 
-    private static boolean pullMatchingItems(Player player, ItemStack target, List<ItemStack> temporaryCraftContents) {
+    private static boolean pullMatchingItems(
+            Player player,
+            ItemStack target,
+            List<ItemStack> temporaryCraftContents,
+            LinkedHashSet<Integer> usedDeepNullInventorySlots
+    ) {
         int remaining = target.getCount();
 
         for (int index = 0; index < temporaryCraftContents.size() && remaining > 0; index++) {
@@ -373,6 +382,9 @@ public final class DeepNullCraftingTransferSupport {
                     continue;
                 }
                 ItemStack extracted = deepNullInventory.extractItemIgnoreExtractionMode(deepSlot, remaining, false);
+                if (!extracted.isEmpty()) {
+                    usedDeepNullInventorySlots.add(rawSlot);
+                }
                 remaining -= extracted.getCount();
             }
         }
@@ -386,6 +398,7 @@ public final class DeepNullCraftingTransferSupport {
             return false;
         }
 
+        List<Integer> preferredInventorySlots = ServerDeepNullJeiSession.preferredInventorySlots(player, menu);
         boolean changed = false;
         for (int slotIndex : context.craftSlotIndices()) {
             Slot slot = menu.getSlot(slotIndex);
@@ -394,7 +407,7 @@ public final class DeepNullCraftingTransferSupport {
                 continue;
             }
 
-            ItemStack remaining = returnStackToDeepNulls(player, stack.copy());
+            ItemStack remaining = returnStackToDeepNulls(player, stack.copy(), preferredInventorySlots);
             if (remaining.getCount() == stack.getCount()) {
                 continue;
             }
@@ -412,61 +425,95 @@ public final class DeepNullCraftingTransferSupport {
     }
 
     private static void returnStackToPlayer(Player player, ItemStack stack) {
+        returnStackToPlayer(player, stack, List.of());
+    }
+
+    private static void returnStackToPlayer(Player player, ItemStack stack, List<Integer> preferredInventorySlots) {
         if (stack.isEmpty()) {
             return;
         }
 
-        ItemStack remaining = returnStackToDeepNulls(player, stack);
+        ItemStack remaining = returnStackToDeepNulls(player, stack, preferredInventorySlots);
         if (!remaining.isEmpty()) {
             player.getInventory().placeItemBackInInventory(remaining);
         }
     }
 
     private static ItemStack returnStackToDeepNulls(Player player, ItemStack stack) {
+        return returnStackToDeepNulls(player, stack, List.of());
+    }
+
+    private static ItemStack returnStackToDeepNulls(Player player, ItemStack stack, List<Integer> preferredInventorySlots) {
         if (stack.isEmpty()) {
             return ItemStack.EMPTY;
         }
 
         Inventory inventory = player.getInventory();
         ItemStack remaining = stack.copy();
+        for (int rawSlot : preferredInventorySlots) {
+            remaining = returnToDeepNullAtSlot(player, inventory, rawSlot, remaining, true);
+            if (remaining.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+        }
         for (int rawSlot : eligibleInventorySlots(inventory)) {
             if (remaining.isEmpty()) {
                 return ItemStack.EMPTY;
             }
-            ItemStack containerStack = inventory.getItem(rawSlot);
-            if (!(containerStack.getItem() instanceof DeepNullItem deepNullItem)) {
+            if (preferredInventorySlots.contains(rawSlot)) {
                 continue;
             }
-            DeepNullInventory deepNullInventory = new DeepNullInventory(deepNullItem.tier(), containerStack, player.level().registryAccess(), null);
-            if (deepNullInventory.isFluidOnly()) {
-                continue;
-            }
-            if (deepNullInventory.containsMatchingStack(remaining)) {
-                remaining = deepNullInventory.insertReturnedCraftingStack(remaining, false);
-            }
+            remaining = returnToDeepNullAtSlot(player, inventory, rawSlot, remaining, true);
         }
 
         for (int rawSlot : eligibleInventorySlots(inventory)) {
             if (remaining.isEmpty()) {
                 return ItemStack.EMPTY;
             }
-            ItemStack containerStack = inventory.getItem(rawSlot);
-            if (!(containerStack.getItem() instanceof DeepNullItem deepNullItem)) {
+            if (preferredInventorySlots.contains(rawSlot)) {
                 continue;
             }
-            DeepNullInventory deepNullInventory = new DeepNullInventory(deepNullItem.tier(), containerStack, player.level().registryAccess(), null);
-            if (deepNullInventory.isFluidOnly()) {
-                continue;
-            }
-            remaining = deepNullInventory.insertReturnedCraftingStack(remaining, false);
+            remaining = returnToDeepNullAtSlot(player, inventory, rawSlot, remaining, false);
         }
 
         return remaining;
     }
 
+    private static ItemStack returnToDeepNullAtSlot(
+            Player player,
+            Inventory inventory,
+            int rawSlot,
+            ItemStack stack,
+            boolean matchingOnly
+    ) {
+        if (stack.isEmpty() || rawSlot < 0 || rawSlot >= inventory.getContainerSize()) {
+            return stack;
+        }
+
+        ItemStack containerStack = inventory.getItem(rawSlot);
+        if (!(containerStack.getItem() instanceof DeepNullItem deepNullItem)) {
+            return stack;
+        }
+        DeepNullInventory deepNullInventory = new DeepNullInventory(deepNullItem.tier(), containerStack, player.level().registryAccess(), null);
+        if (deepNullInventory.isFluidOnly()) {
+            return stack;
+        }
+        if (matchingOnly && !deepNullInventory.containsMatchingStack(stack)) {
+            return stack;
+        }
+        return deepNullInventory.insertReturnedCraftingStack(stack, false);
+    }
+
     private static List<Integer> eligibleInventorySlots(Inventory inventory) {
         List<Integer> slots = new ArrayList<>(37);
+        int selected = inventory.selected;
+        if (selected >= 0 && selected < 36) {
+            slots.add(selected);
+        }
         for (int slot = 0; slot < 36; slot++) {
+            if (slot == selected) {
+                continue;
+            }
             slots.add(slot);
         }
         slots.add(40);

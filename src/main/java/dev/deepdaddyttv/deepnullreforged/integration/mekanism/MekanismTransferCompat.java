@@ -26,14 +26,20 @@ public final class MekanismTransferCompat {
             return InteractionResult.sidedSuccess(true);
         }
 
-        boolean moved = moveChemicalsToTarget(inventory, target);
-        if (!moved) {
+        boolean moved = false;
+        if (inventory.getTransferDirectionMode().allowsInsert()) {
+            moved = moveChemicalsToTarget(inventory, target);
+        }
+        if (!moved && inventory.getTransferDirectionMode().allowsExtract()) {
             moved = moveChemicalsFromTarget(inventory, target);
         }
         return moved ? InteractionResult.sidedSuccess(false) : InteractionResult.FAIL;
     }
 
-    private static boolean moveChemicalsToTarget(DeepNullInventory inventory, IChemicalHandler target) {
+    public static boolean moveChemicalsToTarget(DeepNullInventory inventory, IChemicalHandler target) {
+        if (inventory.getTransferOutputMode().isLocked()) {
+            return false;
+        }
         boolean movedAny = false;
         boolean progressed;
         do {
@@ -46,6 +52,9 @@ public final class MekanismTransferCompat {
 
                 ChemicalStack chemical = MekanismCompat.toChemicalStack(inventory, stored);
                 if (chemical.isEmpty()) {
+                    continue;
+                }
+                if (inventory.getTransferOutputMode().matchingOnly() && !targetContainsMatchingChemical(target, chemical)) {
                     continue;
                 }
 
@@ -77,7 +86,17 @@ public final class MekanismTransferCompat {
         return movedAny;
     }
 
-    private static boolean moveChemicalsFromTarget(DeepNullInventory inventory, IChemicalHandler target) {
+    private static boolean targetContainsMatchingChemical(IChemicalHandler target, ChemicalStack candidate) {
+        for (int tank = 0; tank < target.getChemicalTanks(); tank++) {
+            ChemicalStack targetStack = target.getChemicalInTank(tank);
+            if (!targetStack.isEmpty() && ChemicalStack.isSameChemical(targetStack, candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean moveChemicalsFromTarget(DeepNullInventory inventory, IChemicalHandler target) {
         boolean movedAny = false;
         boolean progressed;
         do {

@@ -7,6 +7,8 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
@@ -336,6 +338,13 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     public boolean setCustomExtractionMinimum(int slot, int amount) {
+        return setCustomExtractionMinimum(slot, amount, false);
+    }
+
+    public boolean setCustomExtractionMinimum(int slot, int amount, boolean applyAll) {
+        if (applyAll) {
+            return dankInventory.setCustomExtractionMinimumAllOccupied(amount);
+        }
         if (!isStorageSlot(slot) || dankInventory.getStackInSlot(slot).isEmpty()) {
             return false;
         }
@@ -393,10 +402,22 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     public boolean setTransferLocked(boolean transferLocked) {
-        if (dankInventory.isTransferLocked() == transferLocked) {
+        return setTransferOutputMode(transferLocked ? TransferOutputMode.LOCKED : TransferOutputMode.ALL);
+    }
+
+    public boolean setTransferOutputMode(TransferOutputMode transferOutputMode) {
+        if (dankInventory.getTransferOutputMode() == transferOutputMode) {
             return false;
         }
-        dankInventory.setTransferLocked(transferLocked);
+        dankInventory.setTransferOutputMode(transferOutputMode);
+        return true;
+    }
+
+    public boolean setTransferDirectionMode(TransferDirectionMode transferDirectionMode) {
+        if (dankInventory.getTransferDirectionMode() == transferDirectionMode) {
+            return false;
+        }
+        dankInventory.setTransferDirectionMode(transferDirectionMode);
         return true;
     }
 
@@ -674,7 +695,7 @@ public class DeepNullMenu extends AbstractContainerMenu {
         int leftPadding = storageLeftPadding();
         for (int visibleIndex = 0; visibleIndex < visibleUpgradeTypes.size(); visibleIndex++) {
             DeepNullUpgradeType type = visibleUpgradeTypes.get(visibleIndex);
-            addSlot(new UpgradeSlot(dankInventory, type.slot(), leftPadding + visibleIndex * SLOT_SPACING, TOP_PADDING));
+            addSlot(new UpgradeSlot(dankInventory, type, leftPadding + visibleIndex * SLOT_SPACING, TOP_PADDING));
         }
         return visibleUpgradeTypes.size();
     }
@@ -950,8 +971,15 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     public static final class UpgradeSlot extends SlotItemHandler {
-        private UpgradeSlot(DeepNullInventory inventory, int index, int xPosition, int yPosition) {
-            super(inventory.getUpgradeHandler(), index, xPosition, yPosition);
+        private final DeepNullUpgradeType upgradeType;
+
+        private UpgradeSlot(DeepNullInventory inventory, DeepNullUpgradeType upgradeType, int xPosition, int yPosition) {
+            super(inventory.getUpgradeHandler(), upgradeType.slot(), xPosition, yPosition);
+            this.upgradeType = upgradeType;
+        }
+
+        public DeepNullUpgradeType getUpgradeType() {
+            return upgradeType;
         }
     }
 }

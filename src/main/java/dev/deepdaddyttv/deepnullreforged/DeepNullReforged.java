@@ -2,6 +2,9 @@ package dev.deepdaddyttv.deepnullreforged;
 
 import com.mojang.logging.LogUtils;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
+import dev.deepdaddyttv.deepnullreforged.gametest.CraftingTransferRegressionGameTests;
+import dev.deepdaddyttv.deepnullreforged.gametest.DeepNullRegressionGameTests;
+import dev.deepdaddyttv.deepnullreforged.gametest.NullWorkbenchRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
@@ -15,11 +18,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.InterModComms;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.InterModEnqueueEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import org.slf4j.Logger;
+
+import java.util.List;
 
 @Mod(DeepNullReforged.MODID)
 public final class DeepNullReforged {
@@ -39,6 +46,7 @@ public final class DeepNullReforged {
         modEventBus.addListener(DeepNullPayloads::register);
         modEventBus.addListener(NullWorkbenchPayloads::register);
         modEventBus.addListener(ModCapabilities::register);
+        modEventBus.addListener(DeepNullReforged::registerGameTests);
         modEventBus.addListener(DeepNullConfig::onLoad);
         modEventBus.addListener(DeepNullConfig::onReload);
         modEventBus.addListener(DeepNullReforged::registerInventorySorterCompat);
@@ -54,9 +62,52 @@ public final class DeepNullReforged {
     }
 
     private static void registerInventorySorterCompat(InterModEnqueueEvent event) {
-        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$StorageSlot");
-        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$DockStorageSlot");
-        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$FluidStorageSlot");
-        InterModComms.sendTo("inventorysorter", "containerblacklist", () -> id("deep_null"));
+        for (String slotClass : inventorySorterSlotBlacklists()) {
+            InterModComms.sendTo("inventorysorter", "slotblacklist", () -> slotClass);
+        }
+        InterModComms.sendTo("inventorysorter", "containerblacklist", DeepNullReforged::inventorySorterContainerBlacklist);
+    }
+
+    private static void registerGameTests(RegisterGameTestsEvent event) {
+        event.register(DeepNullRegressionGameTests.class);
+        event.register(NullWorkbenchRegressionGameTests.class);
+        event.register(CraftingTransferRegressionGameTests.class);
+        if (classPresent("appeng.api.storage.MEStorage")) {
+            registerOptionalGameTest(event, "dev.deepdaddyttv.deepnullreforged.gametest.Ae2RegressionGameTests");
+        }
+        if (classPresent("mekanism.api.chemical.ChemicalStack")) {
+            registerOptionalGameTest(event, "dev.deepdaddyttv.deepnullreforged.gametest.MekanismRegressionGameTests");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void registerOptionalGameTest(RegisterGameTestsEvent event, String className) {
+        try {
+            Class<?> clazz = Class.forName(className);
+            event.register((Class<?>) clazz);
+        } catch (ClassNotFoundException | LinkageError exception) {
+            LOGGER.warn("Skipping optional GameTest registration for {}", className, exception);
+        }
+    }
+
+    private static boolean classPresent(String className) {
+        try {
+            Class.forName(className, false, DeepNullReforged.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError exception) {
+            return false;
+        }
+    }
+
+    static List<String> inventorySorterSlotBlacklists() {
+        return List.of(
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$StorageSlot",
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$DockStorageSlot",
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$FluidStorageSlot"
+        );
+    }
+
+    static ResourceLocation inventorySorterContainerBlacklist() {
+        return id("deep_null");
     }
 }

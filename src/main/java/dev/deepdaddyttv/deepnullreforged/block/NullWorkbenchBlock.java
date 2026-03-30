@@ -38,6 +38,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 public class NullWorkbenchBlock extends BaseEntityBlock {
     public static final MapCodec<NullWorkbenchBlock> CODEC = simpleCodec(NullWorkbenchBlock::new);
@@ -58,7 +59,7 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     private static final Map<Direction, VoxelShape> EXTENSION_SHAPES = createShapes(EXTENSION_NORTH_SHAPE);
 
     public NullWorkbenchBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(5.0F, 6.0F).noOcclusion());
+        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).requiresCorrectToolForDrops().strength(5.0F, 6.0F).noOcclusion());
     }
 
     private NullWorkbenchBlock(BlockBehaviour.Properties properties) {
@@ -122,10 +123,15 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
         if (hardness == -1.0F) {
             return 0.0F;
         }
-        float destroySpeed = player.getDestroySpeed(state);
         boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbilities.PICKAXE_DIG);
+        float destroySpeed;
+        try {
+            destroySpeed = player.getDestroySpeed(state);
+        } catch (NoSuchElementException ignored) {
+            destroySpeed = player.getMainHandItem().getDestroySpeed(state);
+        }
         if (pickaxeLikeTool && destroySpeed > 1.0F) {
-            return destroySpeed / hardness / 15.0F;
+            return destroySpeed / hardness / 7.5F;
         }
         return super.getDestroyProgress(state, player, level, pos);
     }
