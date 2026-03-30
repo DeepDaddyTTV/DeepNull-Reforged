@@ -27,9 +27,7 @@ import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -112,13 +110,8 @@ public final class DeepNullJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
-        registration.addRecipeTransferHandler(
-                new DeepNullCraftingTransferHandler(registration.getTransferHelper(), InventoryMenu.class, Optional.empty()),
-                RecipeTypes.CRAFTING
-        );
-        registration.addRecipeTransferHandler(
-                new DeepNullCraftingTransferHandler(registration.getTransferHelper(), CraftingMenu.class, Optional.of(MenuType.CRAFTING)),
-                RecipeTypes.CRAFTING
+        registration.addUniversalRecipeTransferHandler(
+                new DeepNullCraftingTransferHandler(registration.getTransferHelper(), AbstractContainerMenu.class, Optional.empty())
         );
         registration.addRecipeTransferHandler(new NullWorkbenchRecipeTransferHandler(registration.getTransferHelper()), NullWorkbenchRecipeCategory.RECIPE_TYPE);
     }

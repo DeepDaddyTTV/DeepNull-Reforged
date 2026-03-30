@@ -61,6 +61,39 @@ public final class CraftingTransferRegressionGameTests {
     }
 
     @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void jei_transfer_detects_carried_deepnull_in_main_inventory_slot(GameTestHelper helper) {
+        var player = DeepNullGameTestSupport.fakePlayer(helper);
+        ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
+        player.getInventory().setItem(12, deepNullStack);
+
+        var inventory = new dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory(
+                dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE,
+                deepNullStack,
+                helper.getLevel().registryAccess(),
+                null
+        );
+        inventory.setStackInSlot(0, new ItemStack(OAK_PLANKS, 4));
+
+        InventoryMenu menu = new InventoryMenu(player.getInventory(), false, player);
+        RecipeHolder<CraftingRecipe> recipe = recipe(helper.getLevel(), "minecraft:crafting_table");
+
+        helper.assertTrue(DeepNullCraftingTransferSupport.planTransfer(menu, player, recipe, false) != null, "2x2 JEI transfer should detect a carried DeepNull from the main inventory");
+        helper.assertTrue(DeepNullCraftingTransferSupport.executeTransfer(menu, player, recipe, false), "2x2 JEI transfer should pull ingredients from a carried DeepNull in the main inventory");
+
+        int plankSlots = 0;
+        for (int i = 0; i < menu.getCraftSlots().getContainerSize(); i++) {
+            ItemStack stack = menu.getCraftSlots().getItem(i);
+            if (stack.is(OAK_PLANKS)) {
+                plankSlots++;
+                helper.assertValueEqual(stack.getCount(), 1, "Each 2x2 crafting slot should receive one plank from a carried DeepNull in the main inventory");
+            }
+        }
+        helper.assertValueEqual(plankSlots, 4, "All four 2x2 slots should be filled when the carried DeepNull is in the main inventory");
+        helper.assertTrue(menu.getSlot(menu.getResultSlotIndex()).getItem().is(CRAFTING_TABLE), "Main-inventory JEI transfer should yield the crafting table result");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
     public static void jei_transfer_detects_carried_deepnull_in_crafting_table_three_by_three(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
