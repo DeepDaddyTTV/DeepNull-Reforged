@@ -38,6 +38,7 @@ jobs:
 
   smoke-server:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -73,6 +74,7 @@ jobs:
 
   smoke-client:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -96,7 +98,47 @@ jobs:
         env:
           DEEPNULL_CI_SMOKE_CLIENT: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: timeout 5m xvfb-run -a ./gradlew runClient --stacktrace
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -f client-smoke.log
+          rm -f run/logs/latest.log
+
+          setsid xvfb-run -a ./gradlew runClient --stacktrace > client-smoke.log 2>&1 &
+          client_pid=$!
+
+          cleanup() {
+            kill -TERM "-$client_pid" 2>/dev/null || true
+            sleep 5
+            kill -KILL "-$client_pid" 2>/dev/null || true
+          }
+
+          trap cleanup EXIT
+
+          for _ in $(seq 1 300); do
+            if grep -q "DeepNull Fabric CI smoke: client reached title screen" client-smoke.log 2>/dev/null || \
+               grep -q "DeepNull Fabric CI smoke: client reached title screen" run/logs/latest.log 2>/dev/null; then
+              echo "Client reached title screen."
+              exit 0
+            fi
+
+            if ! kill -0 "$client_pid" 2>/dev/null; then
+              if wait "$client_pid"; then
+                echo "Client exited before reaching the title screen."
+                exit 1
+              else
+                exit_code=$?
+                echo "Client exited before reaching the title screen with code $exit_code."
+                exit "$exit_code"
+              fi
+            fi
+
+            sleep 1
+          done
+
+          echo "Client did not reach the title screen within 5 minutes."
+          exit 1
 
       - name: Upload client smoke logs
         if: failure()
@@ -104,6 +146,7 @@ jobs:
         with:
           name: deepnull-fabric-client-smoke-logs
           path: |
+            client-smoke.log
             run/logs/**
             logs/**
             crash-reports/**
