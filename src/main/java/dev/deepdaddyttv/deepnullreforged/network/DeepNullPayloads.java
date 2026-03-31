@@ -416,10 +416,17 @@ public final class DeepNullPayloads {
     }
 
     private static void handleCraftingReturn(CraftingReturnPayload payload, ServerPlayer player) {
-        if (player.containerMenu.containerId != payload.containerId()) {
+        if (!ServerDeepNullJeiSession.shouldReturn(player, payload.containerId())) {
             return;
         }
-        DeepNullCraftingTransferSupport.returnCurrentCraftingContents(player.containerMenu, player);
+
+        boolean returnedFromGrid = false;
+        if (player.containerMenu.containerId == payload.containerId()) {
+            returnedFromGrid = DeepNullCraftingTransferSupport.returnCurrentCraftingContents(player.containerMenu, player);
+        }
+        if (!returnedFromGrid && !payload.craftContents().isEmpty()) {
+            DeepNullCraftingTransferSupport.returnCraftingSnapshotContents(player, payload.containerId(), payload.craftContents());
+        }
         ServerDeepNullJeiSession.clear(player);
     }
 
@@ -756,10 +763,16 @@ public final class DeepNullPayloads {
         }
     }
 
-    public record CraftingReturnPayload(int containerId) implements CustomPacketPayload {
+    public record CraftingReturnPayload(int containerId, java.util.List<ItemStack> craftContents) implements CustomPacketPayload {
         public static final Type<CraftingReturnPayload> TYPE = payloadType("crafting_return");
         public static final StreamCodec<RegistryFriendlyByteBuf, CraftingReturnPayload> STREAM_CODEC =
-                StreamCodec.composite(ByteBufCodecs.VAR_INT, CraftingReturnPayload::containerId, CraftingReturnPayload::new);
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        CraftingReturnPayload::containerId,
+                        ItemStack.OPTIONAL_LIST_STREAM_CODEC,
+                        CraftingReturnPayload::craftContents,
+                        CraftingReturnPayload::new
+                );
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

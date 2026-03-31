@@ -27,7 +27,9 @@ import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.MenuType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -110,10 +112,17 @@ public final class DeepNullJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
-        registration.addUniversalRecipeTransferHandler(
-                new DeepNullCraftingTransferHandler(registration.getTransferHelper(), AbstractContainerMenu.class, Optional.empty())
-        );
+        for (DeepNullCraftingTransferHandler transferHandler : createCraftingTransferHandlers(registration.getTransferHelper())) {
+            registration.addRecipeTransferHandler(transferHandler, RecipeTypes.CRAFTING);
+        }
         registration.addRecipeTransferHandler(new NullWorkbenchRecipeTransferHandler(registration.getTransferHelper()), NullWorkbenchRecipeCategory.RECIPE_TYPE);
+    }
+
+    static List<DeepNullCraftingTransferHandler> createCraftingTransferHandlers(mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper transferHelper) {
+        return List.of(
+                new DeepNullCraftingTransferHandler(transferHelper, InventoryMenu.class, Optional.empty()),
+                new DeepNullCraftingTransferHandler(transferHelper, CraftingMenu.class, Optional.of(MenuType.CRAFTING))
+        );
     }
 
     private static List<RecipeHolder<CraftingRecipe>> createDeepNullUpgradeDisplayRecipes(IRecipeRegistration registration) {

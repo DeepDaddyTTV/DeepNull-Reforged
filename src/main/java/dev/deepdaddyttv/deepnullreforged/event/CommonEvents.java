@@ -66,7 +66,8 @@ public final class CommonEvents {
             return;
         }
 
-        DeepNullCraftingTransferSupport.returnCurrentCraftingContents(event.getContainer(), player);
-        ServerDeepNullJeiSession.clear(player);
+        if (DeepNullCraftingTransferSupport.returnCurrentCraftingContents(event.getContainer(), player)) {
+            ServerDeepNullJeiSession.clear(player);
+        }
     }
 }

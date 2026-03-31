@@ -2,6 +2,7 @@ package dev.deepdaddyttv.deepnullreforged;
 
 import com.mojang.logging.LogUtils;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
+import dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks.CraftingTweaksCompat;
 import dev.deepdaddyttv.deepnullreforged.gametest.CraftingTransferRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.gametest.DeepNullRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.gametest.NullWorkbenchRegressionGameTests;
@@ -21,6 +22,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.event.lifecycle.InterModEnqueueEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
@@ -46,6 +48,7 @@ public final class DeepNullReforged {
         modEventBus.addListener(DeepNullPayloads::register);
         modEventBus.addListener(NullWorkbenchPayloads::register);
         modEventBus.addListener(ModCapabilities::register);
+        modEventBus.addListener(DeepNullReforged::commonSetup);
         modEventBus.addListener(DeepNullReforged::registerGameTests);
         modEventBus.addListener(DeepNullConfig::onLoad);
         modEventBus.addListener(DeepNullConfig::onReload);
@@ -59,6 +62,12 @@ public final class DeepNullReforged {
 
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(MODID, path);
+    }
+
+    private static void commonSetup(FMLCommonSetupEvent event) {
+        if (classPresent("net.blay09.mods.craftingtweaks.api.CraftingTweaksAPI")) {
+            event.enqueueWork(CraftingTweaksCompat::initialize);
+        }
     }
 
     private static void registerInventorySorterCompat(InterModEnqueueEvent event) {

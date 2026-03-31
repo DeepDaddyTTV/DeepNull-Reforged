@@ -74,6 +74,10 @@ public final class ClientGameEvents {
             }
         }
 
+        if (minecraft.screen instanceof AbstractContainerScreen<?> containerScreen) {
+            ClientDeepNullJeiSession.captureCraftContents(containerScreen.getMenu());
+        }
+
         if (minecraft.screen != null) {
             return;
         }
@@ -185,7 +189,10 @@ public final class ClientGameEvents {
             return;
         }
 
-        PacketDistributor.sendToServer(new DeepNullPayloads.CraftingReturnPayload(containerScreen.getMenu().containerId));
+        PacketDistributor.sendToServer(new DeepNullPayloads.CraftingReturnPayload(
+                containerScreen.getMenu().containerId,
+                ClientDeepNullJeiSession.craftingReturnContents(containerScreen.getMenu())
+        ));
         ClientDeepNullJeiSession.clear();
     }
 

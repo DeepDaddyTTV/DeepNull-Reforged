@@ -27,9 +27,22 @@ public final class ServerDeepNullJeiSession {
         return session != null && session.menuId() == menu.containerId;
     }
 
+    public static boolean shouldReturn(Player player, int menuId) {
+        Session session = ACTIVE_SESSIONS.get(player.getUUID());
+        return session != null && session.menuId() == menuId;
+    }
+
     public static List<Integer> preferredInventorySlots(Player player, AbstractContainerMenu menu) {
         Session session = ACTIVE_SESSIONS.get(player.getUUID());
         if (session == null || session.menuId() != menu.containerId) {
+            return List.of();
+        }
+        return session.preferredInventorySlots();
+    }
+
+    public static List<Integer> preferredInventorySlots(Player player, int menuId) {
+        Session session = ACTIVE_SESSIONS.get(player.getUUID());
+        if (session == null || session.menuId() != menuId) {
             return List.of();
         }
         return session.preferredInventorySlots();
