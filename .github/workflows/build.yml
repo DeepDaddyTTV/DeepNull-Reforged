@@ -117,9 +117,9 @@ jobs:
           trap cleanup EXIT
 
           for _ in $(seq 1 300); do
-            if grep -q "DeepNull Fabric CI smoke: client reached title screen" client-smoke.log 2>/dev/null || \
-               grep -q "DeepNull Fabric CI smoke: client reached title screen" run/logs/latest.log 2>/dev/null; then
-              echo "Client reached title screen."
+            if grep -q "DeepNull Fabric CI smoke: client reached menu screen" client-smoke.log 2>/dev/null || \
+               grep -q "DeepNull Fabric CI smoke: client reached menu screen" run/logs/latest.log 2>/dev/null; then
+              echo "Client reached a menu screen."
               exit 0
             fi
 
