@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./deepnull_media_logo_just_text.png" alt="DeepNull Reforged" width="960">
+</p>
+
 # DeepNull Reforged
 
 A modern NeoForge port and expansion of `/dank/null` by p455w0rd, rebuilt for Minecraft `1.21.1`.
