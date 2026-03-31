@@ -1,6 +1,6 @@
 {
   "__comment": "Model generated using MrCrayfish's Model Creator (http://mrcrayfish.com/modelcreator/)",
-  "parent": "deepnullreforged:item/deep_null",
+  "parent": "deepnullreforged:item/deep_null_display",
   "textures": {
     "1": "deepnullreforged:item/deepnull/glass_iron"
   }

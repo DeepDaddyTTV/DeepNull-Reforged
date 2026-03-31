@@ -1,10 +1,12 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
-import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandler;
-import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandlerRegistry;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 public final class ClientFluidRendering {
@@ -12,33 +14,35 @@ public final class ClientFluidRendering {
     }
 
     public static @Nullable TextureAtlasSprite getStillSprite(FluidStack fluidStack) {
-        FluidRenderHandler handler = getHandler(fluidStack);
-        if (handler == null) {
+        FluidModel model = getModel(fluidStack);
+        if (model == null) {
             return null;
         }
-
-        TextureAtlasSprite[] sprites = handler.getFluidSprites(null, null, fluidStack.getFluid().defaultFluidState());
-        if (sprites == null || sprites.length == 0) {
-            return null;
-        }
-        return sprites[0];
+        return model.stillMaterial().sprite();
     }
 
     public static int getTint(FluidStack fluidStack) {
-        FluidRenderHandler handler = getHandler(fluidStack);
-        int tint = handler == null ? -1 : handler.getFluidColor(null, null, fluidStack.getFluid().defaultFluidState());
+        FluidModel model = getModel(fluidStack);
+        FluidState fluidState = fluidStack.getFluid().defaultFluidState();
+        BlockState blockState = fluidState.createLegacyBlock();
+        int tint = model == null ? -1 : model.tintSource().color(blockState);
         if ((tint >>> 24) == 0) {
             tint |= 0xFF000000;
         }
         return tint;
     }
 
-    private static @Nullable FluidRenderHandler getHandler(FluidStack fluidStack) {
+    private static @Nullable FluidModel getModel(FluidStack fluidStack) {
         if (fluidStack.isEmpty()) {
             return null;
         }
 
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null) {
+            return null;
+        }
+
         Fluid fluid = fluidStack.getFluid();
-        return FluidRenderHandlerRegistry.INSTANCE.get(fluid);
+        return minecraft.getModelManager().getFluidStateModelSet().get(fluid.defaultFluidState());
     }
 }

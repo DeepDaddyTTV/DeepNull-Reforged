@@ -2,7 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.inventory;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -89,20 +89,20 @@ public enum DeepNullFilterMode {
     }
 
     private static boolean isNetworkEngineerItem(ItemStack stack) {
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier key = BuiltInRegistries.ITEM.getKey(stack.getItem());
         String namespace = key.getNamespace();
         return "ae2".equals(namespace) || "refinedstorage".equals(namespace);
     }
 
     private static boolean hasAnyTagToken(ItemStack stack, String... tokens) {
         return tagLocations(stack)
-                .map(ResourceLocation::getPath)
+                .map(Identifier::getPath)
                 .map(path -> path.toLowerCase(Locale.ROOT))
                 .anyMatch(path -> containsAny(path, tokens));
     }
 
     private static boolean pathContains(ItemStack stack, String... tokens) {
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier key = BuiltInRegistries.ITEM.getKey(stack.getItem());
         return containsAny(key.getPath().toLowerCase(Locale.ROOT), tokens);
     }
 
@@ -115,13 +115,13 @@ public enum DeepNullFilterMode {
         return false;
     }
 
-    private static Stream<ResourceLocation> tagLocations(ItemStack stack) {
-        Stream<ResourceLocation> itemTags = stack.getTags().map(TagKey::location);
+    private static Stream<Identifier> tagLocations(ItemStack stack) {
+        Stream<Identifier> itemTags = stack.typeHolder().tags().map(TagKey::location);
         if (!(stack.getItem() instanceof BlockItem blockItem)) {
             return itemTags;
         }
         Block block = blockItem.getBlock();
-        Stream<ResourceLocation> blockTags = block.builtInRegistryHolder().tags().map(TagKey::location);
+        Stream<Identifier> blockTags = block.builtInRegistryHolder().tags().map(TagKey::location);
         return Stream.concat(itemTags, blockTags).distinct();
     }
 }

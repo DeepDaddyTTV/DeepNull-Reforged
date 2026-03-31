@@ -8,7 +8,7 @@ import dev.deepdaddyttv.deepnullreforged.registry.ModCreativeTabs;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import dev.deepdaddyttv.deepnullreforged.registry.ModRecipeSerializers;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -40,8 +40,8 @@ public final class DeepNullReforged {
         ModCapabilities.register();
     }
 
-    public static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(MODID, path);
+    public static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath(MODID, path);
     }
 
     static List<String> inventorySorterSlotBlacklists() {
@@ -52,7 +52,7 @@ public final class DeepNullReforged {
         );
     }
 
-    static ResourceLocation inventorySorterContainerBlacklist() {
+    static Identifier inventorySorterContainerBlacklist() {
         return id("deep_null");
     }
 }

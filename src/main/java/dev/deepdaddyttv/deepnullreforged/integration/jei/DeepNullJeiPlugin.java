@@ -16,17 +16,21 @@ import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.display.SlotDisplay;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.MenuType;
@@ -38,10 +42,10 @@ import java.util.Optional;
 
 @JeiPlugin
 public final class DeepNullJeiPlugin implements IModPlugin {
-    private static final ResourceLocation PLUGIN_UID = DeepNullReforged.id("jei_plugin");
+    private static final Identifier PLUGIN_UID = DeepNullReforged.id("jei_plugin");
 
     @Override
-    public ResourceLocation getPluginUid() {
+    public Identifier getPluginUid() {
         return PLUGIN_UID;
     }
 
@@ -130,14 +134,14 @@ public final class DeepNullJeiPlugin implements IModPlugin {
         for (DeepNullTier tier : List.of(DeepNullTier.REDSTONE, DeepNullTier.LAPIS, DeepNullTier.IRON, DeepNullTier.GOLD, DeepNullTier.DIAMOND)) {
             DeepNullTier nextTier = tier.next();
             CraftingRecipe recipe = registration.getVanillaRecipeFactory()
-                    .createShapedRecipeBuilder(CraftingBookCategory.MISC, List.of(deepNullStack(nextTier)))
+                    .createShapedRecipeBuilder(CraftingBookCategory.MISC, stackDisplay(deepNullStack(nextTier)))
                     .pattern(" a ")
                     .pattern("aca")
                     .pattern(" a ")
-                    .define('a', Ingredient.of(panelStack(nextTier)))
-                    .define('c', Ingredient.of(deepNullStack(tier)))
+                    .define('a', ingredient(panelStack(nextTier)))
+                    .define('c', ingredient(deepNullStack(tier)))
                     .build();
-            recipes.add(new RecipeHolder<>(DeepNullReforged.id("jei/deepnull_upgrade/" + tier.deepNullId()), recipe));
+            recipes.add(recipeHolder("jei/deepnull_upgrade/" + tier.deepNullId(), recipe));
         }
         return recipes;
     }
@@ -146,28 +150,28 @@ public final class DeepNullJeiPlugin implements IModPlugin {
         List<RecipeHolder<CraftingRecipe>> recipes = new ArrayList<>();
 
         CraftingRecipe tierOneRecipe = registration.getVanillaRecipeFactory()
-                .createShapedRecipeBuilder(CraftingBookCategory.MISC, List.of(dampNullStack(DeepNullTier.REDSTONE)))
+                .createShapedRecipeBuilder(CraftingBookCategory.MISC, stackDisplay(dampNullStack(DeepNullTier.REDSTONE)))
                 .pattern("bab")
                 .pattern("aca")
                 .pattern("bab")
-                .define('a', Ingredient.of(panelStack(DeepNullTier.REDSTONE)))
-                .define('b', Ingredient.of(new ItemStack(Items.BUCKET)))
-                .define('c', Ingredient.of(new ItemStack(ModItems.FLUID_UPGRADE.get())))
+                .define('a', ingredient(panelStack(DeepNullTier.REDSTONE)))
+                .define('b', ingredient(new ItemStack(Items.BUCKET)))
+                .define('c', ingredient(new ItemStack(ModItems.FLUID_UPGRADE.get())))
                 .build();
-        recipes.add(new RecipeHolder<>(DeepNullReforged.id("jei/dampnull_upgrade/" + DeepNullTier.REDSTONE.dampNullId()), tierOneRecipe));
+        recipes.add(recipeHolder("jei/dampnull_upgrade/" + DeepNullTier.REDSTONE.dampNullId(), tierOneRecipe));
 
         for (DeepNullTier tier : List.of(DeepNullTier.REDSTONE, DeepNullTier.LAPIS, DeepNullTier.IRON, DeepNullTier.GOLD, DeepNullTier.DIAMOND)) {
             DeepNullTier nextTier = tier.next();
             CraftingRecipe recipe = registration.getVanillaRecipeFactory()
-                    .createShapedRecipeBuilder(CraftingBookCategory.MISC, List.of(dampNullStack(nextTier)))
+                    .createShapedRecipeBuilder(CraftingBookCategory.MISC, stackDisplay(dampNullStack(nextTier)))
                     .pattern("bab")
                     .pattern("aca")
                     .pattern("bab")
-                    .define('a', Ingredient.of(panelStack(nextTier)))
-                    .define('b', Ingredient.of(new ItemStack(Items.BUCKET)))
-                    .define('c', Ingredient.of(dampNullStack(tier)))
+                    .define('a', ingredient(panelStack(nextTier)))
+                    .define('b', ingredient(new ItemStack(Items.BUCKET)))
+                    .define('c', ingredient(dampNullStack(tier)))
                     .build();
-            recipes.add(new RecipeHolder<>(DeepNullReforged.id("jei/dampnull_upgrade/" + tier.dampNullId()), recipe));
+            recipes.add(recipeHolder("jei/dampnull_upgrade/" + tier.dampNullId(), recipe));
         }
         return recipes;
     }
@@ -177,52 +181,52 @@ public final class DeepNullJeiPlugin implements IModPlugin {
 
         for (StoneGeneratorVariant variant : StoneGeneratorVariant.values()) {
             CraftingRecipe recipe = registration.getVanillaRecipeFactory()
-                    .createShapedRecipeBuilder(CraftingBookCategory.MISC, List.of(variant.stack()))
+                    .createShapedRecipeBuilder(CraftingBookCategory.MISC, stackDisplay(variant.stack()))
                     .pattern("wl")
                     .pattern("su")
-                    .define('w', Ingredient.of(new ItemStack(Items.WATER_BUCKET)))
-                    .define('l', Ingredient.of(new ItemStack(Items.LAVA_BUCKET)))
-                    .define('s', Ingredient.of(new ItemStack(ModItems.STONE_GENERATOR_UPGRADE.get())))
-                    .define('u', Ingredient.of(new ItemStack(ModItems.UPGRADE_CORE.get())))
+                    .define('w', ingredient(new ItemStack(Items.WATER_BUCKET)))
+                    .define('l', ingredient(new ItemStack(Items.LAVA_BUCKET)))
+                    .define('s', ingredient(new ItemStack(ModItems.STONE_GENERATOR_UPGRADE.get())))
+                    .define('u', ingredient(new ItemStack(ModItems.UPGRADE_CORE.get())))
                     .build();
-            recipes.add(new RecipeHolder<>(DeepNullReforged.id("jei/stone_generator/" + variant.id()), recipe));
+            recipes.add(recipeHolder("jei/stone_generator/" + variant.id(), recipe));
         }
 
         CraftingRecipe obsidianRecipe = registration.getVanillaRecipeFactory()
-                .createShapedRecipeBuilder(CraftingBookCategory.MISC, List.of(new ItemStack(Items.OBSIDIAN)))
+                .createShapedRecipeBuilder(CraftingBookCategory.MISC, stackDisplay(new ItemStack(Items.OBSIDIAN)))
                 .pattern("wl")
                 .pattern("ou")
-                .define('w', Ingredient.of(new ItemStack(Items.WATER_BUCKET)))
-                .define('l', Ingredient.of(new ItemStack(Items.LAVA_BUCKET)))
-                .define('o', Ingredient.of(new ItemStack(ModItems.OBSIDIAN_GENERATOR_UPGRADE.get())))
-                .define('u', Ingredient.of(new ItemStack(ModItems.UPGRADE_CORE.get())))
+                .define('w', ingredient(new ItemStack(Items.WATER_BUCKET)))
+                .define('l', ingredient(new ItemStack(Items.LAVA_BUCKET)))
+                .define('o', ingredient(new ItemStack(ModItems.OBSIDIAN_GENERATOR_UPGRADE.get())))
+                .define('u', ingredient(new ItemStack(ModItems.UPGRADE_CORE.get())))
                 .build();
-        recipes.add(new RecipeHolder<>(DeepNullReforged.id("jei/obsidian_generator/obsidian"), obsidianRecipe));
+        recipes.add(recipeHolder("jei/obsidian_generator/obsidian", obsidianRecipe));
 
         recipes.add(stoneworksRecipe(registration, "dirt", new ItemStack(Items.DIRT),
-                Ingredient.of(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
-                Ingredient.of(new ItemStack(Items.COBBLESTONE))));
+                ingredient(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
+                ingredient(new ItemStack(Items.COBBLESTONE))));
         recipes.add(stoneworksRecipe(registration, "gravel", new ItemStack(Items.GRAVEL),
-                Ingredient.of(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
-                Ingredient.of(new ItemStack(Items.DIRT))));
+                ingredient(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
+                ingredient(new ItemStack(Items.DIRT))));
         recipes.add(stoneworksRecipe(registration, "sand", new ItemStack(Items.SAND),
-                Ingredient.of(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
-                Ingredient.of(new ItemStack(Items.GRAVEL))));
+                ingredient(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
+                ingredient(new ItemStack(Items.GRAVEL))));
         recipes.add(stoneworksRecipe(registration, "clay", new ItemStack(Items.CLAY),
-                Ingredient.of(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
-                Ingredient.of(new ItemStack(Items.DIRT)),
-                Ingredient.of(new ItemStack(Items.WATER_BUCKET))));
+                ingredient(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
+                ingredient(new ItemStack(Items.DIRT)),
+                ingredient(new ItemStack(Items.WATER_BUCKET))));
         recipes.add(stoneworksRecipe(registration, "glass", new ItemStack(Items.GLASS),
-                Ingredient.of(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
-                Ingredient.of(new ItemStack(Items.SAND)),
-                Ingredient.of(new ItemStack(ModItems.AUTO_SMELTING_UPGRADE.get()))));
+                ingredient(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
+                ingredient(new ItemStack(Items.SAND)),
+                ingredient(new ItemStack(ModItems.AUTO_SMELTING_UPGRADE.get()))));
 
         for (ItemStack dustStack : resolveDustDisplayStacks()) {
-            ResourceLocation dustId = BuiltInRegistries.ITEM.getKey(dustStack.getItem());
+            Identifier dustId = BuiltInRegistries.ITEM.getKey(dustStack.getItem());
             recipes.add(stoneworksRecipe(registration, "dust_" + dustId.getNamespace(),
                     dustStack,
-                    Ingredient.of(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
-                    Ingredient.of(new ItemStack(Items.SAND))));
+                    ingredient(new ItemStack(ModItems.STONEWORKS_UPGRADE.get())),
+                    ingredient(new ItemStack(Items.SAND))));
         }
 
         return recipes;
@@ -236,13 +240,13 @@ public final class DeepNullJeiPlugin implements IModPlugin {
             Ingredient bottom
     ) {
         CraftingRecipe recipe = registration.getVanillaRecipeFactory()
-                .createShapedRecipeBuilder(CraftingBookCategory.MISC, List.of(output))
+                .createShapedRecipeBuilder(CraftingBookCategory.MISC, stackDisplay(output))
                 .pattern("a")
                 .pattern("b")
                 .define('a', top)
                 .define('b', bottom)
                 .build();
-        return new RecipeHolder<>(DeepNullReforged.id("jei/stoneworks/" + id), recipe);
+        return recipeHolder("jei/stoneworks/" + id, recipe);
     }
 
     private static RecipeHolder<CraftingRecipe> stoneworksRecipe(
@@ -254,14 +258,14 @@ public final class DeepNullJeiPlugin implements IModPlugin {
             Ingredient topRight
     ) {
         CraftingRecipe recipe = registration.getVanillaRecipeFactory()
-                .createShapedRecipeBuilder(CraftingBookCategory.MISC, List.of(output))
+                .createShapedRecipeBuilder(CraftingBookCategory.MISC, stackDisplay(output))
                 .pattern("ab")
                 .pattern("c ")
                 .define('a', topLeft)
                 .define('b', topRight)
                 .define('c', bottomLeft)
                 .build();
-        return new RecipeHolder<>(DeepNullReforged.id("jei/stoneworks/" + id), recipe);
+        return recipeHolder("jei/stoneworks/" + id, recipe);
     }
 
     private static List<ItemStack> resolveDustDisplayStacks() {
@@ -270,13 +274,25 @@ public final class DeepNullJeiPlugin implements IModPlugin {
             if (!(item instanceof BlockItem)) {
                 continue;
             }
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+            Identifier itemId = BuiltInRegistries.ITEM.getKey(item);
             if (!itemId.getPath().equalsIgnoreCase("dust")) {
                 continue;
             }
             dustStacks.add(new ItemStack(item));
         }
         return dustStacks;
+    }
+
+    private static Ingredient ingredient(ItemStack stack) {
+        return Ingredient.of(stack.getItem());
+    }
+
+    private static SlotDisplay stackDisplay(ItemStack stack) {
+        return new SlotDisplay.ItemStackSlotDisplay(ItemStackTemplate.fromNonEmptyStack(stack));
+    }
+
+    private static RecipeHolder<CraftingRecipe> recipeHolder(String id, CraftingRecipe recipe) {
+        return new RecipeHolder<>(ResourceKey.create(Registries.RECIPE, DeepNullReforged.id(id)), recipe);
     }
 
     private static ItemStack deepNullStack(DeepNullTier tier) {

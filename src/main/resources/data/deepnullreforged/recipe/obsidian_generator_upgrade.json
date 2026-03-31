@@ -7,18 +7,10 @@
     "WWW"
   ],
   "key": {
-    "L": {
-      "item": "minecraft:lava_bucket"
-    },
-    "D": {
-      "item": "minecraft:diamond_pickaxe"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    },
-    "W": {
-      "item": "minecraft:water_bucket"
-    }
+    "L": "minecraft:lava_bucket",
+    "D": "minecraft:diamond_pickaxe",
+    "U": "deepnullreforged:upgrade_core",
+    "W": "minecraft:water_bucket"
   },
   "result": {
     "id": "deepnullreforged:obsidian_generator_upgrade",

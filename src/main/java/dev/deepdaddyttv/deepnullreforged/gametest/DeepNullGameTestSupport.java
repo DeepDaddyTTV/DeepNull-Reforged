@@ -6,7 +6,6 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
@@ -16,7 +15,7 @@ import net.minecraft.world.item.ItemStack;
 
 final class DeepNullGameTestSupport {
     static final String EMPTY_TEMPLATE_NAMESPACE = "fabric-gametest-api-v1";
-    static final String EMPTY_TEMPLATE = FabricGameTest.EMPTY_STRUCTURE;
+    static final String EMPTY_TEMPLATE = EMPTY_TEMPLATE_NAMESPACE + ":empty";
 
     private DeepNullGameTestSupport() {
     }
@@ -101,7 +100,7 @@ final class DeepNullGameTestSupport {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         player.getInventory().clearContent();
         player.containerMenu = player.inventoryMenu;
-        player.moveTo(
+        player.teleportTo(
                 helper.absolutePos(new BlockPos(1, 1, 1)).getX() + 0.5D,
                 helper.absolutePos(new BlockPos(1, 1, 1)).getY(),
                 helper.absolutePos(new BlockPos(1, 1, 1)).getZ() + 0.5D

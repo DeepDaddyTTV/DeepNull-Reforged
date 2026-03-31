@@ -8,8 +8,9 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 public class DeepNullUpgradeItem extends Item {
     private final DeepNullUpgradeType type;
@@ -24,10 +25,10 @@ public class DeepNullUpgradeItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
-        tooltipComponents.add(Component.translatable("upgrade." + type.itemId() + ".desc").withStyle(ChatFormatting.GRAY));
-        tooltipComponents.add(upgradeKindLabel(stack).withStyle(ChatFormatting.GRAY));
-        tooltipComponents.add(Component.translatable("upgrade." + type.itemId() + ".tiers", supportedTierLabel()).withStyle(ChatFormatting.DARK_GRAY));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {
+        builder.accept(Component.translatable("upgrade." + type.itemId() + ".desc").withStyle(ChatFormatting.GRAY));
+        builder.accept(upgradeKindLabel(stack).withStyle(ChatFormatting.GRAY));
+        builder.accept(Component.translatable("upgrade." + type.itemId() + ".tiers", supportedTierLabel()).withStyle(ChatFormatting.DARK_GRAY));
     }
 
     protected MutableComponent upgradeKindLabel(ItemStack stack) {

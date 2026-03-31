@@ -1,12 +1,15 @@
 package dev.deepdaddyttv.deepnullreforged.block;
 
 import com.mojang.serialization.MapCodec;
+import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -19,6 +22,7 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -29,11 +33,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.util.RandomSource;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
@@ -58,7 +65,12 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     private static final Map<Direction, VoxelShape> EXTENSION_SHAPES = createShapes(EXTENSION_NORTH_SHAPE);
 
     public NullWorkbenchBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).requiresCorrectToolForDrops().strength(5.0F, 6.0F).noOcclusion());
+        this(BlockBehaviour.Properties.of()
+                .setId(ResourceKey.create(Registries.BLOCK, DeepNullReforged.id("null_workbench")))
+                .mapColor(MapColor.WOOD)
+                .requiresCorrectToolForDrops()
+                .strength(5.0F, 6.0F)
+                .noOcclusion());
     }
 
     private NullWorkbenchBlock(BlockBehaviour.Properties properties) {
@@ -96,7 +108,7 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable net.minecraft.world.entity.LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (level.isClientSide) {
+        if (level.isClientSide()) {
             return;
         }
         BlockPos extensionPos = pos.relative(extensionDirection(state.getValue(FACING)));
@@ -132,14 +144,14 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (level.isClientSide || !(player instanceof ServerPlayer serverPlayer)) {
-            return InteractionResult.sidedSuccess(level.isClientSide);
+        if (level.isClientSide() || !(player instanceof ServerPlayer serverPlayer)) {
+            return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
         }
         BlockPos mainPos = resolveMainPos(state, pos);
         if (!(level.getBlockEntity(mainPos) instanceof NullWorkbenchBlockEntity workbench)) {
             return InteractionResult.PASS;
         }
-        serverPlayer.openMenu(new ExtendedScreenHandlerFactory<BlockPos>() {
+        serverPlayer.openMenu(new ExtendedMenuProvider<BlockPos>() {
             @Override
             public Component getDisplayName() {
                 return Component.translatable("container.deepnullreforged.null_workbench");
@@ -159,33 +171,6 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (state.is(newState.getBlock())) {
-            super.onRemove(state, level, pos, newState, movedByPiston);
-            return;
-        }
-
-        BlockPos mainPos = resolveMainPos(state, pos);
-        BlockPos extensionPos = mainPos.relative(extensionDirection(state.getValue(FACING)));
-        boolean removingMain = pos.equals(mainPos);
-
-        if (removingMain && level.getBlockEntity(mainPos) instanceof NullWorkbenchBlockEntity workbench) {
-            for (int slot = 0; slot < workbench.getItemHandler().getSlots(); slot++) {
-                popResource(level, mainPos, workbench.getItemHandler().getStackInSlot(slot));
-            }
-        }
-
-        if (removingMain) {
-            if (!extensionPos.equals(pos) && level.getBlockState(extensionPos).is(this)) {
-                level.removeBlock(extensionPos, false);
-            }
-        } else if (!mainPos.equals(pos) && level.getBlockState(mainPos).is(this)) {
-            level.removeBlock(mainPos, false);
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
-    }
-
-    @Override
     public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return state.getValue(PART) == NullWorkbenchPart.MAIN ? new NullWorkbenchBlockEntity(pos, state) : null;
     }
@@ -200,6 +185,32 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
 
     private static Direction extensionDirection(Direction facing) {
         return facing.getCounterClockWise();
+    }
+
+    @Override
+    protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
+        BlockPos counterpartPos = counterpartPos(state, pos);
+        BlockState counterpartState = level.getBlockState(counterpartPos);
+        return counterpartState.is(this)
+                && counterpartState.getValue(FACING) == state.getValue(FACING)
+                && counterpartState.getValue(PART) != state.getValue(PART);
+    }
+
+    @Override
+    protected BlockState updateShape(
+            BlockState state,
+            LevelReader level,
+            ScheduledTickAccess scheduledTickAccess,
+            BlockPos pos,
+            Direction direction,
+            BlockPos neighborPos,
+            BlockState neighborState,
+            RandomSource random
+    ) {
+        if (!canSurvive(state, level, pos)) {
+            return Blocks.AIR.defaultBlockState();
+        }
+        return super.updateShape(state, level, scheduledTickAccess, pos, direction, neighborPos, neighborState, random);
     }
 
     private static Map<Direction, VoxelShape> createShapes(VoxelShape northShape) {
@@ -234,5 +245,11 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
         return state.getValue(PART) == NullWorkbenchPart.MAIN
                 ? pos
                 : pos.relative(extensionDirection(state.getValue(FACING)).getOpposite());
+    }
+
+    private static BlockPos counterpartPos(BlockState state, BlockPos pos) {
+        return state.getValue(PART) == NullWorkbenchPart.MAIN
+                ? pos.relative(extensionDirection(state.getValue(FACING)))
+                : resolveMainPos(state, pos);
     }
 }

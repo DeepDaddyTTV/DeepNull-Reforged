@@ -6,6 +6,14 @@
     "0": "deepnullreforged:item/deepnull/frame",
     "1": "deepnullreforged:item/deepnull/glass_creative"
   },
+  "tints": [
+    {
+      "type": "deepnullreforged:deep_null_frame"
+    },
+    {
+      "type": "deepnullreforged:deep_null_glass"
+    }
+  ],
   "display": {
     "thirdperson_righthand": {
       "rotation": [

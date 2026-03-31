@@ -7,8 +7,8 @@ import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import dev.deepdaddyttv.deepnullreforged.compat.network.event.RegisterPayloadHandlersEvent;
+import dev.deepdaddyttv.deepnullreforged.compat.server.ServerLifecycleHooks;
 
 public final class DeepNullReforgedFabric implements ModInitializer {
     @Override

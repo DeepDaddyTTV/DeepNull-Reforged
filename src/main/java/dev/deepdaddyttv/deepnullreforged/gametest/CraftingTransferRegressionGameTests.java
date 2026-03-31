@@ -8,15 +8,18 @@ import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSessio
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import mezz.jei.api.helpers.IJeiHelpers;
-import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 import mezz.jei.api.recipe.transfer.IRecipeTransferInfo;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.minecraft.gametest.framework.GameTest;
+import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
+import mezz.jei.api.recipe.types.IRecipeType;
+import net.fabricmc.fabric.api.gametest.v1.CustomTestMethodInvoker;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -27,6 +30,7 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -37,9 +41,28 @@ import static net.minecraft.world.item.Items.CHEST;
 import static net.minecraft.world.item.Items.CRAFTING_TABLE;
 import static net.minecraft.world.item.Items.OAK_PLANKS;
 
-public final class CraftingTransferRegressionGameTests implements FabricGameTest {
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_transfer_detects_carried_deepnull_in_player_two_by_two(GameTestHelper helper) {
+public final class CraftingTransferRegressionGameTests implements CustomTestMethodInvoker {
+    @Override
+    public void invokeTestMethod(GameTestHelper helper, Method method) throws ReflectiveOperationException {
+        try {
+            method.invoke(this, helper);
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getTargetException();
+            if (cause instanceof ReflectiveOperationException reflectiveOperationException) {
+                throw reflectiveOperationException;
+            }
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new RuntimeException("Failed to invoke test method " + method.getName(), cause);
+        }
+    }
+
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_transfer_detects_carried_deepnull_in_player_two_by_two(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, deepNullStack);
@@ -68,12 +91,12 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
             }
         }
         helper.assertValueEqual(plankSlots, 4, "All four 2x2 slots should be filled");
-        helper.assertTrue(menu.getSlot(menu.getResultSlotIndex()).getItem().is(CRAFTING_TABLE), "2x2 transfer should yield the crafting table result");
+        helper.assertTrue(menu.getResultSlot().getItem().is(CRAFTING_TABLE), "2x2 transfer should yield the crafting table result");
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_plugin_registers_exact_menu_handlers_for_carried_deepnulls(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_plugin_registers_exact_menu_handlers_for_carried_deepnulls(GameTestHelper helper) {
         RecordingTransferRegistration registration = new RecordingTransferRegistration();
         new DeepNullJeiPlugin().registerRecipeTransferHandlers(registration);
 
@@ -107,8 +130,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_transfer_detects_carried_deepnull_in_main_inventory_slot(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_transfer_detects_carried_deepnull_in_main_inventory_slot(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(12, deepNullStack);
@@ -137,12 +160,12 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
             }
         }
         helper.assertValueEqual(plankSlots, 4, "All four 2x2 slots should be filled when the carried DeepNull is in the main inventory");
-        helper.assertTrue(menu.getSlot(menu.getResultSlotIndex()).getItem().is(CRAFTING_TABLE), "Main-inventory JEI transfer should yield the crafting table result");
+        helper.assertTrue(menu.getResultSlot().getItem().is(CRAFTING_TABLE), "Main-inventory JEI transfer should yield the crafting table result");
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_transfer_handles_large_stored_counts_from_carried_deepnull(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_transfer_handles_large_stored_counts_from_carried_deepnull(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(12, deepNullStack);
@@ -185,12 +208,12 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
             }
         }
         helper.assertValueEqual(plankSlots, 8, "Eight 3x3 slots should be filled for the chest recipe using the large-count DeepNull");
-        helper.assertTrue(menu.getSlot(menu.getResultSlotIndex()).getItem().is(CHEST), "Large-count transfer should still yield the chest result");
+        helper.assertTrue(menu.getResultSlot().getItem().is(CHEST), "Large-count transfer should still yield the chest result");
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_transfer_detects_carried_deepnull_in_crafting_table_three_by_three(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_transfer_detects_carried_deepnull_in_crafting_table_three_by_three(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, deepNullStack);
@@ -225,12 +248,12 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
             }
         }
         helper.assertValueEqual(plankSlots, 8, "Eight 3x3 slots should be filled for the chest recipe");
-        helper.assertTrue(menu.getSlot(menu.getResultSlotIndex()).getItem().is(CHEST), "3x3 transfer should yield the chest result");
+        helper.assertTrue(menu.getResultSlot().getItem().is(CHEST), "3x3 transfer should yield the chest result");
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_leftovers_return_to_matching_deepnull_slots_on_clear(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_leftovers_return_to_matching_deepnull_slots_on_clear(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         ItemStack secondaryDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
@@ -270,8 +293,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_leftovers_return_to_preferred_deepnull_even_when_source_stack_was_fully_drained(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_leftovers_return_to_preferred_deepnull_even_when_source_stack_was_fully_drained(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -292,8 +315,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_transfer_prefers_player_inventory_before_carried_deepnull_stock(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_transfer_prefers_player_inventory_before_carried_deepnull_stock(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -313,8 +336,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_leftovers_return_to_partially_drained_source_deepnull(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_leftovers_return_to_partially_drained_source_deepnull(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -337,8 +360,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_leftovers_prefer_matching_deepnull_even_when_player_inventory_was_used_first(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_leftovers_prefer_matching_deepnull_even_when_player_inventory_was_used_first(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -363,8 +386,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_transfer_respects_deepnull_extraction_rules(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_transfer_respects_deepnull_extraction_rules(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -392,8 +415,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_close_return_snapshot_reclaims_items_after_vanilla_moved_them_to_inventory(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_close_return_snapshot_reclaims_items_after_vanilla_moved_them_to_inventory(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -425,8 +448,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void jei_close_return_payload_reclaims_items_after_menu_closed(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void jei_close_return_payload_reclaims_items_after_menu_closed(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -472,8 +495,8 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void craftingtweaks_clear_handler_returns_jei_grid_to_deepnull_and_clears_session(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void craftingtweaks_clear_handler_returns_jei_grid_to_deepnull_and_clears_session(GameTestHelper helper) {
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack sourceDeepNull = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, sourceDeepNull);
@@ -501,8 +524,9 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
 
     @SuppressWarnings("unchecked")
     private static RecipeHolder<CraftingRecipe> recipe(Level level, String id) {
-        return level.getRecipeManager()
-                .byKey(ResourceLocation.parse(id))
+        return level.getServer()
+                .getRecipeManager()
+                .byKey(ResourceKey.create(Registries.RECIPE, Identifier.parse(id)))
                 .filter(holder -> holder.value() instanceof CraftingRecipe)
                 .map(holder -> (RecipeHolder<CraftingRecipe>) holder)
                 .orElseThrow(() -> new AssertionError("Missing crafting recipe " + id));
@@ -524,7 +548,7 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         }
 
         @Override
-        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(Class<? extends C> containerClass, MenuType<C> menuType, RecipeType<R> recipeType, int recipeSlotStart, int recipeSlotCount, int inventorySlotStart, int inventorySlotCount) {
+        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(Class<? extends C> containerClass, MenuType<C> menuType, IRecipeType<R> recipeType, int recipeSlotStart, int recipeSlotCount, int inventorySlotStart, int inventorySlotCount) {
         }
 
         @Override
@@ -532,16 +556,12 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         }
 
         @Override
-        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(IRecipeTransferHandler<C, R> recipeTransferHandler, RecipeType<R> recipeType) {
+        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(IRecipeTransferHandler<C, R> recipeTransferHandler, IRecipeType<R> recipeType) {
             specificHandlers.add(new SpecificRegistration(recipeTransferHandler, recipeType));
         }
 
         @Override
-        public <C extends AbstractContainerMenu, R> void addUniversalRecipeTransferHandler(IRecipeTransferHandler<C, R> recipeTransferHandler) {
-        }
-
-        @Override
-        public <C extends AbstractContainerMenu> void addUniversalRecipeTransferHandler(mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler<C> recipeTransferHandler) {
+        public <C extends AbstractContainerMenu> void addUniversalRecipeTransferHandler(IUniversalRecipeTransferHandler<C> recipeTransferHandler) {
         }
 
         @SuppressWarnings("unchecked")
@@ -550,6 +570,6 @@ public final class CraftingTransferRegressionGameTests implements FabricGameTest
         }
     }
 
-    private record SpecificRegistration(IRecipeTransferHandler<?, ?> handler, RecipeType<?> recipeType) {
+    private record SpecificRegistration(IRecipeTransferHandler<?, ?> handler, IRecipeType<?> recipeType) {
     }
 }

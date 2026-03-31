@@ -7,15 +7,9 @@
     "aca"
   ],
   "key": {
-    "a": {
-      "item": "minecraft:lapis_lazuli"
-    },
-    "b": {
-      "item": "minecraft:blue_stained_glass_pane"
-    },
-    "c": {
-      "item": "minecraft:coal_block"
-    }
+    "a": "minecraft:lapis_lazuli",
+    "b": "minecraft:blue_stained_glass_pane",
+    "c": "minecraft:coal_block"
   },
   "result": {
     "id": "deepnullreforged:deep_null_panel_1",

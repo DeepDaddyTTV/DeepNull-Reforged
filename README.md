@@ -1,6 +1,8 @@
-# DeepNull Reforged
+<p align="center">
+  <img src="deepnull_media_logo_just_text.png" alt="DeepNull Reforged" width="720">
+</p>
 
-A modern NeoForge port and expansion of `/dank/null` by p455w0rd, rebuilt for Minecraft `1.21.1`.
+A modern Fabric port and expansion of `/dank/null` by p455w0rd, rebuilt for Minecraft `26.1`.
 
 DeepNull Reforged keeps the original fast-access storage concept, then pushes it further with modern automation support, fluid handling, JEI integration, upgrades, configuration, in-game documentation, and a full companion fluid variant called the DampNull.
 
@@ -27,7 +29,7 @@ DeepNull Reforged adds two core storage tools:
 The mod is built around:
 
 - fast collection and direct use from your hotbar
-- strong automation support through NeoForge capabilities
+- strong automation support through Fabric transfer integration and compatible APIs
 - dock-based integration for item, fluid, energy, and compatible chemical systems
 - upgrade-driven customization for storage, filtering, feeding, smelting, compression, transfer behavior, generation, and styling
 - companion documentation through both the GitHub wiki and optional GuideME integration
@@ -50,8 +52,8 @@ Stable builds are published on:
 
 ## Installation
 
-1. Install Minecraft `1.21.1`.
-2. Install NeoForge `21.1.219` or newer within the supported `1.21.1` range.
+1. Install Minecraft `26.1`.
+2. Install Fabric Loader `0.18.5` or newer for the supported `26.1` range.
 3. Place the downloaded `deepnull-reforged-*.jar` file in your `minecraft/mods/` folder.
 
 ## What It Does
@@ -91,7 +93,7 @@ Tier notes:
 ### Docking Station
 
 - Adds a Docking Station that can hold either a DeepNull or DampNull.
-- Supports standard NeoForge capability-based automation for:
+- Supports standard Fabric transfer and compatible API-based automation for:
   - item transfer
   - fluid transfer
   - FE transfer
@@ -172,9 +174,9 @@ The full user-facing documentation is available on the GitHub wiki:
 
 This project targets:
 
-- Minecraft `1.21.1`
-- NeoForge `21.1.219`
-- Java `21`
+- Minecraft `26.1`
+- Fabric Loader `0.18.5`
+- Java `25`
 
 Build with:
 

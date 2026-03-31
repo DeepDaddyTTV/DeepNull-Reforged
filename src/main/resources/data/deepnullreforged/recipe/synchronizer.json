@@ -7,15 +7,9 @@
     " U "
   ],
   "key": {
-    "G": {
-      "item": "minecraft:gold_ingot"
-    },
-    "F": {
-      "tag": "deepnullreforged:null_frames"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    }
+    "G": "minecraft:gold_ingot",
+    "F": "#deepnullreforged:null_frames",
+    "U": "deepnullreforged:upgrade_core"
   },
   "result": {
     "count": 1,

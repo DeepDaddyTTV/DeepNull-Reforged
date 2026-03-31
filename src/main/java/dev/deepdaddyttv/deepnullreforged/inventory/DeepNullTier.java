@@ -2,7 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.inventory;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Rarity;
 
 public enum DeepNullTier {
@@ -152,7 +152,7 @@ public enum DeepNullTier {
         return "damp_null_" + ordinalId;
     }
 
-    public ResourceLocation guiTexture() {
+    public Identifier guiTexture() {
         int textureIndex = rows() - 1 + (creative() ? 1 : 0);
         return DeepNullReforged.id("textures/gui/deepnullscreen" + textureIndex + ".png");
     }

@@ -1,22 +1,20 @@
 package dev.deepdaddyttv.deepnullreforged.integration.jei;
 
-import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
-import net.minecraft.core.NonNullList;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.AbstractCraftingMenu;
 import net.minecraft.world.inventory.CraftingContainer;
-import net.minecraft.world.inventory.RecipeBookMenu;
 import net.minecraft.world.inventory.ResultContainer;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
-import net.neoforged.neoforge.common.crafting.IRecipeContainer;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -114,57 +112,31 @@ public final class DeepNullCraftingTransferSupport {
     }
 
     public static @Nullable CraftingContext resolveContext(AbstractContainerMenu menu) {
-        if (menu instanceof IRecipeContainer recipeContainer) {
-            CraftingContainer craftMatrix = recipeContainer.getCraftMatrix();
-            ResultContainer resultContainer = recipeContainer.getCraftResult();
-            List<Integer> craftSlotIndices = new ArrayList<>();
-            int resultSlotIndex = -1;
-            for (int index = 0; index < menu.slots.size(); index++) {
-                Slot slot = menu.slots.get(index);
-                if (slot.container == craftMatrix) {
-                    craftSlotIndices.add(index);
-                } else if (slot.container == resultContainer) {
-                    resultSlotIndex = index;
-                }
-            }
-            if (craftSlotIndices.size() == craftMatrix.getContainerSize()) {
-                return new CraftingContext(craftMatrix, resultContainer, craftSlotIndices, resultSlotIndex, craftMatrix.getWidth(), craftMatrix.getHeight());
-            }
-        }
-
-        if (menu instanceof RecipeBookMenu<?, ?> recipeBookMenu) {
-            int resultSlotIndex = recipeBookMenu.getResultSlotIndex();
-            if (resultSlotIndex < 0 || resultSlotIndex >= menu.slots.size()) {
+        if (menu instanceof AbstractCraftingMenu craftingMenu) {
+            Slot resultSlot = craftingMenu.getResultSlot();
+            if (!(resultSlot.container instanceof ResultContainer resultContainer)) {
                 return null;
             }
 
-            if (!(menu.getSlot(resultSlotIndex).container instanceof ResultContainer resultContainer)) {
+            List<Slot> inputSlots = craftingMenu.getInputGridSlots();
+            if (inputSlots.isEmpty() || !(inputSlots.getFirst().container instanceof CraftingContainer craftMatrix)) {
                 return null;
             }
 
-            CraftingContainer craftMatrix = null;
-            for (int index = 0; index < menu.slots.size(); index++) {
-                if (index == resultSlotIndex) {
-                    continue;
+            List<Integer> craftSlotIndices = new ArrayList<>(inputSlots.size());
+            for (Slot inputSlot : inputSlots) {
+                int menuSlotIndex = menu.slots.indexOf(inputSlot);
+                if (menuSlotIndex < 0) {
+                    return null;
                 }
-                if (menu.getSlot(index).container instanceof CraftingContainer candidate) {
-                    craftMatrix = candidate;
-                    break;
-                }
+                craftSlotIndices.add(menuSlotIndex);
             }
-            if (craftMatrix == null) {
+
+            int resultSlotIndex = menu.slots.indexOf(resultSlot);
+            if (resultSlotIndex < 0 || craftSlotIndices.size() != craftMatrix.getContainerSize()) {
                 return null;
             }
 
-            List<Integer> craftSlotIndices = new ArrayList<>(craftMatrix.getContainerSize());
-            for (int index = 0; index < menu.slots.size(); index++) {
-                if (menu.getSlot(index).container == craftMatrix) {
-                    craftSlotIndices.add(index);
-                }
-            }
-            if (craftSlotIndices.size() != craftMatrix.getContainerSize()) {
-                return null;
-            }
             return new CraftingContext(
                     craftMatrix,
                     resultContainer,
@@ -179,32 +151,35 @@ public final class DeepNullCraftingTransferSupport {
     }
 
     private static @Nullable Ingredient[] buildLayout(CraftingRecipe recipe, int gridWidth, int gridHeight) {
-        if (!recipe.canCraftInDimensions(gridWidth, gridHeight)) {
-            return null;
-        }
-
         Ingredient[] layout = new Ingredient[gridWidth * gridHeight];
-        Arrays.fill(layout, Ingredient.EMPTY);
 
         if (recipe instanceof ShapedRecipe shapedRecipe) {
-            NonNullList<Ingredient> ingredients = shapedRecipe.getIngredients();
+            if (shapedRecipe.getWidth() > gridWidth || shapedRecipe.getHeight() > gridHeight) {
+                return null;
+            }
+            List<java.util.Optional<Ingredient>> ingredients = shapedRecipe.getIngredients();
             for (int y = 0; y < shapedRecipe.getHeight(); y++) {
                 for (int x = 0; x < shapedRecipe.getWidth(); x++) {
                     int recipeIndex = y * shapedRecipe.getWidth() + x;
                     if (recipeIndex < ingredients.size()) {
-                        layout[y * gridWidth + x] = ingredients.get(recipeIndex);
+                        layout[y * gridWidth + x] = ingredients.get(recipeIndex).orElse(null);
                     }
                 }
             }
             return layout;
         }
 
+        List<Ingredient> ingredients = recipe.placementInfo().ingredients();
+        if (ingredients.size() > layout.length) {
+            return null;
+        }
+
         int nextSlot = 0;
-        for (Ingredient ingredient : recipe.getIngredients()) {
+        for (Ingredient ingredient : ingredients) {
             if (ingredient.isEmpty()) {
                 continue;
             }
-            while (nextSlot < layout.length && !layout[nextSlot].isEmpty()) {
+            while (nextSlot < layout.length && layout[nextSlot] != null) {
                 nextSlot++;
             }
             if (nextSlot >= layout.length) {
@@ -257,7 +232,7 @@ public final class DeepNullCraftingTransferSupport {
         List<SlotRequirement> requirements = new ArrayList<>();
         for (int index = 0; index < layout.length; index++) {
             Ingredient ingredient = layout[index];
-            if (ingredient.isEmpty()) {
+            if (ingredient == null || ingredient.isEmpty()) {
                 continue;
             }
             List<StackKey> candidates = new ArrayList<>();
@@ -605,7 +580,7 @@ public final class DeepNullCraftingTransferSupport {
 
     private static List<Integer> eligibleInventorySlots(Inventory inventory) {
         List<Integer> slots = new ArrayList<>(37);
-        int selected = inventory.selected;
+        int selected = inventory.getSelectedSlot();
         if (selected >= 0 && selected < 36) {
             slots.add(selected);
         }

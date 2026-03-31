@@ -16,9 +16,8 @@ import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,13 +30,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidType;
+import dev.deepdaddyttv.deepnullreforged.compat.items.ItemStackHandler;
 
-public final class DeepNullRegressionGameTests implements FabricGameTest {
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void tier_support_matrix_and_defaults_stay_stable(GameTestHelper helper) {
+public final class DeepNullRegressionGameTests {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void tier_support_matrix_and_defaults_stay_stable(GameTestHelper helper) {
         DeepNullInventory deepRedstone = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
         DeepNullInventory deepIron = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.IRON);
         DeepNullInventory deepDiamond = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.DIAMOND);
@@ -63,8 +62,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void extraction_zero_apply_all_and_empty_reset_stay_stable(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void extraction_zero_apply_all_and_empty_reset_stay_stable(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
         inventory.insertItem(0, new ItemStack(Items.COBBLESTONE, 8), false);
         inventory.insertItem(1, new ItemStack(Items.DIRT, 5), false);
@@ -84,8 +83,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void style_defaults_variants_and_reset_round_trip(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void style_defaults_variants_and_reset_round_trip(GameTestHelper helper) {
         DeepNullInventory deepInventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.EMERALD);
         int deepDefaultFrame = deepInventory.getFrameColor();
         int deepDefaultGlass = deepInventory.getGlassColor();
@@ -124,8 +123,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void pickup_overflow_void_logic_only_matches_existing_full_slots(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void pickup_overflow_void_logic_only_matches_existing_full_slots(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
 
         ItemStack fullCobble = new ItemStack(Items.COBBLESTONE);
@@ -142,8 +141,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void pickup_event_voids_only_matching_full_slots(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void pickup_event_voids_only_matching_full_slots(GameTestHelper helper) {
         ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
         player.getInventory().setItem(0, deepNullStack);
@@ -171,8 +170,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void dampnull_fluid_storage_round_trip(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void dampnull_fluid_storage_round_trip(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.dampNullInventory(helper, DeepNullTier.IRON);
         helper.assertTrue(inventory.supportsFluidStorage(), "DampNull should support fluid storage");
         helper.assertValueEqual(inventory.getFluidSlotCount(), DeepNullTier.IRON.dampNullTankCount(), "DampNull tank count");
@@ -189,14 +188,14 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void dampnull_item_fluid_capability_fills_only_selected_tank(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void dampnull_item_fluid_capability_fills_only_selected_tank(GameTestHelper helper) {
         ItemStack dampNull = DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE);
         DeepNullInventory inventory = new DeepNullInventory(DeepNullTier.REDSTONE, dampNull, helper.getLevel().registryAccess(), null);
         inventory.setSelectedSlot(2);
 
         DeepNullFluidHandler handler = new DeepNullFluidHandler(inventory, dampNull, true);
-        int filled = handler.fill(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME * 3), net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+        int filled = handler.fill(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME * 3), dev.deepdaddyttv.deepnullreforged.compat.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
 
         helper.assertValueEqual(filled, FluidType.BUCKET_VOLUME * 3, "Held DampNull capability should accept the fluid");
         helper.assertTrue(inventory.getFluidInSlot(0).isEmpty(), "Held DampNull capability should not spread the fill into tank 0");
@@ -205,8 +204,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void stoneworks_respects_literal_item_target_count(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void stoneworks_respects_literal_item_target_count(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
         inventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.STONEWORKS.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.STONEWORKS));
         inventory.setStoneworksTargetStacks(4);
@@ -227,8 +226,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void returned_crafting_items_prefer_matching_slots(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void returned_crafting_items_prefer_matching_slots(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
         inventory.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 10));
 
@@ -244,8 +243,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void transfer_output_mode_and_direction_respect_matching_push_and_pull_rules(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void transfer_output_mode_and_direction_respect_matching_push_and_pull_rules(GameTestHelper helper) {
         DeepNullInventory pushInventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
         pushInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 70));
         pushInventory.setStackInSlot(1, new ItemStack(Items.DIRT, 6));
@@ -283,8 +282,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void stoneworks_dust_excludes_redstone_and_only_accepts_block_dust(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void stoneworks_dust_excludes_redstone_and_only_accepts_block_dust(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.IRON);
         inventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.STONEWORKS.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.STONEWORKS));
         inventory.setStackInSlot(0, new ItemStack(Items.REDSTONE, 16));
@@ -294,8 +293,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void dock_and_workbench_require_pickaxe_and_break_faster_with_it(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void dock_and_workbench_require_pickaxe_and_break_faster_with_it(GameTestHelper helper) {
         ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
         BlockPos dockPos = helper.absolutePos(new BlockPos(1, 1, 1));
         BlockPos workbenchPos = helper.absolutePos(new BlockPos(3, 1, 1));
@@ -308,8 +307,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void upgrade_slot_mapping_matches_visible_placeholder_order(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void upgrade_slot_mapping_matches_visible_placeholder_order(GameTestHelper helper) {
         ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
         player.getInventory().setItem(0, DeepNullGameTestSupport.deepNullStack(DeepNullTier.EMERALD));
         player.getInventory().setItem(1, DeepNullGameTestSupport.dampNullStack(DeepNullTier.EMERALD));
@@ -322,8 +321,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void dampnull_sponge_toggle_persists(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void dampnull_sponge_toggle_persists(GameTestHelper helper) {
         DeepNullInventory dampInventory = DeepNullGameTestSupport.dampNullInventory(helper, DeepNullTier.EMERALD);
         dampInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.SPONGE.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.SPONGE));
 
@@ -339,8 +338,8 @@ public final class DeepNullRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void synchronizer_configuration_round_trip(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void synchronizer_configuration_round_trip(GameTestHelper helper) {
         DeepNullInventory source = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.GOLD);
         source.setAutoPickupEnabled(false);
         source.setStyle(0x0A0B0C, 0x1A1B1C, StyleGlassVariant.PICKAXE);

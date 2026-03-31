@@ -9,9 +9,8 @@ import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -19,11 +18,11 @@ import net.minecraft.world.item.Items;
 
 import java.util.List;
 
-public final class NullWorkbenchRegressionGameTests implements FabricGameTest {
+public final class NullWorkbenchRegressionGameTests {
     private static final BlockPos WORKBENCH_POS = new BlockPos(1, 1, 1);
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void null_workbench_recipe_catalog_stays_consistent(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void null_workbench_recipe_catalog_stays_consistent(GameTestHelper helper) {
         List<NullWorkbenchRecipes.CraftRecipe> recipes = NullWorkbenchRecipes.all();
         helper.assertValueEqual(recipes.size(), 18, "Null Workbench recipe count");
 
@@ -52,8 +51,8 @@ public final class NullWorkbenchRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void workbench_style_apply_and_reset_output_behave(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void workbench_style_apply_and_reset_output_behave(GameTestHelper helper) {
         NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
         workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT, DeepNullGameTestSupport.deepNullStack(DeepNullTier.DIAMOND));
         workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT, new ItemStack(Items.CREEPER_HEAD));
@@ -79,8 +78,8 @@ public final class NullWorkbenchRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void workbench_backup_and_restore_round_trip(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void workbench_backup_and_restore_round_trip(GameTestHelper helper) {
         NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
         ItemStack sourceNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.GOLD);
         DeepNullInventory sourceInventory = new DeepNullInventory(DeepNullTier.GOLD, sourceNull, helper.getLevel().registryAccess(), null);
@@ -114,8 +113,8 @@ public final class NullWorkbenchRegressionGameTests implements FabricGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
-    public static void workbench_transfer_support_moves_recipe_inputs_from_player_inventory(GameTestHelper helper) {
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void workbench_transfer_support_moves_recipe_inputs_from_player_inventory(GameTestHelper helper) {
         NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
         var player = DeepNullGameTestSupport.fakePlayer(helper);
         player.getInventory().clearContent();

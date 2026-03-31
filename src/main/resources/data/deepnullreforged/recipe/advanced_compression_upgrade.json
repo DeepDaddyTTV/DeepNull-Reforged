@@ -7,15 +7,9 @@
     "IBI"
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_block"
-    },
-    "B": {
-      "item": "deepnullreforged:basic_compression_upgrade"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    }
+    "I": "minecraft:iron_block",
+    "B": "deepnullreforged:basic_compression_upgrade",
+    "U": "deepnullreforged:upgrade_core"
   },
   "result": {
     "id": "deepnullreforged:advanced_compression_upgrade",

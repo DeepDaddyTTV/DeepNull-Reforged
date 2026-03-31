@@ -1,27 +1,31 @@
 package dev.deepdaddyttv.deepnullreforged;
 
+import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import com.electronwill.nightconfig.toml.TomlFormat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
-import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeConfigRegistry;
-import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeModConfigEvents;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.resources.Identifier;
+import dev.deepdaddyttv.deepnullreforged.compat.fml.ModList;
+import net.minecraftforge.common.ForgeConfigSpec;
+import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public final class DeepNullConfig {
     private static final int TIER_COUNT = DeepNullTier.values().length;
 
-    private static final ModConfigSpec.Builder CLIENT_BUILDER = new ModConfigSpec.Builder();
-    private static final ModConfigSpec.Builder COMMON_BUILDER = new ModConfigSpec.Builder();
-    private static final ModConfigSpec.Builder SERVER_BUILDER = new ModConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder CLIENT_BUILDER = new ForgeConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder COMMON_BUILDER = new ForgeConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder SERVER_BUILDER = new ForgeConfigSpec.Builder();
 
-    public static final ModConfigSpec CLIENT_SPEC;
-    public static final ModConfigSpec COMMON_SPEC;
-    public static final ModConfigSpec SERVER_SPEC;
+    public static final ForgeConfigSpec CLIENT_SPEC;
+    public static final ForgeConfigSpec COMMON_SPEC;
+    public static final ForgeConfigSpec SERVER_SPEC;
 
     private static final int[] DEFAULT_ITEM_CAPACITY_BY_TIER = {
             128, 512, 1152, 2048, 3200, Integer.MAX_VALUE, Integer.MAX_VALUE
@@ -57,50 +61,54 @@ public final class DeepNullConfig {
             4, 6, 6, 8, 10, 12, 12
     };
 
-    private static final ModConfigSpec.BooleanValue CLIENT_SHOW_HUD;
-    private static final ModConfigSpec.IntValue CLIENT_HUD_OFFSET_X;
-    private static final ModConfigSpec.IntValue CLIENT_HUD_OFFSET_Y;
-    private static final ModConfigSpec.DoubleValue CLIENT_HUD_BACKGROUND_OPACITY;
-    private static final ModConfigSpec.IntValue CLIENT_HUD_DISPLAY_MS;
-    private static final ModConfigSpec.BooleanValue CLIENT_ENABLE_SHIFT_SCROLL_SELECTION;
-    private static final ModConfigSpec.BooleanValue CLIENT_ENABLE_UPDATE_CHECKER;
-    private static final ModConfigSpec.BooleanValue CLIENT_SHOW_GUIDEME_HINT;
-    private static final ModConfigSpec.BooleanValue CLIENT_INVERT_DAMPNULL_INTERACTION;
-    private static final ModConfigSpec.BooleanValue CLIENT_ANIMATE_DOCKED_NULLS;
-    private static final ModConfigSpec.BooleanValue CLIENT_SHOW_FULL_DEEPNULL_COUNTS;
+    private static final ForgeConfigSpec.BooleanValue CLIENT_SHOW_HUD;
+    private static final ForgeConfigSpec.IntValue CLIENT_HUD_OFFSET_X;
+    private static final ForgeConfigSpec.IntValue CLIENT_HUD_OFFSET_Y;
+    private static final ForgeConfigSpec.DoubleValue CLIENT_HUD_BACKGROUND_OPACITY;
+    private static final ForgeConfigSpec.IntValue CLIENT_HUD_DISPLAY_MS;
+    private static final ForgeConfigSpec.BooleanValue CLIENT_ENABLE_SHIFT_SCROLL_SELECTION;
+    private static final ForgeConfigSpec.BooleanValue CLIENT_ENABLE_UPDATE_CHECKER;
+    private static final ForgeConfigSpec.BooleanValue CLIENT_SHOW_GUIDEME_HINT;
+    private static final ForgeConfigSpec.BooleanValue CLIENT_INVERT_DAMPNULL_INTERACTION;
+    private static final ForgeConfigSpec.BooleanValue CLIENT_ANIMATE_DOCKED_NULLS;
+    private static final ForgeConfigSpec.BooleanValue CLIENT_SHOW_FULL_DEEPNULL_COUNTS;
 
-    private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_TRANSFER_LOCKED;
-    private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_PICKUP_ENABLED;
-    private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_FEEDING_ENABLED;
-    private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_SMELTING_ENABLED;
-    private static final ModConfigSpec.IntValue COMMON_DEFAULT_STONEWORKS_AMOUNT;
+    private static final ForgeConfigSpec.BooleanValue COMMON_DEFAULT_TRANSFER_LOCKED;
+    private static final ForgeConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_PICKUP_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_FEEDING_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_SMELTING_ENABLED;
+    private static final ForgeConfigSpec.IntValue COMMON_DEFAULT_STONEWORKS_AMOUNT;
 
-    private static final ModConfigSpec.BooleanValue SERVER_DISABLE_TAG_MATCHING;
-    private static final ModConfigSpec.ConfigValue<List<? extends String>> SERVER_TAG_BLACKLIST;
-    private static final ModConfigSpec.ConfigValue<List<? extends String>> SERVER_TAG_WHITELIST;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_AUTO_PICKUP;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_AUTO_FEEDING;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_AUTO_SMELTING;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_COMPRESSION;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_STONEWORKS;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_STONE_GENERATOR;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_OBSIDIAN_GENERATOR;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_SPONGE_UPGRADE;
-    private static final ModConfigSpec.BooleanValue SERVER_VOID_FULL_ITEMS_ON_PICKUP;
-    private static final ModConfigSpec.BooleanValue SERVER_VOID_FULL_FLUIDS_ON_SPONGE;
-    private static final ModConfigSpec.BooleanValue SERVER_ENABLE_CHEMICAL_STORAGE;
-    private static final ModConfigSpec.IntValue SERVER_DOCK_GENERATOR_BUFFER_SIZE;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_ITEM_CAPACITY_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_FLUID_CAPACITY_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_ENERGY_CAPACITY_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_DEEP_ENERGY_CAPACITY_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_ENERGY_TRANSFER_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_DEEP_ENERGY_TRANSFER_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_DAMPNULL_TANK_COUNT_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_STONE_GENERATION_RATE_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_SPONGE_ABSORB_LIMIT_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_SPONGE_RANGE_WIDTH_BY_TIER;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> SERVER_SPONGE_RANGE_HEIGHT_BY_TIER;
+    private static final ForgeConfigSpec.BooleanValue SERVER_DISABLE_TAG_MATCHING;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> SERVER_TAG_BLACKLIST;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> SERVER_TAG_WHITELIST;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_AUTO_PICKUP;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_AUTO_FEEDING;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_AUTO_SMELTING;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_COMPRESSION;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_STONEWORKS;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_STONE_GENERATOR;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_OBSIDIAN_GENERATOR;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_SPONGE_UPGRADE;
+    private static final ForgeConfigSpec.BooleanValue SERVER_VOID_FULL_ITEMS_ON_PICKUP;
+    private static final ForgeConfigSpec.BooleanValue SERVER_VOID_FULL_FLUIDS_ON_SPONGE;
+    private static final ForgeConfigSpec.BooleanValue SERVER_ENABLE_CHEMICAL_STORAGE;
+    private static final ForgeConfigSpec.IntValue SERVER_DOCK_GENERATOR_BUFFER_SIZE;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_ITEM_CAPACITY_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_FLUID_CAPACITY_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_ENERGY_CAPACITY_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_DEEP_ENERGY_CAPACITY_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_ENERGY_TRANSFER_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_DEEP_ENERGY_TRANSFER_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_DAMPNULL_TANK_COUNT_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_STONE_GENERATION_RATE_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_SPONGE_ABSORB_LIMIT_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_SPONGE_RANGE_WIDTH_BY_TIER;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> SERVER_SPONGE_RANGE_HEIGHT_BY_TIER;
+
+    private static volatile @Nullable CommentedFileConfig clientConfigFile;
+    private static volatile @Nullable CommentedFileConfig commonConfigFile;
+    private static volatile @Nullable CommentedFileConfig serverConfigFile;
 
     private static volatile boolean clientShowHud = true;
     private static volatile int clientHudOffsetX;
@@ -121,8 +129,8 @@ public final class DeepNullConfig {
     private static volatile int defaultStoneworksAmount = 1;
 
     private static volatile boolean tagMatchingDisabled;
-    private static volatile Set<ResourceLocation> tagBlacklist = Set.of();
-    private static volatile Set<ResourceLocation> tagWhitelist = Set.of();
+    private static volatile Set<Identifier> tagBlacklist = Set.of();
+    private static volatile Set<Identifier> tagWhitelist = Set.of();
     private static volatile boolean serverEnableAutoPickup = true;
     private static volatile boolean serverEnableAutoFeeding = true;
     private static volatile boolean serverEnableAutoSmelting = true;
@@ -203,10 +211,10 @@ public final class DeepNullConfig {
                 .define("disableTagMatching", false);
         SERVER_TAG_BLACKLIST = SERVER_BUILDER
                 .comment("Dictionary-style item tags that will not be allowed for tag matching unless explicitly whitelisted. Example: c:storage_blocks/coal")
-                .defineListAllowEmpty("tagBlacklist", List.of(), () -> "", DeepNullConfig::validateTagName);
+                .defineListAllowEmpty("tagBlacklist", List.of(), DeepNullConfig::validateTagName);
         SERVER_TAG_WHITELIST = SERVER_BUILDER
                 .comment("If non-empty, only these dictionary-style item tags will be allowed for tag matching. Example: c:ingots/copper")
-                .defineListAllowEmpty("tagWhitelist", List.of(), () -> "", DeepNullConfig::validateTagName);
+                .defineListAllowEmpty("tagWhitelist", List.of(), DeepNullConfig::validateTagName);
         SERVER_BUILDER.pop();
 
         SERVER_BUILDER.push("features");
@@ -273,11 +281,10 @@ public final class DeepNullConfig {
     }
 
     public static void registerFabricConfigs(String modId) {
-        NeoForgeModConfigEvents.loading(modId).register(DeepNullConfig::bakeFabricConfig);
-        NeoForgeModConfigEvents.reloading(modId).register(DeepNullConfig::bakeFabricConfig);
-        NeoForgeConfigRegistry.INSTANCE.register(modId, ModConfig.Type.CLIENT, CLIENT_SPEC);
-        NeoForgeConfigRegistry.INSTANCE.register(modId, ModConfig.Type.COMMON, COMMON_SPEC);
-        NeoForgeConfigRegistry.INSTANCE.register(modId, ModConfig.Type.SERVER, SERVER_SPEC);
+        clientConfigFile = loadConfig(modId, "client", CLIENT_SPEC);
+        commonConfigFile = loadConfig(modId, "common", COMMON_SPEC);
+        serverConfigFile = loadConfig(modId, "server", SERVER_SPEC);
+        initializeDefaults();
     }
 
     public static boolean isHudEnabled() {
@@ -287,6 +294,7 @@ public final class DeepNullConfig {
     public static boolean toggleHudEnabled() {
         boolean next = !clientShowHud;
         CLIENT_SHOW_HUD.set(next);
+        saveConfig(clientConfigFile);
         clientShowHud = next;
         return next;
     }
@@ -355,7 +363,7 @@ public final class DeepNullConfig {
         return !tagMatchingDisabled;
     }
 
-    public static boolean isDictionaryTagAllowed(ResourceLocation tagId) {
+    public static boolean isDictionaryTagAllowed(Identifier tagId) {
         if (!isTagMatchingEnabled()) {
             return false;
         }
@@ -461,56 +469,44 @@ public final class DeepNullConfig {
         return tierValue(spongeRangeHeightByTier, tier, DEFAULT_SPONGE_RANGE_HEIGHT_BY_TIER[tier.ordinalId()]);
     }
 
-    private static void bakeFabricConfig(ModConfig config) {
-        if (config.getSpec() == CLIENT_SPEC) {
-            bakeClient();
-        } else if (config.getSpec() == COMMON_SPEC) {
-            bakeCommon();
-        } else if (config.getSpec() == SERVER_SPEC) {
-            bakeServer();
-        } else {
-            initializeDefaults();
-        }
-    }
-
     private static void bakeClient() {
-        clientShowHud = CLIENT_SHOW_HUD.getAsBoolean();
-        clientHudOffsetX = CLIENT_HUD_OFFSET_X.getAsInt();
-        clientHudOffsetY = CLIENT_HUD_OFFSET_Y.getAsInt();
+        clientShowHud = CLIENT_SHOW_HUD.get();
+        clientHudOffsetX = CLIENT_HUD_OFFSET_X.get();
+        clientHudOffsetY = CLIENT_HUD_OFFSET_Y.get();
         clientHudBackgroundOpacity = CLIENT_HUD_BACKGROUND_OPACITY.get().floatValue();
-        clientHudDisplayMs = CLIENT_HUD_DISPLAY_MS.getAsInt();
-        clientEnableShiftScrollSelection = CLIENT_ENABLE_SHIFT_SCROLL_SELECTION.getAsBoolean();
-        clientEnableUpdateChecker = CLIENT_ENABLE_UPDATE_CHECKER.getAsBoolean();
-        clientShowGuideMeHint = CLIENT_SHOW_GUIDEME_HINT.getAsBoolean();
-        clientInvertDampNullInteraction = CLIENT_INVERT_DAMPNULL_INTERACTION.getAsBoolean();
-        clientAnimateDockedNulls = CLIENT_ANIMATE_DOCKED_NULLS.getAsBoolean();
-        clientShowFullDeepNullCounts = CLIENT_SHOW_FULL_DEEPNULL_COUNTS.getAsBoolean();
+        clientHudDisplayMs = CLIENT_HUD_DISPLAY_MS.get();
+        clientEnableShiftScrollSelection = CLIENT_ENABLE_SHIFT_SCROLL_SELECTION.get();
+        clientEnableUpdateChecker = CLIENT_ENABLE_UPDATE_CHECKER.get();
+        clientShowGuideMeHint = CLIENT_SHOW_GUIDEME_HINT.get();
+        clientInvertDampNullInteraction = CLIENT_INVERT_DAMPNULL_INTERACTION.get();
+        clientAnimateDockedNulls = CLIENT_ANIMATE_DOCKED_NULLS.get();
+        clientShowFullDeepNullCounts = CLIENT_SHOW_FULL_DEEPNULL_COUNTS.get();
     }
 
     private static void bakeCommon() {
-        defaultTransferLocked = COMMON_DEFAULT_TRANSFER_LOCKED.getAsBoolean();
-        defaultAutoPickupEnabled = COMMON_DEFAULT_AUTO_PICKUP_ENABLED.getAsBoolean();
-        defaultAutoFeedingEnabled = COMMON_DEFAULT_AUTO_FEEDING_ENABLED.getAsBoolean();
-        defaultAutoSmeltingEnabled = COMMON_DEFAULT_AUTO_SMELTING_ENABLED.getAsBoolean();
-        defaultStoneworksAmount = COMMON_DEFAULT_STONEWORKS_AMOUNT.getAsInt();
+        defaultTransferLocked = COMMON_DEFAULT_TRANSFER_LOCKED.get();
+        defaultAutoPickupEnabled = COMMON_DEFAULT_AUTO_PICKUP_ENABLED.get();
+        defaultAutoFeedingEnabled = COMMON_DEFAULT_AUTO_FEEDING_ENABLED.get();
+        defaultAutoSmeltingEnabled = COMMON_DEFAULT_AUTO_SMELTING_ENABLED.get();
+        defaultStoneworksAmount = COMMON_DEFAULT_STONEWORKS_AMOUNT.get();
     }
 
     private static void bakeServer() {
-        tagMatchingDisabled = SERVER_DISABLE_TAG_MATCHING.getAsBoolean();
+        tagMatchingDisabled = SERVER_DISABLE_TAG_MATCHING.get();
         tagBlacklist = normalizeTags(SERVER_TAG_BLACKLIST.get());
         tagWhitelist = normalizeTags(SERVER_TAG_WHITELIST.get());
-        serverEnableAutoPickup = SERVER_ENABLE_AUTO_PICKUP.getAsBoolean();
-        serverEnableAutoFeeding = SERVER_ENABLE_AUTO_FEEDING.getAsBoolean();
-        serverEnableAutoSmelting = SERVER_ENABLE_AUTO_SMELTING.getAsBoolean();
-        serverEnableCompression = SERVER_ENABLE_COMPRESSION.getAsBoolean();
-        serverEnableStoneworks = SERVER_ENABLE_STONEWORKS.getAsBoolean();
-        serverEnableStoneGenerator = SERVER_ENABLE_STONE_GENERATOR.getAsBoolean();
-        serverEnableObsidianGenerator = SERVER_ENABLE_OBSIDIAN_GENERATOR.getAsBoolean();
-        serverEnableSpongeUpgrade = SERVER_ENABLE_SPONGE_UPGRADE.getAsBoolean();
-        serverVoidFullItemsOnPickup = SERVER_VOID_FULL_ITEMS_ON_PICKUP.getAsBoolean();
-        serverVoidFullFluidsOnSponge = SERVER_VOID_FULL_FLUIDS_ON_SPONGE.getAsBoolean();
-        serverEnableChemicalStorage = SERVER_ENABLE_CHEMICAL_STORAGE.getAsBoolean();
-        dockGeneratorBufferSize = SERVER_DOCK_GENERATOR_BUFFER_SIZE.getAsInt();
+        serverEnableAutoPickup = SERVER_ENABLE_AUTO_PICKUP.get();
+        serverEnableAutoFeeding = SERVER_ENABLE_AUTO_FEEDING.get();
+        serverEnableAutoSmelting = SERVER_ENABLE_AUTO_SMELTING.get();
+        serverEnableCompression = SERVER_ENABLE_COMPRESSION.get();
+        serverEnableStoneworks = SERVER_ENABLE_STONEWORKS.get();
+        serverEnableStoneGenerator = SERVER_ENABLE_STONE_GENERATOR.get();
+        serverEnableObsidianGenerator = SERVER_ENABLE_OBSIDIAN_GENERATOR.get();
+        serverEnableSpongeUpgrade = SERVER_ENABLE_SPONGE_UPGRADE.get();
+        serverVoidFullItemsOnPickup = SERVER_VOID_FULL_ITEMS_ON_PICKUP.get();
+        serverVoidFullFluidsOnSponge = SERVER_VOID_FULL_FLUIDS_ON_SPONGE.get();
+        serverEnableChemicalStorage = SERVER_ENABLE_CHEMICAL_STORAGE.get();
+        dockGeneratorBufferSize = SERVER_DOCK_GENERATOR_BUFFER_SIZE.get();
         itemCapacityByTier = normalizeIntList(SERVER_ITEM_CAPACITY_BY_TIER.get(), DEFAULT_ITEM_CAPACITY_BY_TIER);
         fluidCapacityByTier = normalizeIntList(SERVER_FLUID_CAPACITY_BY_TIER.get(), DEFAULT_FLUID_CAPACITY_BY_TIER);
         energyCapacityByTier = normalizeIntList(SERVER_ENERGY_CAPACITY_BY_TIER.get(), DEFAULT_ENERGY_CAPACITY_BY_TIER);
@@ -529,14 +525,46 @@ public final class DeepNullConfig {
         return configuredValues.length == 0 ? fallback : configuredValues[index];
     }
 
-    private static ModConfigSpec.ConfigValue<List<? extends Integer>> integerListConfig(
-            ModConfigSpec.Builder builder,
+    private static ForgeConfigSpec.ConfigValue<List<? extends Integer>> integerListConfig(
+            ForgeConfigSpec.Builder builder,
             String name,
             int[] defaults,
             String comment
     ) {
         return builder.comment(comment)
-                .defineListAllowEmpty(name, intList(defaults), () -> 0, DeepNullConfig::validateIntegerValue);
+                .defineListAllowEmpty(name, intList(defaults), DeepNullConfig::validateIntegerValue);
+    }
+
+    private static @Nullable CommentedFileConfig loadConfig(String modId, String suffix, ForgeConfigSpec spec) {
+        Path configPath = FabricLoader.getInstance().getConfigDir().resolve(modId + "-" + suffix + ".toml");
+        try {
+            Files.createDirectories(configPath.getParent());
+            if (Files.notExists(configPath)) {
+                Files.createFile(configPath);
+            }
+
+            CommentedFileConfig config = CommentedFileConfig.of(configPath, TomlFormat.instance());
+            config.load();
+            spec.correct(config);
+            spec.acceptConfig(config);
+            spec.afterReload();
+            config.save();
+            return config;
+        } catch (IOException | RuntimeException exception) {
+            DeepNullReforged.LOGGER.warn("Failed to load {} config from {}", suffix, configPath, exception);
+            return null;
+        }
+    }
+
+    private static void saveConfig(@Nullable CommentedFileConfig config) {
+        if (config == null) {
+            return;
+        }
+        try {
+            config.save();
+        } catch (RuntimeException exception) {
+            DeepNullReforged.LOGGER.warn("Failed to save config {}", config.getNioPath(), exception);
+        }
     }
 
     private static List<Integer> intList(int[] values) {
@@ -558,10 +586,10 @@ public final class DeepNullConfig {
         return normalized;
     }
 
-    private static Set<ResourceLocation> normalizeTags(List<? extends String> configuredTags) {
-        LinkedHashSet<ResourceLocation> normalized = new LinkedHashSet<>();
+    private static Set<Identifier> normalizeTags(List<? extends String> configuredTags) {
+        LinkedHashSet<Identifier> normalized = new LinkedHashSet<>();
         for (String configuredTag : configuredTags) {
-            ResourceLocation parsed = ResourceLocation.tryParse(configuredTag);
+            Identifier parsed = Identifier.tryParse(configuredTag);
             if (parsed != null) {
                 normalized.add(parsed);
             }
@@ -570,7 +598,7 @@ public final class DeepNullConfig {
     }
 
     private static boolean validateTagName(Object value) {
-        return value instanceof String tagName && ResourceLocation.tryParse(tagName) != null;
+        return value instanceof String tagName && Identifier.tryParse(tagName) != null;
     }
 
     private static boolean validateIntegerValue(Object value) {

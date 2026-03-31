@@ -7,15 +7,9 @@
     "ICI"
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "C": {
-      "item": "minecraft:crafting_table"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    }
+    "I": "minecraft:iron_ingot",
+    "C": "minecraft:crafting_table",
+    "U": "deepnullreforged:upgrade_core"
   },
   "result": {
     "id": "deepnullreforged:basic_compression_upgrade",

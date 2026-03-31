@@ -7,15 +7,9 @@
     "bab"
   ],
   "key": {
-    "a": {
-      "item": "deepnullreforged:deep_null_panel_0"
-    },
-    "b": {
-      "item": "minecraft:bucket"
-    },
-    "c": {
-      "item": "deepnullreforged:fluid_upgrade"
-    }
+    "a": "deepnullreforged:deep_null_panel_0",
+    "b": "minecraft:bucket",
+    "c": "deepnullreforged:fluid_upgrade"
   },
   "result": {
     "id": "deepnullreforged:damp_null_0",

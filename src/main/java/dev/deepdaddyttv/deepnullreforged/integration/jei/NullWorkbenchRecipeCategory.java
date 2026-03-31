@@ -9,19 +9,17 @@ import mezz.jei.api.gui.drawable.IDrawableAnimated;
 import mezz.jei.api.gui.drawable.IDrawableStatic;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.recipe.IFocusGroup;
-import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
-import net.minecraft.client.gui.GuiGraphics;
+import mezz.jei.api.recipe.types.IRecipeType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class NullWorkbenchRecipeCategory implements IRecipeCategory<NullWorkbenchRecipes.CraftRecipe> {
-    public static final RecipeType<NullWorkbenchRecipes.CraftRecipe> RECIPE_TYPE =
-            RecipeType.create(DeepNullReforged.MODID, "null_workbench", NullWorkbenchRecipes.CraftRecipe.class);
+    public static final IRecipeType<NullWorkbenchRecipes.CraftRecipe> RECIPE_TYPE =
+            IRecipeType.create(DeepNullReforged.id("null_workbench"), NullWorkbenchRecipes.CraftRecipe.class);
 
-    private static final ResourceLocation BACKGROUND_TEXTURE = DeepNullReforged.id("textures/gui/null_workbench_crafting_gui.png");
-    private static final ResourceLocation PROGRESS_TEXTURE = DeepNullReforged.id("textures/gui/null_workbench_crafting_gui_bar_progress.png");
-    private static final int TEXTURE_SIZE = 256;
+    private static final Identifier BACKGROUND_TEXTURE = DeepNullReforged.id("textures/gui/null_workbench_crafting_gui.png");
+    private static final Identifier PROGRESS_TEXTURE = DeepNullReforged.id("textures/gui/null_workbench_crafting_gui_bar_progress.png");
     private static final int BACKGROUND_U = 40;
     private static final int BACKGROUND_V = 48;
     private static final int BACKGROUND_WIDTH = 160;
@@ -48,7 +46,7 @@ public final class NullWorkbenchRecipeCategory implements IRecipeCategory<NullWo
     }
 
     @Override
-    public RecipeType<NullWorkbenchRecipes.CraftRecipe> getRecipeType() {
+    public IRecipeType<NullWorkbenchRecipes.CraftRecipe> getRecipeType() {
         return RECIPE_TYPE;
     }
 
@@ -58,8 +56,13 @@ public final class NullWorkbenchRecipeCategory implements IRecipeCategory<NullWo
     }
 
     @Override
-    public IDrawable getBackground() {
-        return background;
+    public int getWidth() {
+        return BACKGROUND_WIDTH;
+    }
+
+    @Override
+    public int getHeight() {
+        return BACKGROUND_HEIGHT;
     }
 
     @Override
@@ -79,8 +82,4 @@ public final class NullWorkbenchRecipeCategory implements IRecipeCategory<NullWo
                 .setOutputSlotBackground();
     }
 
-    @Override
-    public void draw(NullWorkbenchRecipes.CraftRecipe recipe, mezz.jei.api.gui.ingredient.IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
-        progress.draw(guiGraphics, PROGRESS_X, PROGRESS_Y);
-    }
 }

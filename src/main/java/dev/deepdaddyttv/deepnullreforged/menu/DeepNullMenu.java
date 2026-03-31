@@ -22,17 +22,17 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
-import net.neoforged.neoforge.items.SlotItemHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidType;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidUtil;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.capability.IFluidHandlerItem;
+import dev.deepdaddyttv.deepnullreforged.compat.items.SlotItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -723,11 +723,11 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        if (clickType == ClickType.CLONE || clickType == ClickType.PICKUP_ALL) {
+    public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
+        if (clickType == ContainerInput.CLONE || clickType == ContainerInput.PICKUP_ALL) {
             return;
         }
-        if (isFluidStorageView() && clickType == ClickType.PICKUP && slotId >= 0 && slotId < storageSlotCount) {
+        if (isFluidStorageView() && clickType == ContainerInput.PICKUP && slotId >= 0 && slotId < storageSlotCount) {
             ItemStack carried = getCarried();
             if (!carried.isEmpty()) {
                 ItemStack updated = tryStoreFluidFromContainer(carried, slotId, false);

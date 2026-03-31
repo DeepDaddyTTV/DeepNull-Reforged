@@ -10,19 +10,19 @@ import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.Containers;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import dev.deepdaddyttv.deepnullreforged.compat.items.IItemHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.items.IItemHandlerModifiable;
+import dev.deepdaddyttv.deepnullreforged.compat.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
 public class NullWorkbenchBlockEntity extends BlockEntity {
@@ -44,16 +44,9 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
 
     private final ItemStackHandler items = new ItemStackHandler(10) {
         @Override
-        public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+        public void deserialize(ValueInput input) {
             setSize(10);
-            ListTag tagList = nbt.getList("Items", Tag.TAG_COMPOUND);
-            for (int i = 0; i < tagList.size(); i++) {
-                CompoundTag itemTags = tagList.getCompound(i);
-                int slot = itemTags.getInt("Slot");
-                if (slot >= 0 && slot < getSlots()) {
-                    ItemStack.parse(provider, itemTags).ifPresent(stack -> stacks.set(slot, stack));
-                }
-            }
+            super.deserialize(input);
             onLoad();
         }
 
@@ -236,38 +229,34 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
 
     public void setChangedAndSync() {
         setChanged();
-        if (level != null && !level.isClientSide) {
+        if (level != null && !level.isClientSide()) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
         }
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
-        tag.put(ITEMS_TAG, items.serializeNBT(registries));
-        tag.putInt(CRAFT_PROGRESS_TAG, craftProgress);
-        tag.putInt(CRAFT_DURATION_TAG, craftDuration);
-        tag.putInt(SYNC_PROGRESS_TAG, syncProgress);
-        tag.putInt(SYNC_ACTION_TAG, syncAction.ordinal());
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        items.serialize(output.child(ITEMS_TAG));
+        output.putInt(CRAFT_PROGRESS_TAG, craftProgress);
+        output.putInt(CRAFT_DURATION_TAG, craftDuration);
+        output.putInt(SYNC_PROGRESS_TAG, syncProgress);
+        output.putInt(SYNC_ACTION_TAG, syncAction.ordinal());
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
-        if (tag.contains(ITEMS_TAG, Tag.TAG_COMPOUND)) {
-            items.deserializeNBT(registries, tag.getCompound(ITEMS_TAG));
-        }
-        craftProgress = tag.getInt(CRAFT_PROGRESS_TAG);
-        craftDuration = tag.contains(CRAFT_DURATION_TAG) ? tag.getInt(CRAFT_DURATION_TAG) : CRAFT_DURATION;
-        syncProgress = tag.getInt(SYNC_PROGRESS_TAG);
-        syncAction = SyncAction.byId(tag.getInt(SYNC_ACTION_TAG));
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        items.deserialize(input.childOrEmpty(ITEMS_TAG));
+        craftProgress = input.getIntOr(CRAFT_PROGRESS_TAG, 0);
+        craftDuration = input.getIntOr(CRAFT_DURATION_TAG, CRAFT_DURATION);
+        syncProgress = input.getIntOr(SYNC_PROGRESS_TAG, 0);
+        syncAction = SyncAction.byId(input.getIntOr(SYNC_ACTION_TAG, SyncAction.NONE.ordinal()));
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = super.getUpdateTag(registries);
-        saveAdditional(tag, registries);
-        return tag;
+    public net.minecraft.nbt.CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
     }
 
     @Override
@@ -275,8 +264,21 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
+    @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        if (level == null) {
+            return;
+        }
+        for (int slot = 0; slot < items.getSlots(); slot++) {
+            ItemStack stack = items.getStackInSlot(slot);
+            if (!stack.isEmpty()) {
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack.copy());
+            }
+        }
+    }
+
     private void tickCrafting() {
-        if (level == null || level.isClientSide) {
+        if (level == null || level.isClientSide()) {
             return;
         }
 
@@ -309,7 +311,7 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
     }
 
     private void tickSync() {
-        if (level == null || level.isClientSide || syncAction == SyncAction.NONE) {
+        if (level == null || level.isClientSide() || syncAction == SyncAction.NONE) {
             return;
         }
 

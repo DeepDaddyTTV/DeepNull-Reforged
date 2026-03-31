@@ -2,8 +2,8 @@ package dev.deepdaddyttv.deepnullreforged.integration.mekanism;
 
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.ModList;
+import net.minecraft.resources.Identifier;
+import dev.deepdaddyttv.deepnullreforged.compat.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Method;
@@ -20,7 +20,7 @@ public final class MekanismClientCompat {
             return null;
         }
 
-        ResourceLocation icon = storedChemical.iconLocation();
+        Identifier icon = storedChemical.iconLocation();
         if (icon == null) {
             return null;
         }
@@ -50,7 +50,7 @@ public final class MekanismClientCompat {
 
             try {
                 Class<?> rendererClass = Class.forName("mekanism.client.render.MekanismRenderer");
-                chemicalSpriteResolver = rendererClass.getMethod("getSprite", ResourceLocation.class);
+                chemicalSpriteResolver = rendererClass.getMethod("getSprite", Identifier.class);
             } catch (ReflectiveOperationException | LinkageError ignored) {
                 chemicalSpriteResolver = null;
             }

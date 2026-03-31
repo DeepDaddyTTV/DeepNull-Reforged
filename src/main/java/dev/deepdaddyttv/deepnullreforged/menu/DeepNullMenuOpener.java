@@ -4,7 +4,7 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -43,7 +43,7 @@ public final class DeepNullMenuOpener {
         DeepNullTier tier = deepNullItem.tier();
         DeepNullInventory deepNullInventory = new DeepNullInventory(tier, stack, player.level().registryAccess(), null);
         DeepNullMenu.ViewMode normalizedView = normalizeView(viewMode, deepNullInventory);
-        player.openMenu(new ExtendedScreenHandlerFactory<DeepNullMenu.OpenData>() {
+        player.openMenu(new ExtendedMenuProvider<DeepNullMenu.OpenData>() {
             @Override
             public DeepNullMenu.OpenData getScreenOpeningData(ServerPlayer serverPlayer) {
                 return DeepNullMenu.OpenData.forItem(
@@ -82,7 +82,7 @@ public final class DeepNullMenuOpener {
         DeepNullTier tier = dock.getTier();
         DeepNullInventory inventory = dock.createInventory();
         DeepNullMenu.ViewMode normalizedView = normalizeView(viewMode, inventory);
-        player.openMenu(new ExtendedScreenHandlerFactory<DeepNullMenu.OpenData>() {
+        player.openMenu(new ExtendedMenuProvider<DeepNullMenu.OpenData>() {
             @Override
             public DeepNullMenu.OpenData getScreenOpeningData(ServerPlayer serverPlayer) {
                 return DeepNullMenu.OpenData.forDock(

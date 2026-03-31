@@ -7,15 +7,9 @@
     "RCR"
   ],
   "key": {
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "C": {
-      "item": "minecraft:coal_block"
-    },
-    "I": {
-      "item": "minecraft:iron_ingot"
-    }
+    "R": "minecraft:redstone",
+    "C": "minecraft:coal_block",
+    "I": "minecraft:iron_ingot"
   },
   "result": {
     "id": "deepnullreforged:upgrade_core",

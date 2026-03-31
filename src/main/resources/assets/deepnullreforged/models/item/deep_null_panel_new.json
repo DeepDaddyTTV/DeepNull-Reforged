@@ -2,7 +2,8 @@
   "__comment": "Model generated using MrCrayfish's Model Creator (http://mrcrayfish.com/modelcreator/)",
   "textures": {
     "0": "deepnullreforged:item/deepnull/frame",
-    "1": "deepnullreforged:item/deepnull/glass_lapis"
+    "1": "deepnullreforged:item/deepnull/glass_lapis",
+    "particle": "#1"
   },
   "display": {
     "thirdperson_righthand": {

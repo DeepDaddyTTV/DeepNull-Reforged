@@ -1,11 +1,11 @@
 package dev.deepdaddyttv.deepnullreforged.integration.jei;
 
 import mezz.jei.api.helpers.IJeiHelpers;
-import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 import mezz.jei.api.recipe.transfer.IRecipeTransferInfo;
 import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
+import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
 import dev.deepdaddyttv.deepnullreforged.testutil.MinecraftBootstrap;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -97,7 +97,7 @@ class DeepNullJeiPluginRegistrationTest {
         }
 
         @Override
-        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(Class<? extends C> containerClass, MenuType<C> menuType, RecipeType<R> recipeType, int recipeSlotStart, int recipeSlotCount, int inventorySlotStart, int inventorySlotCount) {
+        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(Class<? extends C> containerClass, MenuType<C> menuType, IRecipeType<R> recipeType, int recipeSlotStart, int recipeSlotCount, int inventorySlotStart, int inventorySlotCount) {
         }
 
         @Override
@@ -105,7 +105,7 @@ class DeepNullJeiPluginRegistrationTest {
         }
 
         @Override
-        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(IRecipeTransferHandler<C, R> recipeTransferHandler, RecipeType<R> recipeType) {
+        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(IRecipeTransferHandler<C, R> recipeTransferHandler, IRecipeType<R> recipeType) {
             specificHandlers.add(new SpecificRegistration(recipeTransferHandler, recipeType));
         }
 
@@ -113,11 +113,8 @@ class DeepNullJeiPluginRegistrationTest {
         public <C extends AbstractContainerMenu> void addUniversalRecipeTransferHandler(IUniversalRecipeTransferHandler<C> recipeTransferHandler) {
         }
 
-        @Override
-        public <C extends AbstractContainerMenu, R> void addUniversalRecipeTransferHandler(IRecipeTransferHandler<C, R> recipeTransferHandler) {
-        }
     }
 
-    private record SpecificRegistration(IRecipeTransferHandler<?, ?> handler, RecipeType<?> recipeType) {
+    private record SpecificRegistration(IRecipeTransferHandler<?, ?> handler, IRecipeType<?> recipeType) {
     }
 }

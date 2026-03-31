@@ -5,8 +5,8 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import dev.deepdaddyttv.deepnullreforged.compat.registries.DeferredHolder;
+import dev.deepdaddyttv.deepnullreforged.compat.registries.DeferredRegister;
 
 public final class ModCreativeTabs {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, DeepNullReforged.MODID);

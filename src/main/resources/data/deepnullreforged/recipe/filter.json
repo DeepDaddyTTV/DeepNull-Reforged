@@ -7,15 +7,9 @@
     "P"
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "L": {
-      "item": "minecraft:lapis_lazuli"
-    },
-    "P": {
-      "item": "minecraft:paper"
-    }
+    "I": "minecraft:iron_ingot",
+    "L": "minecraft:lapis_lazuli",
+    "P": "minecraft:paper"
   },
   "result": {
     "id": "deepnullreforged:filter",

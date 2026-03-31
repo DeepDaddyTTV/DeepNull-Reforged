@@ -7,15 +7,9 @@
     "aba"
   ],
   "key": {
-    "a": {
-      "item": "minecraft:emerald"
-    },
-    "b": {
-      "item": "minecraft:redstone"
-    },
-    "c": {
-      "item": "minecraft:obsidian"
-    }
+    "a": "minecraft:emerald",
+    "b": "minecraft:redstone",
+    "c": "minecraft:obsidian"
   },
   "result": {
     "id": "deepnullreforged:deepnull_dock",

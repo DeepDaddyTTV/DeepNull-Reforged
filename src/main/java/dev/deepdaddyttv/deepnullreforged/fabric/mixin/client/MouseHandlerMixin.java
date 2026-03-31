@@ -3,6 +3,7 @@ package dev.deepdaddyttv.deepnullreforged.fabric.mixin.client;
 import dev.deepdaddyttv.deepnullreforged.client.ClientGameEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
+import net.minecraft.client.input.MouseButtonInfo;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,9 +25,9 @@ abstract class MouseHandlerMixin {
         }
     }
 
-    @Inject(method = "onPress", at = @At("HEAD"), cancellable = true)
-    private void deepnullreforged$handleInvertedDampNullUse(long window, int button, int action, int modifiers, CallbackInfo ci) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_RIGHT || action != GLFW.GLFW_PRESS) {
+    @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
+    private void deepnullreforged$handleInvertedDampNullUse(long window, MouseButtonInfo buttonInfo, int action, CallbackInfo ci) {
+        if (buttonInfo.button() != GLFW.GLFW_MOUSE_BUTTON_RIGHT || action != GLFW.GLFW_PRESS) {
             return;
         }
         if (ClientGameEvents.handleInvertedDampNullUse()) {

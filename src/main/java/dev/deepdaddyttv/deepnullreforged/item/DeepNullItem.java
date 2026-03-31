@@ -1,7 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.item;
 
-import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.integration.ae2.Ae2TransferCompat;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismTransferCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
@@ -15,23 +15,25 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BucketItem;
+import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.component.CustomData;
@@ -44,18 +46,19 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.energy.IEnergyStorage;
-import net.neoforged.neoforge.fluids.FluidActionResult;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.fml.ModList;
+import dev.deepdaddyttv.deepnullreforged.compat.energy.IEnergyStorage;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidActionResult;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidType;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidUtil;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.capability.IFluidHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.items.IItemHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.fml.ModList;
 
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class DeepNullItem extends Item {
@@ -64,6 +67,9 @@ public class DeepNullItem extends Item {
     private static final String PROXY_USE_ANIM_TAG = "ProxyUseAnim";
     private static final String PROXY_USE_DURATION_TAG = "ProxyUseDuration";
     private final DeepNullTier tier;
+
+    private record ProxyUseResult(InteractionResult result, ItemStack stackAfterUse) {
+    }
 
     public DeepNullItem(DeepNullTier tier, Properties properties) {
         super(properties.stacksTo(1).rarity(tier.rarity()));
@@ -75,17 +81,17 @@ public class DeepNullItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (player.isShiftKeyDown()) {
             BlockHitResult hitResult = getPlayerPOVHitResult(level, player, ClipContext.Fluid.NONE);
             if (hitResult.getType() == HitResult.Type.BLOCK) {
-                return InteractionResultHolder.pass(stack);
+                return InteractionResult.PASS;
             }
-            if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
                 DeepNullMenuOpener.openHeldItem(serverPlayer, player.getInventory(), getInventorySlot(player, hand));
             }
-            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+            return successForSide(level.isClientSide());
         }
 
         DeepNullInventory inventory = new DeepNullInventory(tier, stack, level.registryAccess(), null);
@@ -94,25 +100,25 @@ public class DeepNullItem extends Item {
             if (hitResult.getType() == HitResult.Type.BLOCK) {
                 InteractionResult spongeResult = tryUseSpongeAbsorption(level, player, stack, inventory, hitResult.getBlockPos());
                 if (spongeResult != null) {
-                    return new InteractionResultHolder<>(spongeResult, stack);
+                    return spongeResult;
                 }
                 InteractionResult pickupResult = tryPickUpSourceFluid(level, player, stack, inventory, hitResult.getBlockPos(), hitResult.getDirection());
                 if (pickupResult != null) {
-                    return new InteractionResultHolder<>(pickupResult, stack);
+                    return pickupResult;
                 }
             }
-            return InteractionResultHolder.pass(stack);
+            return InteractionResult.PASS;
         }
-        InteractionResultHolder<ItemStack> bucketResult = tryUseStoredBucket(level, player, hand, stack, inventory);
+        InteractionResult bucketResult = tryUseStoredBucket(level, player, hand, stack, inventory);
         if (bucketResult != null) {
             return bucketResult;
         }
-        InteractionResultHolder<ItemStack> consumableResult = tryUseStoredConsumable(level, player, hand, stack, inventory);
+        InteractionResult consumableResult = tryUseStoredConsumable(level, player, hand, stack, inventory);
         if (consumableResult != null) {
             return consumableResult;
         }
 
-        return InteractionResultHolder.pass(stack);
+        return InteractionResult.PASS;
     }
 
     @Override
@@ -134,21 +140,21 @@ public class DeepNullItem extends Item {
         }
 
         ItemStack resultStack = selectedStack.copyWithCount(1).finishUsingItem(level, livingEntity);
-        if (!level.isClientSide && livingEntity instanceof Player player) {
+        if (!level.isClientSide() && livingEntity instanceof Player player) {
             applyStoredUseResult(player, inventory, proxySlot, selectedStack, resultStack);
         }
         return stack;
     }
 
     @Override
-    public void releaseUsing(ItemStack stack, Level level, LivingEntity livingEntity, int timeCharged) {
+    public boolean releaseUsing(ItemStack stack, Level level, LivingEntity livingEntity, int timeCharged) {
         clearProxyUseState(stack);
-        super.releaseUsing(stack, level, livingEntity, timeCharged);
+        return super.releaseUsing(stack, level, livingEntity, timeCharged);
     }
 
     @Override
-    public UseAnim getUseAnimation(ItemStack stack) {
-        UseAnim proxyAnim = getProxyUseAnimation(stack);
+    public ItemUseAnimation getUseAnimation(ItemStack stack) {
+        ItemUseAnimation proxyAnim = getProxyUseAnimation(stack);
         return proxyAnim == null ? super.getUseAnimation(stack) : proxyAnim;
     }
 
@@ -183,7 +189,7 @@ public class DeepNullItem extends Item {
         if (bucketResult != null) {
             return bucketResult;
         }
-        InteractionResultHolder<ItemStack> consumableResult = tryUseStoredConsumable(
+        InteractionResult consumableResult = tryUseStoredConsumable(
                 context.getLevel(),
                 player,
                 context.getHand(),
@@ -191,7 +197,7 @@ public class DeepNullItem extends Item {
                 inventory
         );
         if (consumableResult != null) {
-            return consumableResult.getResult();
+            return consumableResult;
         }
         InteractionResult proxiedUseOnResult = tryUseStoredStatefulItem(context, inventory);
         if (proxiedUseOnResult != null) {
@@ -217,7 +223,7 @@ public class DeepNullItem extends Item {
         UseOnContext selectedContext = new UseOnContext(context.getLevel(), player, context.getHand(), workingCopy, hitResult);
         int before = workingCopy.getCount();
         InteractionResult result = workingCopy.useOn(selectedContext);
-        if (context.getLevel().isClientSide || player.getAbilities().instabuild || !result.consumesAction()) {
+        if (context.getLevel().isClientSide() || player.getAbilities().instabuild || !result.consumesAction()) {
             return result;
         }
         int used = before - workingCopy.getCount();
@@ -244,57 +250,58 @@ public class DeepNullItem extends Item {
             return InteractionResult.PASS;
         }
 
-        InteractionResultHolder<ItemStack> result = proxyStoredItemUse(
+        InteractionResult result = proxyStoredItemUse(
                 player.level(),
                 player,
                 usedHand,
                 stack,
                 inventory,
-                proxyStack -> new InteractionResultHolder<>(
-                        proxyStack.interactLivingEntity(player, interactionTarget, usedHand),
-                        player.getItemInHand(usedHand).copy()
-                )
+                proxyStack -> proxyStack.interactLivingEntity(player, interactionTarget, usedHand)
         );
-        return result == null ? InteractionResult.PASS : result.getResult();
+        return result == null ? InteractionResult.PASS : result;
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {
         DeepNullInventory inventory = new DeepNullInventory(tier, stack, context.registries(), null);
-        tooltipComponents.add(Component.translatable("dn.number_of_slots.desc")
+        builder.accept(Component.translatable("dn.number_of_slots.desc")
                 .append(Component.literal(": " + tier.slotCount()).withStyle(ChatFormatting.GRAY)));
         String capacity = tier.creative() ? Component.translatable("dn.infinite.desc").getString() : Integer.toString(tier.perSlotCapacity());
-        tooltipComponents.add(Component.literal(capacity + " ").append(Component.translatable("dn.items_per_slot.desc")).withStyle(ChatFormatting.GRAY));
+        builder.accept(Component.literal(capacity + " ").append(Component.translatable("dn.items_per_slot.desc")).withStyle(ChatFormatting.GRAY));
         for (DeepNullUpgradeType type : DeepNullUpgradeType.values()) {
             if (inventory.hasUpgrade(type)) {
-                tooltipComponents.add(Component.translatable("upgrade." + type.itemId() + ".installed").withStyle(ChatFormatting.AQUA));
+                builder.accept(Component.translatable("upgrade." + type.itemId() + ".installed").withStyle(ChatFormatting.AQUA));
             }
         }
         if (inventory.supportsFiltering()) {
-            tooltipComponents.add(Component.translatable("dn.filter_mode_label.desc")
+            builder.accept(Component.translatable("dn.filter_mode_label.desc")
                     .append(": ")
                     .append(inventory.getFilterMode().displayName())
                     .withStyle(ChatFormatting.GRAY));
         }
         if (inventory.hasEnergyUpgrade()) {
-            tooltipComponents.add(Component.translatable("dn.energy.desc")
+            builder.accept(Component.translatable("dn.energy.desc")
                     .append(": ")
                     .append(Component.literal(inventory.getEnergyStored() + " / " + inventory.getEnergyCapacity() + " FE"))
                     .withStyle(ChatFormatting.GRAY));
-            tooltipComponents.add(Component.translatable("dn.charging.desc")
+            builder.accept(Component.translatable("dn.charging.desc")
                     .append(": ")
                     .append(Component.translatable(inventory.isChargingEnabled() ? "dn.enabled.desc" : "dn.disabled.desc"))
                     .withStyle(ChatFormatting.GRAY));
         }
         if (DeepNullConfig.isGuideMeHintEnabled() && ModList.get().isLoaded("guideme")) {
-            tooltipComponents.add(Component.translatable("dn.guideme_hint.desc").withStyle(ChatFormatting.DARK_GRAY));
+            builder.accept(Component.translatable("dn.guideme_hint.desc").withStyle(ChatFormatting.DARK_GRAY));
         }
     }
 
     @Override
-    public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
-        super.inventoryTick(stack, level, entity, slotId, isSelected);
-        if (level.isClientSide || !(entity instanceof Player player) || level.getGameTime() % 5L != Math.floorMod(slotId, 5)) {
+    public void inventoryTick(ItemStack stack, ServerLevel level, Entity entity, EquipmentSlot slot) {
+        super.inventoryTick(stack, level, entity, slot);
+        if (!(entity instanceof Player player)) {
+            return;
+        }
+        int slotId = resolveTickSlot(player, stack);
+        if (slotId < 0 || level.getGameTime() % 5L != Math.floorMod(slotId, 5)) {
             return;
         }
 
@@ -314,24 +321,28 @@ public class DeepNullItem extends Item {
             }
         }
         if (inventory.isChargingEnabled() && inventory.getEnergyStored() > 0) {
-            int remainingTransfer = inventory.getEnergyTransferRate();
-            remainingTransfer = chargeInventorySection(player.getInventory().items, stack, inventory, remainingTransfer);
-            remainingTransfer = chargeInventorySection(player.getInventory().offhand, stack, inventory, remainingTransfer);
-            chargeInventorySection(player.getInventory().armor, stack, inventory, remainingTransfer);
+            chargeInventorySection(player.getInventory(), stack, inventory, inventory.getEnergyTransferRate());
         }
     }
 
     @Override
     public boolean isFoil(ItemStack stack) {
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!tag.contains("DeepNull", Tag.TAG_COMPOUND)) {
-            return false;
-        }
-        return tag.getCompound("DeepNull").getBoolean("Charging");
+        CompoundTag deepNullTag = getDeepNullTag(stack);
+        return deepNullTag != null && deepNullTag.getBooleanOr("Charging", false);
     }
 
     public static int getInventorySlot(Player player, InteractionHand hand) {
-        return hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : 40;
+        return hand == InteractionHand.MAIN_HAND ? player.getInventory().getSelectedSlot() : 40;
+    }
+
+    private static int resolveTickSlot(Player player, ItemStack stack) {
+        Inventory inventory = player.getInventory();
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            if (inventory.getItem(i) == stack) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private InteractionResult tryUseStoredBucket(UseOnContext context, DeepNullInventory inventory) {
@@ -345,7 +356,7 @@ public class DeepNullItem extends Item {
             return null;
         }
 
-        InteractionResultHolder<ItemStack> result = proxyStoredItemUse(
+        return proxyStoredItemUse(
                 context.getLevel(),
                 player,
                 context.getHand(),
@@ -354,16 +365,12 @@ public class DeepNullItem extends Item {
                 proxyStack -> {
                     BlockHitResult hitResult = new BlockHitResult(context.getClickLocation(), context.getClickedFace(), context.getClickedPos(), context.isInside());
                     InteractionResult useOnResult = proxyStack.useOn(new UseOnContext(context.getLevel(), player, context.getHand(), proxyStack, hitResult));
-                    if (useOnResult != InteractionResult.PASS) {
-                        return new InteractionResultHolder<>(useOnResult, player.getItemInHand(context.getHand()).copy());
-                    }
-                    return proxyStack.use(context.getLevel(), player, context.getHand());
+                    return useOnResult != InteractionResult.PASS ? useOnResult : proxyStack.use(context.getLevel(), player, context.getHand());
                 }
         );
-        return result == null ? null : result.getResult();
     }
 
-    private InteractionResultHolder<ItemStack> tryUseStoredBucket(
+    private InteractionResult tryUseStoredBucket(
             Level level,
             Player player,
             InteractionHand hand,
@@ -387,16 +394,9 @@ public class DeepNullItem extends Item {
     }
 
     private static boolean hasWaterDampNull(Player player) {
-        for (ItemStack candidate : player.getInventory().items) {
-            if (candidate.isEmpty() || !(candidate.getItem() instanceof DampNullItem dampNullItem)) {
-                continue;
-            }
-            DeepNullInventory dampInventory = new DeepNullInventory(dampNullItem.tier(), candidate, player.level().registryAccess(), null);
-            if (dampInventory.containsFluidAmountAtLeast(Fluids.WATER, FluidType.BUCKET_VOLUME)) {
-                return true;
-            }
-        }
-        for (ItemStack candidate : player.getInventory().offhand) {
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack candidate = inventory.getItem(slot);
             if (candidate.isEmpty() || !(candidate.getItem() instanceof DampNullItem dampNullItem)) {
                 continue;
             }
@@ -408,7 +408,7 @@ public class DeepNullItem extends Item {
         return false;
     }
 
-    private static InteractionResultHolder<ItemStack> tryUseStoredConsumable(
+    private static InteractionResult tryUseStoredConsumable(
             Level level,
             Player player,
             InteractionHand hand,
@@ -425,12 +425,12 @@ public class DeepNullItem extends Item {
         FoodProperties foodProperties = selectedStack.get(DataComponents.FOOD);
         if (foodProperties != null && !player.canEat(foodProperties.canAlwaysEat())) {
             clearProxyUseState(deepNullStack);
-            return InteractionResultHolder.fail(deepNullStack);
+            return InteractionResult.FAIL;
         }
 
         setProxyUseState(deepNullStack, selectedSlot, selectedStack.getUseAnimation(), selectedStack.getUseDuration(player));
         player.startUsingItem(hand);
-        return InteractionResultHolder.consume(deepNullStack);
+        return InteractionResult.CONSUME;
     }
 
     private static InteractionResult tryUseStoredStatefulItem(UseOnContext context, DeepNullInventory inventory) {
@@ -439,7 +439,7 @@ public class DeepNullItem extends Item {
             return null;
         }
 
-        InteractionResultHolder<ItemStack> result = proxyStoredItemUse(
+        return proxyStoredItemUse(
                 context.getLevel(),
                 player,
                 context.getHand(),
@@ -452,11 +452,9 @@ public class DeepNullItem extends Item {
                             context.getClickedPos(),
                             context.isInside()
                     );
-                    InteractionResult useOnResult = proxyStack.useOn(new UseOnContext(context.getLevel(), player, context.getHand(), proxyStack, hitResult));
-                    return new InteractionResultHolder<>(useOnResult, player.getItemInHand(context.getHand()).copy());
+                    return proxyStack.useOn(new UseOnContext(context.getLevel(), player, context.getHand(), proxyStack, hitResult));
                 }
         );
-        return result == null || result.getResult() == InteractionResult.PASS ? null : result.getResult();
     }
 
     private static boolean shouldProxyStoredInteraction(ItemStack selectedStack) {
@@ -471,20 +469,20 @@ public class DeepNullItem extends Item {
         if (selectedStack.isEmpty()) {
             return false;
         }
-        UseAnim useAnim = selectedStack.getUseAnimation();
-        if (useAnim != UseAnim.EAT && useAnim != UseAnim.DRINK) {
+        ItemUseAnimation useAnim = selectedStack.getUseAnimation();
+        if (useAnim != ItemUseAnimation.EAT && useAnim != ItemUseAnimation.DRINK) {
             return false;
         }
         return entity == null || selectedStack.getUseDuration(entity) > 0;
     }
 
-    private static InteractionResultHolder<ItemStack> proxyStoredItemUse(
+    private static InteractionResult proxyStoredItemUse(
             Level level,
             Player player,
             InteractionHand hand,
             ItemStack deepNullStack,
             DeepNullInventory inventory,
-            Function<ItemStack, InteractionResultHolder<ItemStack>> action
+            Function<ItemStack, InteractionResult> action
     ) {
         int selectedSlot = inventory.getSelectedSlot();
         ItemStack selectedStack = inventory.getSelectedStack();
@@ -496,27 +494,30 @@ public class DeepNullItem extends Item {
         ItemStack proxyStack = selectedStack.copyWithCount(1);
         player.setItemInHand(hand, proxyStack);
 
-        InteractionResultHolder<ItemStack> result;
-        ItemStack resultStack;
+        ProxyUseResult result;
         try {
-            result = action.apply(proxyStack);
-            resultStack = player.getItemInHand(hand).copy();
-            if (resultStack.isEmpty() && result != null && !result.getObject().isEmpty()) {
-                resultStack = result.getObject().copy();
-            }
+            InteractionResult actionResult = action.apply(proxyStack);
+            result = new ProxyUseResult(actionResult, resolveProxyResultStack(player.getItemInHand(hand), actionResult));
         } finally {
             player.setItemInHand(hand, originalHandStack);
         }
 
         if (result == null) {
-            return InteractionResultHolder.pass(deepNullStack);
+            return InteractionResult.PASS;
         }
 
-        if (!level.isClientSide && result.getResult() != InteractionResult.PASS) {
-            applyStoredUseResult(player, inventory, selectedSlot, selectedStack, resultStack);
+        if (!level.isClientSide() && result.result() != InteractionResult.PASS) {
+            applyStoredUseResult(player, inventory, selectedSlot, selectedStack, result.stackAfterUse());
         }
 
-        return new InteractionResultHolder<>(result.getResult(), deepNullStack);
+        return result.result();
+    }
+
+    private static ItemStack resolveProxyResultStack(ItemStack currentHandStack, InteractionResult result) {
+        if (result instanceof InteractionResult.Success success && success.heldItemTransformedTo() != null) {
+            return success.heldItemTransformedTo().copy();
+        }
+        return currentHandStack.copy();
     }
 
     private static void applyStoredUseResult(
@@ -546,9 +547,9 @@ public class DeepNullItem extends Item {
         }
     }
 
-    private static void setProxyUseState(ItemStack deepNullStack, int selectedSlot, UseAnim useAnim, int useDuration) {
+    private static void setProxyUseState(ItemStack deepNullStack, int selectedSlot, ItemUseAnimation useAnim, int useDuration) {
         CompoundTag root = deepNullStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        CompoundTag deepNullTag = root.contains(DEEPNULL_TAG, Tag.TAG_COMPOUND) ? root.getCompound(DEEPNULL_TAG).copy() : new CompoundTag();
+        CompoundTag deepNullTag = copyDeepNullTag(root);
         deepNullTag.putInt(PROXY_USE_SLOT_TAG, selectedSlot);
         deepNullTag.putInt(PROXY_USE_ANIM_TAG, useAnim.ordinal());
         deepNullTag.putInt(PROXY_USE_DURATION_TAG, useDuration);
@@ -558,10 +559,11 @@ public class DeepNullItem extends Item {
 
     private static void clearProxyUseState(ItemStack deepNullStack) {
         CompoundTag root = deepNullStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!root.contains(DEEPNULL_TAG, Tag.TAG_COMPOUND)) {
+        CompoundTag existingTag = getDeepNullTag(root);
+        if (existingTag == null) {
             return;
         }
-        CompoundTag deepNullTag = root.getCompound(DEEPNULL_TAG).copy();
+        CompoundTag deepNullTag = existingTag.copy();
         if (!deepNullTag.contains(PROXY_USE_SLOT_TAG) && !deepNullTag.contains(PROXY_USE_ANIM_TAG) && !deepNullTag.contains(PROXY_USE_DURATION_TAG)) {
             return;
         }
@@ -573,45 +575,38 @@ public class DeepNullItem extends Item {
     }
 
     private static int getProxyUseSlot(ItemStack deepNullStack) {
-        CompoundTag root = deepNullStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!root.contains(DEEPNULL_TAG, Tag.TAG_COMPOUND)) {
-            return -1;
-        }
-        CompoundTag deepNullTag = root.getCompound(DEEPNULL_TAG);
-        return deepNullTag.contains(PROXY_USE_SLOT_TAG, Tag.TAG_INT) ? deepNullTag.getInt(PROXY_USE_SLOT_TAG) : -1;
+        CompoundTag deepNullTag = getDeepNullTag(deepNullStack);
+        return deepNullTag == null ? -1 : deepNullTag.getIntOr(PROXY_USE_SLOT_TAG, -1);
     }
 
     private static int getProxyUseDuration(ItemStack deepNullStack) {
-        CompoundTag root = deepNullStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!root.contains(DEEPNULL_TAG, Tag.TAG_COMPOUND)) {
-            return -1;
-        }
-        CompoundTag deepNullTag = root.getCompound(DEEPNULL_TAG);
-        return deepNullTag.contains(PROXY_USE_DURATION_TAG, Tag.TAG_INT) ? deepNullTag.getInt(PROXY_USE_DURATION_TAG) : -1;
+        CompoundTag deepNullTag = getDeepNullTag(deepNullStack);
+        return deepNullTag == null ? -1 : deepNullTag.getIntOr(PROXY_USE_DURATION_TAG, -1);
     }
 
-    private static UseAnim getProxyUseAnimation(ItemStack deepNullStack) {
-        CompoundTag root = deepNullStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!root.contains(DEEPNULL_TAG, Tag.TAG_COMPOUND)) {
+    private static ItemUseAnimation getProxyUseAnimation(ItemStack deepNullStack) {
+        CompoundTag deepNullTag = getDeepNullTag(deepNullStack);
+        if (deepNullTag == null || !deepNullTag.contains(PROXY_USE_ANIM_TAG)) {
             return null;
         }
-        CompoundTag deepNullTag = root.getCompound(DEEPNULL_TAG);
-        if (!deepNullTag.contains(PROXY_USE_ANIM_TAG, Tag.TAG_INT)) {
-            return null;
-        }
-        int ordinal = deepNullTag.getInt(PROXY_USE_ANIM_TAG);
-        UseAnim[] values = UseAnim.values();
+        int ordinal = deepNullTag.getIntOr(PROXY_USE_ANIM_TAG, -1);
+        ItemUseAnimation[] values = ItemUseAnimation.values();
         return ordinal >= 0 && ordinal < values.length ? values[ordinal] : null;
     }
 
-    private static int chargeInventorySection(List<ItemStack> stacks, ItemStack deepNullStack, DeepNullInventory inventory, int remainingTransfer) {
-        for (ItemStack candidate : stacks) {
+    private static InteractionResult successForSide(boolean clientSide) {
+        return clientSide ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
+    }
+
+    private static int chargeInventorySection(Inventory playerInventory, ItemStack deepNullStack, DeepNullInventory inventory, int remainingTransfer) {
+        for (int slot = 0; slot < playerInventory.getContainerSize(); slot++) {
             if (remainingTransfer <= 0 || inventory.getEnergyStored() <= 0) {
                 break;
             }
-        if (candidate.isEmpty() || candidate == deepNullStack) {
-            continue;
-        }
+            ItemStack candidate = playerInventory.getItem(slot);
+            if (candidate.isEmpty() || candidate == deepNullStack) {
+                continue;
+            }
 
             IEnergyStorage energyStorage = ModCapabilities.getEnergyStorage(candidate);
             if (energyStorage == null || !energyStorage.canReceive()) {
@@ -719,8 +714,8 @@ public class DeepNullItem extends Item {
             return InteractionResult.PASS;
         }
 
-        if (context.getLevel().isClientSide) {
-            return InteractionResult.sidedSuccess(true);
+        if (context.getLevel().isClientSide()) {
+            return successForSide(true);
         }
 
         boolean moved = false;
@@ -730,13 +725,13 @@ public class DeepNullItem extends Item {
         if (!moved && inventory.getTransferDirectionMode().allowsExtract()) {
             moved = inventory.transferItemsFromTargetMatching(target);
         }
-        return moved ? InteractionResult.sidedSuccess(false) : InteractionResult.FAIL;
+        return moved ? successForSide(false) : InteractionResult.FAIL;
     }
 
     private static InteractionResult tryShiftFluidTransfer(UseOnContext context, DeepNullInventory inventory) {
         if (ModList.get().isLoaded("mekanism")) {
             InteractionResult chemicalResult = MekanismTransferCompat.tryShiftChemicalTransfer(context, inventory);
-            if (chemicalResult == InteractionResult.sidedSuccess(context.getLevel().isClientSide)) {
+            if (chemicalResult == successForSide(context.getLevel().isClientSide())) {
                 return chemicalResult;
             }
             if (chemicalResult == InteractionResult.FAIL && (inventory.hasAnyChemical() || !inventory.hasAnyFluid())) {
@@ -756,8 +751,8 @@ public class DeepNullItem extends Item {
             return InteractionResult.PASS;
         }
 
-        if (context.getLevel().isClientSide) {
-            return InteractionResult.sidedSuccess(true);
+        if (context.getLevel().isClientSide()) {
+            return successForSide(true);
         }
 
         boolean moved = false;
@@ -767,7 +762,7 @@ public class DeepNullItem extends Item {
         if (!moved && inventory.getTransferDirectionMode().allowsExtract()) {
             moved = inventory.transferFluidsFromTargetMatching(target);
         }
-        return moved ? InteractionResult.sidedSuccess(false) : InteractionResult.FAIL;
+        return moved ? successForSide(false) : InteractionResult.FAIL;
     }
 
     private static IItemHandler getBlockItemHandler(UseOnContext context) {
@@ -792,6 +787,18 @@ public class DeepNullItem extends Item {
         return target;
     }
 
+    private static @org.jetbrains.annotations.Nullable CompoundTag getDeepNullTag(ItemStack stack) {
+        return getDeepNullTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag());
+    }
+
+    private static @org.jetbrains.annotations.Nullable CompoundTag getDeepNullTag(CompoundTag root) {
+        return root.contains(DEEPNULL_TAG) ? root.getCompoundOrEmpty(DEEPNULL_TAG) : null;
+    }
+
+    private static CompoundTag copyDeepNullTag(CompoundTag root) {
+        CompoundTag deepNullTag = getDeepNullTag(root);
+        return deepNullTag == null ? new CompoundTag() : deepNullTag.copy();
+    }
     private static InteractionResult tryUseStoredFluid(UseOnContext context, DeepNullInventory inventory) {
         if (!inventory.supportsFluidStorage()) {
             return null;
@@ -833,12 +840,12 @@ public class DeepNullItem extends Item {
         DeepNullFluidHandler sourceHandler = new DeepNullFluidHandler(inventory, context.getItemInHand(), selectedSlot);
         FluidStack placeAmount = selectedFluid.copyWithAmount(Math.min(selectedFluid.getAmount(), FluidType.BUCKET_VOLUME));
         if (FluidUtil.tryPlaceFluid(player, level, context.getHand(), clickedPos, sourceHandler, placeAmount)) {
-            return InteractionResult.sidedSuccess(level.isClientSide);
+            return successForSide(level.isClientSide());
         }
 
         BlockPos adjacentPos = clickedPos.relative(side);
         if (!adjacentPos.equals(clickedPos) && FluidUtil.tryPlaceFluid(player, level, context.getHand(), adjacentPos, sourceHandler, placeAmount)) {
-            return InteractionResult.sidedSuccess(level.isClientSide);
+            return successForSide(level.isClientSide());
         }
 
         return null;
@@ -857,13 +864,13 @@ public class DeepNullItem extends Item {
             return null;
         }
 
-        if (level.isClientSide) {
+        if (level.isClientSide()) {
             inventory.setSelectedSlot(plan.targetSlot());
-            return InteractionResult.sidedSuccess(true);
+            return successForSide(true);
         }
 
         return executeSourceAbsorption(level, player, deepNullStack, inventory, clickedPos, side, plan)
-                ? InteractionResult.sidedSuccess(false)
+                ? successForSide(false)
                 : InteractionResult.FAIL;
     }
 
@@ -884,7 +891,7 @@ public class DeepNullItem extends Item {
         }
 
         int absorbed = 0;
-        DeepNullInventory simulatedInventory = level.isClientSide
+        DeepNullInventory simulatedInventory = level.isClientSide()
                 ? new DeepNullInventory(inventory.tier(), deepNullStack.copy(), level.registryAccess(), null)
                 : inventory;
 
@@ -894,7 +901,7 @@ public class DeepNullItem extends Item {
                 continue;
             }
 
-            boolean success = level.isClientSide
+            boolean success = level.isClientSide()
                     ? reserveSourceAbsorption(simulatedInventory, plan)
                     : executeSourceAbsorption(level, player, deepNullStack, inventory, sourcePos, Direction.UP, plan);
             if (!success) {
@@ -908,10 +915,10 @@ public class DeepNullItem extends Item {
             return null;
         }
 
-        if (level.isClientSide && simulatedInventory.getSelectedSlot() >= 0) {
+        if (level.isClientSide() && simulatedInventory.getSelectedSlot() >= 0) {
             inventory.setSelectedSlot(simulatedInventory.getSelectedSlot());
         }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return successForSide(level.isClientSide());
     }
 
     private static List<BlockPos> findVisibleSourceBlocks(Level level, Player player, DeepNullTier tier, BlockPos anchorPos) {
@@ -1063,7 +1070,7 @@ public class DeepNullItem extends Item {
     private static IFluidHandler getSourceFluidHandler(Level level, Player player, BlockPos clickedPos, Direction side) {
         IFluidHandler targetHandler = FluidUtil.getFluidHandler(level, clickedPos, side).orElse(null);
         if (targetHandler == null && level.getBlockState(clickedPos).getBlock() instanceof net.minecraft.world.level.block.BucketPickup bucketPickup) {
-            targetHandler = new net.neoforged.neoforge.fluids.capability.wrappers.BucketPickupHandlerWrapper(player, bucketPickup, level, clickedPos);
+            targetHandler = new dev.deepdaddyttv.deepnullreforged.compat.fluids.capability.wrappers.BucketPickupHandlerWrapper(player, bucketPickup, level, clickedPos);
         }
         return targetHandler;
     }

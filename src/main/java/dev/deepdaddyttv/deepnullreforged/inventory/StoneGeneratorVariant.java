@@ -38,7 +38,7 @@ public enum StoneGeneratorVariant {
     }
 
     public Component displayName() {
-        return item.getDescription();
+        return new ItemStack(item).getHoverName();
     }
 
     public StoneGeneratorVariant cycle(boolean forward) {

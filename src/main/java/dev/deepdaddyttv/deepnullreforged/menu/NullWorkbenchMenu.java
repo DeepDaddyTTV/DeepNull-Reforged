@@ -13,7 +13,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.SlotItemHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.items.SlotItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 public class NullWorkbenchMenu extends AbstractContainerMenu {
@@ -43,7 +43,7 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
         super(ModMenus.NULL_WORKBENCH_MENU.get(), containerId);
         this.workbench = workbench;
         this.blockPos = blockPos;
-        this.clientSide = playerInventory.player.level().isClientSide;
+        this.clientSide = playerInventory.player.level().isClientSide();
         this.data = new ContainerData() {
             @Override
             public int get(int index) {

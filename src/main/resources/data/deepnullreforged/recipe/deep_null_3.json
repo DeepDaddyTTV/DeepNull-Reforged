@@ -7,9 +7,7 @@
     " a "
   ],
   "key": {
-    "a": {
-      "item": "deepnullreforged:deep_null_panel_3"
-    }
+    "a": "deepnullreforged:deep_null_panel_3"
   },
   "result": {
     "id": "deepnullreforged:deep_null_3",

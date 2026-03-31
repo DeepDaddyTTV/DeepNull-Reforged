@@ -1,31 +1,36 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismClientCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
-import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.util.FastColor;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import dev.deepdaddyttv.deepnullreforged.compat.fml.ModList;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,12 +41,12 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final int INFO_PANEL_WIDTH = 146;
     private static final int INFO_PANEL_PADDING = 6;
     private static final int INFO_PANEL_LINE_HEIGHT = 10;
-    private static final ResourceLocation INFO_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_info_button.png");
-    private static final ResourceLocation LOCK_BUTTON_OFF_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_lock_button_off.png");
-    private static final ResourceLocation LOCK_BUTTON_ON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_lock_button_on.png");
-    private static final ResourceLocation UPGRADE_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_upgrade_button.png");
-    private static final ResourceLocation STONE_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_stone_generator_button.png");
-    private static final ResourceLocation INFO_TAB_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_info_tab.png");
+    private static final Identifier INFO_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_info_button.png");
+    private static final Identifier LOCK_BUTTON_OFF_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_lock_button_off.png");
+    private static final Identifier LOCK_BUTTON_ON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_lock_button_on.png");
+    private static final Identifier UPGRADE_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_upgrade_button.png");
+    private static final Identifier STONE_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_stone_generator_button.png");
+    private static final Identifier INFO_TAB_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_info_tab.png");
     private static final int TAB_BUTTON_U = 98;
     private static final int INFO_BUTTON_V = 16;
     private static final int LOCK_BUTTON_V = 37;
@@ -66,19 +71,17 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final int TANK_MIN_HEIGHT = 18;
     private static final int TANK_FILL_INSET_X = 1;
     private static final int TANK_FILL_INSET_Y = 2;
-    private static final Map<ResourceLocation, List<Rect2i>> TANK_WINDOW_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Identifier, List<Rect2i>> TANK_WINDOW_CACHE = new ConcurrentHashMap<>();
 
-    private final ResourceLocation backgroundTexture;
-    private final ResourceLocation tankOverlayTexture;
+    private final Identifier backgroundTexture;
+    private final Identifier tankOverlayTexture;
     private final List<Rect2i> tankWindows;
     private boolean infoPanelOpen;
     private boolean stonePanelOpen;
     private int hoveredTankIndex = -1;
 
     public DeepNullFluidScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title);
-        this.imageWidth = BASE_IMAGE_WIDTH;
-        this.imageHeight = 141 + Math.max(0, menu.getTier().rows() - 1) * 21;
+        super(menu, playerInventory, title, BASE_IMAGE_WIDTH, imageHeightFor(menu));
         this.inventoryLabelX = 7;
         this.inventoryLabelY = this.imageHeight - 103;
         this.titleLabelX = 7;
@@ -89,12 +92,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     @Override
-    protected void init() {
-        super.init();
-    }
-
-    @Override
-    protected void containerTick() {
+    public void containerTick() {
         super.containerTick();
         if (!menu.getDankInventory().supportsFluidStorage()) {
             PacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.MAIN.ordinal()));
@@ -102,57 +100,59 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     @Override
-    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        guiGraphics.blit(backgroundTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
-        renderTankContents(guiGraphics);
-        guiGraphics.blit(tankOverlayTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
-        renderSideButtons(guiGraphics);
-    }
+    public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.blit(RenderPipelines.GUI_TEXTURED, backgroundTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
+        renderTankContents(graphics);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, tankOverlayTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
+        renderSideButtons(graphics);
 
-    @Override
-    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(font, title, titleLabelX, titleLabelY, 0xFFFFFFFF, false);
-    }
+        super.extractContents(graphics, mouseX, mouseY, partialTick);
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        hoveredTankIndex = getTankIndexAt(mouseX, mouseY);
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
         if (infoPanelOpen) {
-            renderInfoPanel(guiGraphics);
+            graphics.nextStratum();
+            renderInfoPanel(graphics);
         } else if (stonePanelOpen) {
-            renderStoneGeneratorPanel(guiGraphics);
+            graphics.nextStratum();
+            renderStoneGeneratorPanel(graphics);
         }
-        renderTooltip(guiGraphics, mouseX, mouseY);
-        renderOutputModeButtonTooltip(guiGraphics, mouseX, mouseY);
-        renderTankTooltip(guiGraphics, mouseX, mouseY);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 2 && isWithin(mouseX, mouseY, leftPos, topPos, imageWidth, imageHeight)) {
+    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        graphics.text(font, title, titleLabelX, titleLabelY, 0xFFFFFFFF, false);
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        hoveredTankIndex = getTankIndexAt(mouseX, mouseY);
+        renderTankTooltip(graphics, mouseX, mouseY);
+        renderSideButtonTooltip(graphics, mouseX, mouseY);
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (event.button() == 2 && isWithin(event.x(), event.y(), leftPos, topPos, imageWidth, imageHeight)) {
             return true;
         }
-        if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 38, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+        if (event.button() == 0 && isWithin(event.x(), event.y(), infoButtonX(), topPos + 38, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             infoPanelOpen = !infoPanelOpen;
             if (infoPanelOpen) {
                 stonePanelOpen = false;
             }
             return true;
         }
-        if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
-            menu.getDankInventory().cycleTransferOutputMode();
-            PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferModePayload(menu.getDankInventory().getTransferOutputMode().ordinal()));
+        if (event.button() == 0 && isWithin(event.x(), event.y(), infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            toggleTransferOutputMode();
             return true;
         }
-        if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+        if (event.button() == 0 && isWithin(event.x(), event.y(), infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             PacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.UPGRADES.ordinal()));
             return true;
         }
         if (menu.hasUpgrade(DeepNullUpgradeType.STONE_GENERATOR)
-                && button == 0
-                && isWithin(mouseX, mouseY, infoButtonX(), topPos + 101, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+                && event.button() == 0
+                && isWithin(event.x(), event.y(), infoButtonX(), topPos + 101, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             stonePanelOpen = !stonePanelOpen;
             if (stonePanelOpen) {
                 infoPanelOpen = false;
@@ -160,8 +160,8 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             return true;
         }
 
-        if (stonePanelOpen && button == 0) {
-            StoneGeneratorVariant clickedVariant = stoneVariantAt(mouseX, mouseY);
+        if (stonePanelOpen && event.button() == 0) {
+            StoneGeneratorVariant clickedVariant = stoneVariantAt(event.x(), event.y());
             if (clickedVariant != null) {
                 menu.getDankInventory().setStoneGeneratorVariant(clickedVariant);
                 PacketDistributor.sendToServer(new DeepNullPayloads.MenuStoneVariantPayload(clickedVariant.ordinal()));
@@ -169,9 +169,9 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             }
         }
 
-        int tankIndex = getTankIndexAt(mouseX, mouseY);
+        int tankIndex = getTankIndexAt(event.x(), event.y());
         if (tankIndex >= 0 && menu.getCarried().isEmpty()) {
-            if (button == 0 && Screen.hasShiftDown()) {
+            if (event.button() == 0 && event.hasShiftDown()) {
                 if (menu.clearFluidSlot(tankIndex)) {
                     PacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                             tankIndex,
@@ -180,7 +180,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 }
                 return true;
             }
-            if (button == 0) {
+            if (event.button() == 0) {
                 menu.getDankInventory().setSelectedSlot(tankIndex);
                 PacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         tankIndex,
@@ -189,10 +189,10 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
-    private void renderTankContents(GuiGraphics guiGraphics) {
+    private void renderTankContents(GuiGraphicsExtractor graphics) {
         int capacity = menu.getDankInventory().getFluidCapacity();
         if (capacity <= 0) {
             return;
@@ -201,19 +201,19 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         for (int slotIndex = 0; slotIndex < tankWindows.size() && slotIndex < menu.getStorageSlotCount(); slotIndex++) {
             FluidStack fluidStack = menu.getDankInventory().getFluidInSlot(slotIndex);
             if (!fluidStack.isEmpty()) {
-                renderFluidInTank(guiGraphics, tankWindows.get(slotIndex), fluidStack, capacity);
+                renderFluidInTank(graphics, tankWindows.get(slotIndex), fluidStack, capacity);
                 continue;
             }
             StoredChemical chemicalStack = menu.getDankInventory().getChemicalInSlot(slotIndex);
             if (!chemicalStack.isEmpty()) {
-                renderChemicalInTank(guiGraphics, tankWindows.get(slotIndex), chemicalStack, capacity);
+                renderChemicalInTank(graphics, tankWindows.get(slotIndex), chemicalStack, capacity);
             }
         }
     }
 
-    private void renderFluidInTank(GuiGraphics guiGraphics, Rect2i tankWindow, FluidStack fluidStack, int capacity) {
+    private void renderFluidInTank(GuiGraphicsExtractor graphics, Rect2i tankWindow, FluidStack fluidStack, int capacity) {
         TextureAtlasSprite sprite = ClientFluidRendering.getStillSprite(fluidStack);
-        int tint = ClientFluidRendering.getTint(fluidStack);
+        int tint = ensureOpaque(ClientFluidRendering.getTint(fluidStack));
         Rect2i fillWindow = visibleFillWindow(tankWindow);
         int tankWidth = fillWindow.getWidth();
         int tankHeight = fillWindow.getHeight();
@@ -222,17 +222,13 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         int drawY = topPos + fillWindow.getY() + (tankHeight - fillHeight);
 
         if (sprite == null) {
-            guiGraphics.fill(drawX, drawY, drawX + tankWidth, topPos + fillWindow.getY() + tankHeight, tint == 0 ? 0xFF3AA7FF : tint);
+            graphics.fill(drawX, drawY, drawX + tankWidth, topPos + fillWindow.getY() + tankHeight, tint == 0 ? 0xFF3AA7FF : tint);
             return;
         }
-
-        float alpha = ((tint >> 24) & 0xFF) / 255.0F;
-        float red = ((tint >> 16) & 0xFF) / 255.0F;
-        float green = ((tint >> 8) & 0xFF) / 255.0F;
-        float blue = (tint & 0xFF) / 255.0F;
+        int color = tint == 0 ? 0xFFFFFFFF : tint;
         for (int offsetY = 0; offsetY < fillHeight; offsetY += 16) {
             int drawHeight = Math.min(16, fillHeight - offsetY);
-            guiGraphics.blit(drawX, drawY + offsetY, 0, tankWidth, drawHeight, sprite, red, green, blue, alpha <= 0.0F ? 1.0F : alpha);
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, drawX, drawY + offsetY, tankWidth, drawHeight, color);
         }
     }
 
@@ -244,7 +240,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         return new Rect2i(x, y, width, height);
     }
 
-    private void renderChemicalInTank(GuiGraphics guiGraphics, Rect2i tankWindow, StoredChemical chemicalStack, int capacity) {
+    private void renderChemicalInTank(GuiGraphicsExtractor graphics, Rect2i tankWindow, StoredChemical chemicalStack, int capacity) {
         Rect2i fillWindow = visibleFillWindow(tankWindow);
         int tankWidth = fillWindow.getWidth();
         int tankHeight = fillWindow.getHeight();
@@ -252,25 +248,24 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         int drawX = leftPos + fillWindow.getX();
         int drawY = topPos + fillWindow.getY() + (tankHeight - fillHeight);
 
-        int tint = chemicalStack.tint();
-        float alpha = ((tint >> 24) & 0xFF) / 255.0F;
-        float red = ((tint >> 16) & 0xFF) / 255.0F;
-        float green = ((tint >> 8) & 0xFF) / 255.0F;
-        float blue = (tint & 0xFF) / 255.0F;
         TextureAtlasSprite sprite = MekanismClientCompat.getChemicalSprite(chemicalStack);
-
         if (sprite == null) {
-            guiGraphics.fill(drawX, drawY, drawX + tankWidth, topPos + fillWindow.getY() + tankHeight, tint == 0 ? 0xFFFFFFFF : tint);
+            int tint = ensureOpaque(chemicalStack.tint());
+            graphics.fill(drawX, drawY, drawX + tankWidth, topPos + fillWindow.getY() + tankHeight, tint == 0 ? 0xFFFFFFFF : tint);
             return;
         }
 
+        int color = ensureOpaque(chemicalStack.tint());
+        if (color == 0) {
+            color = 0xFFFFFFFF;
+        }
         for (int offsetY = 0; offsetY < fillHeight; offsetY += 16) {
             int drawHeight = Math.min(16, fillHeight - offsetY);
-            guiGraphics.blit(drawX, drawY + offsetY, 0, tankWidth, drawHeight, sprite, red, green, blue, alpha <= 0.0F ? 1.0F : alpha);
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, drawX, drawY + offsetY, tankWidth, drawHeight, color);
         }
     }
 
-    private void renderTankTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    private void renderTankTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         int tankIndex = getTankIndexAt(mouseX, mouseY);
         if (tankIndex < 0 || tankIndex >= menu.getStorageSlotCount()) {
             return;
@@ -279,7 +274,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         FluidStack fluidStack = menu.getDankInventory().getFluidInSlot(tankIndex);
         StoredChemical chemicalStack = menu.getDankInventory().getChemicalInSlot(tankIndex);
         if (fluidStack.isEmpty() && chemicalStack.isEmpty()) {
-            guiGraphics.renderTooltip(
+            graphics.setComponentTooltipForNextFrame(
                     font,
                     List.of(
                             Component.translatable("dn.empty.desc"),
@@ -287,14 +282,13 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                             Component.translatable(chemicalTransferHintKey()),
                             Component.translatable("dn.shift_click_clear_tank.desc")
                     ),
-                    Optional.empty(),
                     mouseX,
                     mouseY
             );
             return;
         }
 
-        guiGraphics.renderTooltip(
+        graphics.setComponentTooltipForNextFrame(
                 font,
                 List.of(
                         fluidStack.isEmpty() ? chemicalStack.getHoverName() : fluidStack.getHoverName(),
@@ -302,23 +296,16 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                         Component.translatable("dn.capacity.desc").append(": ").append(Component.literal(fluidCapacityText())),
                         Component.translatable("dn.shift_click_clear_tank.desc")
                 ),
-                Optional.empty(),
                 mouseX,
                 mouseY
         );
     }
 
-    private void renderOutputModeButtonTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        if (!isWithin(mouseX, mouseY, infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
-            return;
-        }
-        guiGraphics.renderTooltip(font, transferLockLabel(), mouseX, mouseY);
-    }
-
-    private void renderSideButtons(GuiGraphics guiGraphics) {
-        guiGraphics.blit(INFO_BUTTON_TEXTURE, infoButtonX(), topPos + 38, TAB_BUTTON_U, INFO_BUTTON_V, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT, 256, 256);
-        guiGraphics.blit(
-                menu.getDankInventory().isTransferLocked() ? LOCK_BUTTON_ON_TEXTURE : LOCK_BUTTON_OFF_TEXTURE,
+    private void renderSideButtons(GuiGraphicsExtractor graphics) {
+        graphics.blit(RenderPipelines.GUI_TEXTURED, INFO_BUTTON_TEXTURE, infoButtonX(), topPos + 38, TAB_BUTTON_U, INFO_BUTTON_V, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT, 256, 256);
+        graphics.blit(
+                RenderPipelines.GUI_TEXTURED,
+                menu.getDankInventory().getTransferOutputMode().isLocked() ? LOCK_BUTTON_ON_TEXTURE : LOCK_BUTTON_OFF_TEXTURE,
                 infoButtonX(),
                 topPos + 59,
                 TAB_BUTTON_U,
@@ -328,13 +315,26 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 256,
                 256
         );
-        guiGraphics.blit(UPGRADE_BUTTON_TEXTURE, infoButtonX(), topPos + 80, TAB_BUTTON_U, UPGRADE_BUTTON_V, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT, 256, 256);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, UPGRADE_BUTTON_TEXTURE, infoButtonX(), topPos + 80, TAB_BUTTON_U, UPGRADE_BUTTON_V, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT, 256, 256);
         if (menu.hasUpgrade(DeepNullUpgradeType.STONE_GENERATOR)) {
-            guiGraphics.blit(STONE_BUTTON_TEXTURE, infoButtonX(), topPos + 101, TAB_BUTTON_U, STONE_BUTTON_V, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT, 256, 256);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, STONE_BUTTON_TEXTURE, infoButtonX(), topPos + 101, TAB_BUTTON_U, STONE_BUTTON_V, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT, 256, 256);
         }
     }
 
-    private void renderInfoPanel(GuiGraphics guiGraphics) {
+    private void renderSideButtonTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (isWithin(mouseX, mouseY, infoButtonX(), topPos + 38, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            graphics.setTooltipForNextFrame(font, Component.translatable("dn.info.desc"), mouseX, mouseY);
+        } else if (isWithin(mouseX, mouseY, infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            graphics.setTooltipForNextFrame(font, transferLockLabel(), mouseX, mouseY);
+        } else if (isWithin(mouseX, mouseY, infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            graphics.setTooltipForNextFrame(font, Component.translatable("dn.upgrades_screen.desc"), mouseX, mouseY);
+        } else if (menu.hasUpgrade(DeepNullUpgradeType.STONE_GENERATOR)
+                && isWithin(mouseX, mouseY, infoButtonX(), topPos + 101, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            graphics.setTooltipForNextFrame(font, Component.translatable("upgrade.stone_generator_upgrade.installed"), mouseX, mouseY);
+        }
+    }
+
+    private void renderInfoPanel(GuiGraphicsExtractor graphics) {
         int panelX = infoPanelX();
         int panelY = topPos + 4;
         int textX = panelX + 14;
@@ -348,41 +348,37 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 ? menu.getDankInventory().getChemicalInSlot(tankIndex)
                 : StoredChemical.EMPTY;
 
-        guiGraphics.blit(INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
-        guiGraphics.drawString(font, infoPanelTitle(), textX, lineY, 0xFFFFFFFF, false);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
+        graphics.text(font, infoPanelTitle(), textX, lineY, 0xFFFFFFFF, false);
         lineY += 18;
 
         if (fluidStack.isEmpty() && chemicalStack.isEmpty()) {
-            lineY = drawWrapped(guiGraphics, Component.translatable("dn.fluid_hover_for_details.desc"), textX, lineY, textWidth, 0xFFC9D0DB);
+            lineY = drawWrapped(graphics, Component.translatable("dn.fluid_hover_for_details.desc"), textX, lineY, textWidth, 0xFFC9D0DB);
             lineY += 4;
-            lineY = drawWrapped(guiGraphics, Component.translatable("dn.left_click_select_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
-            lineY = drawWrapped(guiGraphics, Component.translatable("dn.shift_click_clear_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
-            drawWrapped(guiGraphics, Component.translatable(chemicalTransferHintKey()), textX, lineY, textWidth, 0xFF99A5B5);
+            lineY = drawWrapped(graphics, Component.translatable("dn.left_click_select_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
+            lineY = drawWrapped(graphics, Component.translatable("dn.shift_click_clear_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
+            drawWrapped(graphics, Component.translatable(chemicalTransferHintKey()), textX, lineY, textWidth, 0xFF99A5B5);
             return;
         }
 
-        lineY = drawWrapped(guiGraphics, fluidStack.isEmpty() ? chemicalStack.getHoverName() : fluidStack.getHoverName(), textX, lineY, textWidth, 0xFFFFFFFF);
+        lineY = drawWrapped(graphics, fluidStack.isEmpty() ? chemicalStack.getHoverName() : fluidStack.getHoverName(), textX, lineY, textWidth, 0xFFFFFFFF);
         lineY += 4;
-        lineY = drawWrapped(guiGraphics, Component.translatable("dn.amount.desc").append(": ").append(Component.literal(fluidAmountText(fluidStack, chemicalStack))), textX, lineY, textWidth, 0xFFE8EDF5);
-        lineY = drawWrapped(guiGraphics, Component.translatable("dn.capacity.desc").append(": ").append(Component.literal(fluidCapacityText())), textX, lineY, textWidth, 0xFFE8EDF5);
+        lineY = drawWrapped(graphics, Component.translatable("dn.amount.desc").append(": ").append(Component.literal(fluidAmountText(fluidStack, chemicalStack))), textX, lineY, textWidth, 0xFFE8EDF5);
+        lineY = drawWrapped(graphics, Component.translatable("dn.capacity.desc").append(": ").append(Component.literal(fluidCapacityText())), textX, lineY, textWidth, 0xFFE8EDF5);
         lineY += 4;
-        lineY = drawWrapped(guiGraphics, Component.translatable("dn.left_click_select_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
-        drawWrapped(guiGraphics, Component.translatable("dn.shift_click_clear_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
+        lineY = drawWrapped(graphics, Component.translatable("dn.left_click_select_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
+        drawWrapped(graphics, Component.translatable("dn.shift_click_clear_tank.desc"), textX, lineY, textWidth, 0xFF99A5B5);
     }
 
-    private Component infoPanelTitle() {
-        return Component.translatable("item.deepnullreforged.damp_null_" + menu.getTier().ordinalId());
-    }
-
-    private void renderStoneGeneratorPanel(GuiGraphics guiGraphics) {
+    private void renderStoneGeneratorPanel(GuiGraphicsExtractor graphics) {
         int panelX = infoPanelX();
         int panelY = topPos + 4;
         int textX = panelX + 14;
         int lineY = panelY + 12;
 
-        guiGraphics.blit(INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
-        guiGraphics.drawString(font, Component.translatable("upgrade.stone_generator_upgrade.installed"), textX, lineY, 0xFFFFFFFF, false);
-        guiGraphics.drawString(font, Component.translatable("dn.stone_generator_select.desc"), textX, panelY + STONE_PANEL_LABEL_Y, 0xFFC9D0DB, false);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, INFO_TAB_TEXTURE, panelX, panelY, INFO_TAB_U, INFO_TAB_V, INFO_TAB_WIDTH, INFO_TAB_HEIGHT, 256, 256);
+        graphics.text(font, Component.translatable("upgrade.stone_generator_upgrade.installed"), textX, lineY, 0xFFFFFFFF, false);
+        graphics.text(font, Component.translatable("dn.stone_generator_select.desc"), textX, panelY + STONE_PANEL_LABEL_Y, 0xFFC9D0DB, false);
 
         StoneGeneratorVariant selected = menu.getStoneGeneratorVariant();
         int startX = textX;
@@ -391,21 +387,18 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             StoneGeneratorVariant variant = StoneGeneratorVariant.values()[index];
             int x = startX + (index % STONE_GRID_COLUMNS) * STONE_GRID_SPACING;
             int y = startY + (index / STONE_GRID_COLUMNS) * STONE_GRID_SPACING;
-            guiGraphics.renderItem(variant.stack(), x, y);
+            graphics.item(variant.stack(), x, y);
             if (variant == selected) {
-                guiGraphics.renderOutline(x - 1, y - 1, 18, 18, 0xFFE7F2FF);
+                graphics.outline(x - 1, y - 1, 18, 18, 0xFFE7F2FF);
             }
         }
 
         int detailY = startY + 54;
-        drawWrapped(guiGraphics, Component.translatable("dn.stone_generator_rate.desc", menu.getDankInventory().getStoneGenerationRate()), textX, detailY, INFO_PANEL_WIDTH - 24, 0xFFE8EDF5);
+        drawWrapped(graphics, Component.translatable("dn.stone_generator_rate.desc", menu.getDankInventory().getStoneGenerationRate()), textX, detailY, INFO_PANEL_WIDTH - 24, 0xFFE8EDF5);
     }
 
-    public Rect2i getInfoPanelArea() {
-        if (!infoPanelOpen && !stonePanelOpen) {
-            return null;
-        }
-        return new Rect2i(infoPanelX(), topPos + 4, INFO_TAB_WIDTH, INFO_TAB_HEIGHT);
+    private Component infoPanelTitle() {
+        return Component.translatable("item.deepnullreforged.damp_null_" + menu.getTier().ordinalId());
     }
 
     private int getContextTankIndex() {
@@ -428,7 +421,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private String chemicalTransferHintKey() {
-        return menu.hasUpgrade(DeepNullUpgradeType.GAS) && DeepNullConfig.isChemicalStorageAvailable()
+        return menu.hasUpgrade(DeepNullUpgradeType.GAS) && ModList.get().isLoaded("mekanism")
                 ? "dn.chemical_transfer_only.desc"
                 : "dn.fluid_empty_hint.desc";
     }
@@ -445,7 +438,14 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         return Math.max(4, leftPos - INFO_TAB_WIDTH - TAB_BUTTON_WIDTH - 4);
     }
 
-    private @org.jetbrains.annotations.Nullable StoneGeneratorVariant stoneVariantAt(double mouseX, double mouseY) {
+    public Rect2i getInfoPanelArea() {
+        if (!infoPanelOpen && !stonePanelOpen) {
+            return null;
+        }
+        return new Rect2i(infoPanelX(), topPos + 4, INFO_TAB_WIDTH, INFO_TAB_HEIGHT);
+    }
+
+    private @Nullable StoneGeneratorVariant stoneVariantAt(double mouseX, double mouseY) {
         int panelX = infoPanelX();
         int panelY = topPos + 4;
         int startX = panelX + 14;
@@ -473,7 +473,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         return -1;
     }
 
-    private List<Rect2i> resolveTankWindows(ResourceLocation texture, int expectedCount) {
+    private List<Rect2i> resolveTankWindows(Identifier texture, int expectedCount) {
         List<Rect2i> detected = TANK_WINDOW_CACHE.computeIfAbsent(texture, this::detectTankWindows);
         if (detected.size() == expectedCount) {
             return detected;
@@ -483,7 +483,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         return fallbackTankWindows();
     }
 
-    private List<Rect2i> detectTankWindows(ResourceLocation texture) {
+    private List<Rect2i> detectTankWindows(Identifier texture) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null) {
             return List.of();
@@ -507,12 +507,12 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         int width = Math.min(image.getWidth(), TANK_SCAN_MAX_X);
         int height = Math.min(image.getHeight(), TANK_SCAN_MAX_Y);
         boolean[] visited = new boolean[width * height];
-        List<Rect2i> windows = new java.util.ArrayList<>();
+        List<Rect2i> windows = new ArrayList<>();
 
         for (int y = TANK_SCAN_MIN_Y; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int index = y * width + x;
-                if (visited[index] || !isTankInterior(image.getPixelRGBA(x, y))) {
+                if (visited[index] || !isTankInterior(image.getPixel(x, y))) {
                     continue;
                 }
 
@@ -520,7 +520,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 int maxX = x;
                 int minY = y;
                 int maxY = y;
-                java.util.ArrayDeque<int[]> queue = new java.util.ArrayDeque<>();
+                ArrayDeque<int[]> queue = new ArrayDeque<>();
                 queue.add(new int[]{x, y});
                 visited[index] = true;
 
@@ -559,7 +559,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             int width,
             int height,
             boolean[] visited,
-            java.util.ArrayDeque<int[]> queue,
+            ArrayDeque<int[]> queue,
             int x,
             int y
     ) {
@@ -567,7 +567,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             return;
         }
         int index = y * width + x;
-        if (visited[index] || !isTankInterior(image.getPixelRGBA(x, y))) {
+        if (visited[index] || !isTankInterior(image.getPixel(x, y))) {
             return;
         }
         visited[index] = true;
@@ -575,15 +575,19 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private boolean isTankInterior(int pixel) {
-        int alpha = FastColor.ABGR32.alpha(pixel);
-        int red = FastColor.ABGR32.red(pixel);
-        int green = FastColor.ABGR32.green(pixel);
-        int blue = FastColor.ABGR32.blue(pixel);
+        int alpha = ARGB.alpha(pixel);
+        int red = ARGB.red(pixel);
+        int green = ARGB.green(pixel);
+        int blue = ARGB.blue(pixel);
         return alpha > 240 && Math.max(red, Math.max(green, blue)) <= TANK_INTERIOR_THRESHOLD;
     }
 
+    private static int ensureOpaque(int tint) {
+        return (tint >>> 24) == 0 ? tint | 0xFF000000 : tint;
+    }
+
     private List<Rect2i> fallbackTankWindows() {
-        java.util.ArrayList<Rect2i> fallback = new java.util.ArrayList<>(menu.getStorageSlotCount());
+        ArrayList<Rect2i> fallback = new ArrayList<>(menu.getStorageSlotCount());
         for (int slotIndex = 0; slotIndex < menu.getStorageSlotCount(); slotIndex++) {
             int row = slotIndex / 9;
             int column = slotIndex % 9;
@@ -594,30 +598,32 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         return List.copyOf(fallback);
     }
 
-    private int drawWrapped(GuiGraphics guiGraphics, Component component, int x, int y, int maxWidth, int color) {
+    private int drawWrapped(GuiGraphicsExtractor graphics, Component component, int x, int y, int maxWidth, int color) {
         for (FormattedCharSequence line : font.split(component, maxWidth)) {
-            guiGraphics.drawString(font, line, x, y, color, false);
+            graphics.text(font, line, x, y, color, false);
             y += INFO_PANEL_LINE_HEIGHT;
         }
         return y;
     }
 
     private Component transferLockLabel() {
-        return Component.translatable("dn.fluid_output_mode.desc")
-                .append(": ")
-                .append(Component.translatable(menu.getDankInventory().getTransferOutputMode().translationKey()));
+        return ClientUiText.transferOutputModeMessage(true, menu.getDankInventory().getTransferOutputMode());
     }
 
-    public dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode toggleTransferOutputMode() {
-        var next = menu.getDankInventory().cycleTransferOutputMode();
+    public TransferOutputMode toggleTransferOutputMode() {
+        TransferOutputMode next = menu.getDankInventory().cycleTransferOutputMode();
         PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferModePayload(next.ordinal()));
         return next;
     }
 
-    public dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode toggleTransferDirectionMode() {
-        var next = menu.getDankInventory().cycleTransferDirectionMode();
+    public TransferDirectionMode toggleTransferDirectionMode() {
+        TransferDirectionMode next = menu.getDankInventory().cycleTransferDirectionMode();
         PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferDirectionPayload(next.ordinal()));
         return next;
+    }
+
+    private static int imageHeightFor(DeepNullMenu menu) {
+        return 141 + Math.max(0, menu.getTier().rows() - 1) * 21;
     }
 
     private static boolean isWithin(double mouseX, double mouseY, int x, int y, int width, int height) {

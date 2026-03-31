@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version "${fabric_loom_version}"
+    id 'net.fabricmc.fabric-loom' version "${fabric_loom_version}"
     id 'maven-publish'
 }
 
@@ -49,20 +49,17 @@ tasks.named("runGameTestServer").configure {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    mappings loom.officialMojangMappings()
 
-    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
-    modImplementation(include("maven.modrinth:forge-config-api-port:${forge_config_api_port_version}"))
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    implementation(include("maven.modrinth:forge-config-api-port:${forge_config_api_port_version}"))
     implementation(include("com.electronwill.night-config:core:${night_config_version}"))
     implementation(include("com.electronwill.night-config:toml:${night_config_version}"))
-    modImplementation(include("teamreborn:energy:${team_reborn_energy_version}"))
+    implementation(include("teamreborn:energy:${team_reborn_energy_version}"))
 
-    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
-    compileOnly "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
-    modLocalRuntime "mezz.jei:jei-${minecraft_version}-fabric:${jei_version}"
-    testImplementation "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
-    testImplementation "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
+    runtimeOnly "mezz.jei:jei-${jei_minecraft_version}-fabric:${jei_version}"
+    testImplementation "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
 
     testImplementation platform("org.junit:junit-bom:5.12.1")
     testImplementation "org.junit.jupiter:junit-jupiter"
@@ -106,6 +103,10 @@ tasks.withType(JavaCompile).configureEach {
     options.release = java_version as int
 }
 
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
 tasks.named('jar', Jar).configure {
     manifest {
         attributes(
@@ -113,8 +114,4 @@ tasks.named('jar', Jar).configure {
                 'Specification-Title': artifact_name
         )
     }
-}
-
-tasks.named('test', Test).configure {
-    useJUnitPlatform()
 }

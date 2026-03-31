@@ -15,21 +15,11 @@
     "OAO"
   ],
   "key": {
-    "O": {
-      "tag": "c:ingots/osmium"
-    },
-    "R": {
-      "item": "mekanism:ingot_refined_obsidian"
-    },
-    "T": {
-      "item": "mekanism:ultimate_chemical_tank"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    },
-    "A": {
-      "tag": "mekanism:alloys/atomic"
-    }
+    "O": "#c:ingots/osmium",
+    "R": "mekanism:ingot_refined_obsidian",
+    "T": "mekanism:ultimate_chemical_tank",
+    "U": "deepnullreforged:upgrade_core",
+    "A": "#mekanism:alloys/atomic"
   },
   "result": {
     "id": "deepnullreforged:gas_upgrade",

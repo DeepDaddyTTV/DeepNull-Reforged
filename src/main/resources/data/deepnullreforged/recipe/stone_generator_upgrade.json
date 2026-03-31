@@ -7,21 +7,11 @@
     "ICI"
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "C": {
-      "item": "minecraft:cobblestone"
-    },
-    "L": {
-      "item": "minecraft:lava_bucket"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    },
-    "W": {
-      "item": "minecraft:water_bucket"
-    }
+    "I": "minecraft:iron_ingot",
+    "C": "minecraft:cobblestone",
+    "L": "minecraft:lava_bucket",
+    "U": "deepnullreforged:upgrade_core",
+    "W": "minecraft:water_bucket"
   },
   "result": {
     "id": "deepnullreforged:stone_generator_upgrade",

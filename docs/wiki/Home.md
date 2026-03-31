@@ -2,7 +2,7 @@
 
 ![DeepNull Reforged](images/home.gif)
 
-DeepNull Reforged is a modern NeoForge rebuild and expansion of the classic portable void-style storage idea. It centers around two tools:
+DeepNull Reforged is a modern Fabric rebuild and expansion of the classic portable void-style storage idea. It centers around two tools:
 
 - **DeepNulls** for item storage and direct item use
 - **DampNulls** for tank-based fluid storage

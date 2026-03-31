@@ -7,21 +7,11 @@
     "PFP"
   ],
   "key": {
-    "P": {
-      "item": "minecraft:prismarine"
-    },
-    "H": {
-      "item": "minecraft:pufferfish"
-    },
-    "S": {
-      "item": "minecraft:sponge"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    },
-    "F": {
-      "item": "minecraft:furnace"
-    }
+    "P": "minecraft:prismarine",
+    "H": "minecraft:pufferfish",
+    "S": "minecraft:sponge",
+    "U": "deepnullreforged:upgrade_core",
+    "F": "minecraft:furnace"
   },
   "result": {
     "id": "deepnullreforged:sponge_upgrade",

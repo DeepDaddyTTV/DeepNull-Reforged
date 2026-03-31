@@ -2,9 +2,9 @@ package dev.deepdaddyttv.deepnullreforged.capability;
 
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.capability.IFluidHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.capability.IFluidHandlerItem;
 
 public final class DeepNullFluidHandler implements IFluidHandlerItem {
     private final DeepNullInventory inventory;

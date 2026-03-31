@@ -1,7 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.inventory;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -11,7 +11,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class DeepNullTagDictionary {
-    private static final Set<String> DICTIONARY_NAMESPACES = Set.of("c", "forge", "neoforge");
+    private static final Set<String> DICTIONARY_NAMESPACES = Set.of("c", "forge");
 
     private DeepNullTagDictionary() {
     }
@@ -27,17 +27,17 @@ public final class DeepNullTagDictionary {
             return false;
         }
 
-        Set<ResourceLocation> storedTags = getDictionaryTags(storedStack);
+        Set<Identifier> storedTags = getDictionaryTags(storedStack);
         if (storedTags.isEmpty()) {
             return false;
         }
 
-        Set<ResourceLocation> incomingTags = getDictionaryTags(incomingStack);
+        Set<Identifier> incomingTags = getDictionaryTags(incomingStack);
         if (incomingTags.isEmpty()) {
             return false;
         }
 
-        for (ResourceLocation storedTag : storedTags) {
+        for (Identifier storedTag : storedTags) {
             if (incomingTags.contains(storedTag)) {
                 return true;
             }
@@ -49,21 +49,21 @@ public final class DeepNullTagDictionary {
         return !getDictionaryTags(stack).isEmpty();
     }
 
-    public static Set<ResourceLocation> getDictionaryTags(ItemStack stack) {
+    public static Set<Identifier> getDictionaryTags(ItemStack stack) {
         if (!DeepNullConfig.isTagMatchingEnabled()) {
             return Set.of();
         }
         if (stack.isEmpty()) {
             return Set.of();
         }
-        return stack.getTags()
+        return stack.typeHolder().tags()
                 .map(TagKey::location)
                 .filter(DeepNullTagDictionary::isDictionaryTag)
                 .filter(DeepNullConfig::isDictionaryTagAllowed)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private static boolean isDictionaryTag(ResourceLocation tagId) {
+    private static boolean isDictionaryTag(Identifier tagId) {
         return DICTIONARY_NAMESPACES.contains(tagId.getNamespace()) && tagId.getPath().contains("/");
     }
 }

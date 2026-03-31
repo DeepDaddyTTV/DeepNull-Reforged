@@ -7,18 +7,10 @@
     "OOO"
   ],
   "key": {
-    "E": {
-      "item": "deepnullreforged:ender_upgrade_core"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    },
-    "O": {
-      "item": "minecraft:obsidian"
-    },
-    "B": {
-      "item": "minecraft:blaze_rod"
-    }
+    "E": "deepnullreforged:ender_upgrade_core",
+    "U": "deepnullreforged:upgrade_core",
+    "O": "minecraft:obsidian",
+    "B": "minecraft:blaze_rod"
   },
   "result": {
     "count": 1,

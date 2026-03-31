@@ -4,7 +4,7 @@ import dev.deepdaddyttv.deepnullreforged.client.ClientDeepNullJeiSession;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
-import mezz.jei.api.recipe.RecipeType;
+import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
@@ -13,7 +13,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.neoforged.neoforge.network.PacketDistributor;
+import dev.deepdaddyttv.deepnullreforged.compat.network.PacketDistributor;
 
 import java.util.Optional;
 
@@ -44,7 +44,7 @@ public final class DeepNullCraftingTransferHandler implements IRecipeTransferHan
     }
 
     @Override
-    public RecipeType<RecipeHolder<CraftingRecipe>> getRecipeType() {
+    public IRecipeType<RecipeHolder<CraftingRecipe>> getRecipeType() {
         return RecipeTypes.CRAFTING;
     }
 
@@ -67,7 +67,7 @@ public final class DeepNullCraftingTransferHandler implements IRecipeTransferHan
         }
 
         ClientDeepNullJeiSession.markTransfer(container);
-        PacketDistributor.sendToServer(new DeepNullPayloads.CraftingTransferPayload(recipe.id(), maxTransfer));
+        PacketDistributor.sendToServer(new DeepNullPayloads.CraftingTransferPayload(recipe.id().identifier(), maxTransfer));
         return null;
     }
 }

@@ -7,7 +7,7 @@ navigation:
 
 # DeepNull Reforged Guide
 
-DeepNull Reforged is a modern NeoForge rebuild and expansion of the classic portable void-style storage idea. It centers around two tools:
+DeepNull Reforged is a modern Fabric rebuild and expansion of the classic portable void-style storage idea. It centers around two tools:
 
 - <ItemLink id="deepnullreforged:deep_null_0" /> for item storage and direct item use
 - <ItemLink id="deepnullreforged:damp_null_0" /> for tank-based fluid storage

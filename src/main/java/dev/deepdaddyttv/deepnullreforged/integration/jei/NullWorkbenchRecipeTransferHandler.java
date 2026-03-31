@@ -3,7 +3,7 @@ package dev.deepdaddyttv.deepnullreforged.integration.jei;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
 import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
-import mezz.jei.api.recipe.RecipeType;
+import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
@@ -11,7 +11,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.MenuType;
-import net.neoforged.neoforge.network.PacketDistributor;
+import dev.deepdaddyttv.deepnullreforged.compat.network.PacketDistributor;
 
 import java.util.Optional;
 
@@ -33,7 +33,7 @@ public final class NullWorkbenchRecipeTransferHandler implements IRecipeTransfer
     }
 
     @Override
-    public RecipeType<NullWorkbenchRecipes.CraftRecipe> getRecipeType() {
+    public IRecipeType<NullWorkbenchRecipes.CraftRecipe> getRecipeType() {
         return NullWorkbenchRecipeCategory.RECIPE_TYPE;
     }
 

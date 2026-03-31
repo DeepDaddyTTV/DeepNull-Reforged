@@ -3,18 +3,14 @@ package dev.deepdaddyttv.deepnullreforged.recipe;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModRecipeSerializers;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 
 public class SynchronizerClearRecipe extends CustomRecipe {
-    public SynchronizerClearRecipe(CraftingBookCategory category) {
-        super(category);
-    }
+    public static final SynchronizerClearRecipe INSTANCE = new SynchronizerClearRecipe();
 
     @Override
     public boolean matches(CraftingInput input, Level level) {
@@ -33,7 +29,7 @@ public class SynchronizerClearRecipe extends CustomRecipe {
     }
 
     @Override
-    public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
+    public ItemStack assemble(CraftingInput input) {
         for (int i = 0; i < input.size(); i++) {
             ItemStack stack = input.getItem(i);
             if (!stack.is(ModItems.SYNCHRONIZER.get())) {
@@ -47,12 +43,7 @@ public class SynchronizerClearRecipe extends CustomRecipe {
     }
 
     @Override
-    public boolean canCraftInDimensions(int width, int height) {
-        return width * height >= 1;
-    }
-
-    @Override
-    public RecipeSerializer<?> getSerializer() {
+    public RecipeSerializer<SynchronizerClearRecipe> getSerializer() {
         return ModRecipeSerializers.SYNCHRONIZER_CLEAR.get();
     }
 }

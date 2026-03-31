@@ -56,7 +56,7 @@ The Docking Station exposes:
 - energy storage
 - chemical storage when the Chemical Upgrade is installed
 
-That makes it useful with pipes, storage buses, tanks, and other standard NeoForge automation systems.
+That makes it useful with pipes, storage buses, tanks, and other standard automation systems on Fabric.
 
 ## Related Pages
 

@@ -1,16 +1,11 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
-import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.testutil.MinecraftBootstrap;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class ClientInteractionLogicTest {
     @BeforeAll
@@ -20,29 +15,60 @@ class ClientInteractionLogicTest {
 
     @Test
     void pickBlockReturnsMissingSlotForFluidOnlyInventories() {
-        DeepNullInventory inventory = mock(DeepNullInventory.class);
-        ItemStack target = new ItemStack(Items.COBBLESTONE);
-        when(inventory.isFluidOnly()).thenReturn(true);
+        ClientInteractionLogic.InventoryView inventory = new FakeInventory(true, -1, -1);
 
-        assertEquals(-1, ClientInteractionLogic.pickBlockSlot(inventory, target));
+        assertEquals(-1, ClientInteractionLogic.pickBlockSlot(inventory, ItemStack.EMPTY));
     }
 
     @Test
     void pickBlockDelegatesToMatchingSlotLookup() {
-        DeepNullInventory inventory = mock(DeepNullInventory.class);
-        ItemStack target = new ItemStack(Items.COBBLESTONE);
-        when(inventory.findMatchingSlot(target)).thenReturn(7);
+        ClientInteractionLogic.InventoryView inventory = new FakeInventory(false, 7, -1);
 
-        assertEquals(7, ClientInteractionLogic.pickBlockSlot(inventory, target));
-        verify(inventory).findMatchingSlot(target);
+        assertEquals(7, ClientInteractionLogic.pickBlockSlot(inventory, ItemStack.EMPTY));
     }
 
     @Test
     void cycleSelectedReturnsUpdatedSelection() {
-        DeepNullInventory inventory = mock(DeepNullInventory.class);
-        when(inventory.getSelectedSlot()).thenReturn(4);
+        ClientInteractionLogic.InventoryView inventory = new FakeInventory(false, -1, 4, 7);
 
-        assertEquals(4, ClientInteractionLogic.cycleSelected(inventory, true));
-        verify(inventory).cycleSelected(true);
+        assertEquals(7, ClientInteractionLogic.cycleSelected(inventory, true));
+    }
+
+    private static final class FakeInventory implements ClientInteractionLogic.InventoryView {
+        private final boolean fluidOnly;
+        private final int matchingSlot;
+        private final int nextSelectedSlot;
+        private int selectedSlot;
+
+        private FakeInventory(boolean fluidOnly, int matchingSlot, int selectedSlot) {
+            this(fluidOnly, matchingSlot, selectedSlot, selectedSlot);
+        }
+
+        private FakeInventory(boolean fluidOnly, int matchingSlot, int selectedSlot, int nextSelectedSlot) {
+            this.fluidOnly = fluidOnly;
+            this.matchingSlot = matchingSlot;
+            this.selectedSlot = selectedSlot;
+            this.nextSelectedSlot = nextSelectedSlot;
+        }
+
+        @Override
+        public boolean isFluidOnly() {
+            return fluidOnly;
+        }
+
+        @Override
+        public int findMatchingSlot(ItemStack targetStack) {
+            return matchingSlot;
+        }
+
+        @Override
+        public void cycleSelected(boolean forward) {
+            selectedSlot = nextSelectedSlot;
+        }
+
+        @Override
+        public int getSelectedSlot() {
+            return selectedSlot;
+        }
     }
 }

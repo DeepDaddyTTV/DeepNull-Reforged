@@ -1,6 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.DeepNullDockBlock;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullHudState;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
@@ -8,10 +9,9 @@ import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.event.client.player.ClientPickBlockApplyCallback;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
@@ -20,7 +20,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.neoforge.network.PacketDistributor;
+import dev.deepdaddyttv.deepnullreforged.compat.network.PacketDistributor;
 
 public final class ClientGameEvents {
     private static boolean initialized;
@@ -35,17 +35,16 @@ public final class ClientGameEvents {
         initialized = true;
 
         ClientTickEvents.END_CLIENT_TICK.register(ClientGameEvents::onClientTick);
-        HudRenderCallback.EVENT.register(DeepNullHudRenderer::render);
-        ClientPickBlockApplyCallback.EVENT.register(ClientGameEvents::onPickBlockApply);
+        HudElementRegistry.addLast(DeepNullReforged.id("deepnull_hud"), DeepNullHudRenderer::render);
         ScreenEvents.BEFORE_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof DeepNullScreen deepNullScreen)) {
                 return;
             }
 
-            ScreenMouseEvents.allowMouseClick(screen).register((currentScreen, mouseX, mouseY, button) ->
-                    button != 2 || !deepNullScreen.handleBlockedMiddleClick(mouseX, mouseY));
-            ScreenMouseEvents.allowMouseRelease(screen).register((currentScreen, mouseX, mouseY, button) ->
-                    button != 2 || !deepNullScreen.handleBlockedMiddleRelease(mouseX, mouseY));
+            ScreenMouseEvents.allowMouseClick(screen).register((currentScreen, event) ->
+                    event.button() != 2 || !deepNullScreen.handleBlockedMiddleClick(event.x(), event.y()));
+            ScreenMouseEvents.allowMouseRelease(screen).register((currentScreen, event) ->
+                    event.button() != 2 || !deepNullScreen.handleBlockedMiddleRelease(event.x(), event.y()));
         });
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) ->
                 ScreenEvents.remove(screen).register(ClientGameEvents::onScreenClosing));
@@ -62,7 +61,7 @@ public final class ClientGameEvents {
         DeepNullHudState.tick(player);
 
         if (ClientModEvents.TOGGLE_HUD.consumeClick()) {
-            player.displayClientMessage(hudMessage(DeepNullConfig.toggleHudEnabled()), true);
+            player.sendOverlayMessage(hudMessage(DeepNullConfig.toggleHudEnabled()));
         }
 
         if (ClientModEvents.OPEN_DEEP_NULL.consumeClick()) {
@@ -194,12 +193,12 @@ public final class ClientGameEvents {
     private static boolean handleTransferLockHotkey(Minecraft minecraft, Player player) {
         if (minecraft.screen instanceof DeepNullScreen screen) {
             TransferOutputMode next = screen.toggleTransferOutputMode();
-            player.displayClientMessage(ClientUiText.transferOutputModeMessage(false, next), true);
+            player.sendOverlayMessage(ClientUiText.transferOutputModeMessage(false, next));
             return true;
         }
         if (minecraft.screen instanceof DeepNullFluidScreen screen) {
             TransferOutputMode next = screen.toggleTransferOutputMode();
-            player.displayClientMessage(ClientUiText.transferOutputModeMessage(true, next), true);
+            player.sendOverlayMessage(ClientUiText.transferOutputModeMessage(true, next));
             return true;
         }
         if (minecraft.screen != null) {
@@ -213,19 +212,19 @@ public final class ClientGameEvents {
 
         TransferOutputMode next = held.inventory().cycleTransferOutputMode();
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldTransferModePayload(held.inventorySlot(), next.ordinal()));
-        player.displayClientMessage(ClientUiText.transferOutputModeMessage(held.inventory().isFluidOnly(), next), true);
+        player.sendOverlayMessage(ClientUiText.transferOutputModeMessage(held.inventory().isFluidOnly(), next));
         return true;
     }
 
     private static boolean handleTransferDirectionHotkey(Minecraft minecraft, Player player) {
         if (minecraft.screen instanceof DeepNullScreen screen) {
             TransferDirectionMode next = screen.toggleTransferDirectionMode();
-            player.displayClientMessage(ClientUiText.transferDirectionModeMessage(false, next), true);
+            player.sendOverlayMessage(ClientUiText.transferDirectionModeMessage(false, next));
             return true;
         }
         if (minecraft.screen instanceof DeepNullFluidScreen screen) {
             TransferDirectionMode next = screen.toggleTransferDirectionMode();
-            player.displayClientMessage(ClientUiText.transferDirectionModeMessage(true, next), true);
+            player.sendOverlayMessage(ClientUiText.transferDirectionModeMessage(true, next));
             return true;
         }
         if (minecraft.screen != null) {
@@ -239,7 +238,7 @@ public final class ClientGameEvents {
 
         TransferDirectionMode next = held.inventory().cycleTransferDirectionMode();
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldTransferDirectionPayload(held.inventorySlot(), next.ordinal()));
-        player.displayClientMessage(ClientUiText.transferDirectionModeMessage(held.inventory().isFluidOnly(), next), true);
+        player.sendOverlayMessage(ClientUiText.transferDirectionModeMessage(held.inventory().isFluidOnly(), next));
         return true;
     }
 
@@ -256,7 +255,7 @@ public final class ClientGameEvents {
         boolean next = !held.inventory().isSpongeEnabled();
         held.inventory().setSpongeEnabled(next);
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldSpongeTogglePayload(held.inventorySlot(), next));
-        player.displayClientMessage(Component.translatable(next ? "dn.sponge_enabled.desc" : "dn.sponge_disabled.desc"), true);
+        player.sendOverlayMessage(Component.translatable(next ? "dn.sponge_enabled.desc" : "dn.sponge_disabled.desc"));
         return true;
     }
 
@@ -292,7 +291,7 @@ public final class ClientGameEvents {
         boolean next = !held.inventory().isAutoPickupEnabled();
         held.inventory().setAutoPickupEnabled(next);
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldAutoPickupPayload(held.inventorySlot(), next));
-        player.displayClientMessage(Component.translatable(next ? "dn.auto_pickup_enabled.desc" : "dn.auto_pickup_disabled.desc"), true);
+        player.sendOverlayMessage(Component.translatable(next ? "dn.auto_pickup_enabled.desc" : "dn.auto_pickup_disabled.desc"));
     }
 
     private static void handleAutoFeedingHotkey(Player player, ClientDeepNullAccess.HeldDeepNull held) {
@@ -302,7 +301,7 @@ public final class ClientGameEvents {
         boolean next = !held.inventory().isAutoFeedingEnabled();
         held.inventory().setAutoFeedingEnabled(next);
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldAutoFeedingPayload(held.inventorySlot(), next));
-        player.displayClientMessage(Component.translatable(next ? "dn.auto_feeding_enabled.desc" : "dn.auto_feeding_disabled.desc"), true);
+        player.sendOverlayMessage(Component.translatable(next ? "dn.auto_feeding_enabled.desc" : "dn.auto_feeding_disabled.desc"));
     }
 
     private static void handleAutoSmeltingHotkey(Player player, ClientDeepNullAccess.HeldDeepNull held) {
@@ -312,7 +311,7 @@ public final class ClientGameEvents {
         boolean next = !held.inventory().isAutoSmeltingEnabled();
         held.inventory().setAutoSmeltingEnabled(next);
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldAutoSmeltingPayload(held.inventorySlot(), next));
-        player.displayClientMessage(Component.translatable(next ? "dn.auto_smelting_enabled.desc" : "dn.auto_smelting_disabled.desc"), true);
+        player.sendOverlayMessage(Component.translatable(next ? "dn.auto_smelting_enabled.desc" : "dn.auto_smelting_disabled.desc"));
     }
 
     private static void handleStoneGeneratorHotkey(Player player, ClientDeepNullAccess.HeldDeepNull held) {
@@ -322,7 +321,7 @@ public final class ClientGameEvents {
         StoneGeneratorVariant next = held.inventory().getStoneGeneratorVariant().cycle(true);
         held.inventory().setStoneGeneratorVariant(next);
         PacketDistributor.sendToServer(new DeepNullPayloads.HeldStoneVariantPayload(held.inventorySlot(), next.ordinal()));
-        player.displayClientMessage(Component.translatable("dn.stone_type.desc").append(": ").append(next.displayName()), true);
+        player.sendOverlayMessage(Component.translatable("dn.stone_type.desc").append(": ").append(next.displayName()));
     }
 
     private static boolean isDeepNullScreen(net.minecraft.client.gui.screens.Screen screen) {

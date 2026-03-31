@@ -1161,5 +1161,13 @@
     "particle": "deepnullreforged:item/dampnull/frame_greyscale",
     "0": "deepnullreforged:item/dampnull/frame_greyscale",
     "1": "deepnullreforged:item/dampnull/glass_greyscale"
-  }
+  },
+  "tints": [
+    {
+      "type": "deepnullreforged:deep_null_frame"
+    },
+    {
+      "type": "deepnullreforged:deep_null_glass"
+    }
+  ]
 }

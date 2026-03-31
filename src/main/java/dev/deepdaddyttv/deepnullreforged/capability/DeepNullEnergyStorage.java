@@ -1,7 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.capability;
 
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import dev.deepdaddyttv.deepnullreforged.compat.energy.IEnergyStorage;
 
 public final class DeepNullEnergyStorage implements IEnergyStorage {
     private final DeepNullInventory inventory;

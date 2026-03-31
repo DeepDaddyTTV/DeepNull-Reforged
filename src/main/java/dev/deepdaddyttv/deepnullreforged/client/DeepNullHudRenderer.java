@@ -9,12 +9,12 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +28,7 @@ public final class DeepNullHudRenderer {
     private DeepNullHudRenderer() {
     }
 
-    public static void render(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
+    public static void render(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker) {
         Minecraft minecraft = Minecraft.getInstance();
         Player player = minecraft.player;
         if (player == null || minecraft.screen != null || !DeepNullConfig.isHudEnabled()) {
@@ -80,23 +80,23 @@ public final class DeepNullHudRenderer {
         int headerColor = withOpacity(0xFF1A2230, Math.min(1.0F, DeepNullConfig.getHudBackgroundOpacity() + 0.05F));
 
         guiGraphics.fill(x, y, x + PANEL_WIDTH, y + panelHeight, bodyColor);
-        guiGraphics.renderOutline(x, y, PANEL_WIDTH, panelHeight, outlineColor);
+        guiGraphics.outline(x, y, PANEL_WIDTH, panelHeight, outlineColor);
         guiGraphics.fill(x + 1, y + 1, x + PANEL_WIDTH - 1, y + HEADER_HEIGHT - 1, headerColor);
-        guiGraphics.drawString(font, held.stack().getHoverName(), x + PADDING, y + 4, 0xFFFFFFFF, false);
+        guiGraphics.text(font, held.stack().getHoverName(), x + PADDING, y + 4, 0xFFFFFFFF, false);
 
         if (!fluidMode) {
-            guiGraphics.renderItem(selectedStack.copyWithCount(1), x + PADDING, y + HEADER_HEIGHT + PADDING);
-            guiGraphics.renderItemDecorations(font, selectedStack, x + PADDING, y + HEADER_HEIGHT + PADDING);
+            guiGraphics.item(selectedStack.copyWithCount(1), x + PADDING, y + HEADER_HEIGHT + PADDING);
+            guiGraphics.itemDecorations(font, selectedStack, x + PADDING, y + HEADER_HEIGHT + PADDING);
         }
 
         int textX = x + 28;
         int textY = y + HEADER_HEIGHT + PADDING;
         for (FormattedCharSequence line : nameLines) {
-            guiGraphics.drawString(font, line, textX, textY, 0xFFFFFFFF, false);
+            guiGraphics.text(font, line, textX, textY, 0xFFFFFFFF, false);
             textY += LINE_HEIGHT;
         }
         for (FormattedCharSequence line : detailLines) {
-            guiGraphics.drawString(font, line, textX, textY, 0xFFE8EDF5, false);
+            guiGraphics.text(font, line, textX, textY, 0xFFE8EDF5, false);
             textY += LINE_HEIGHT;
         }
     }
