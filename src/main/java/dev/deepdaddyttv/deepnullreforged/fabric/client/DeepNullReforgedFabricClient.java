@@ -9,5 +9,6 @@ public final class DeepNullReforgedFabricClient implements ClientModInitializer 
     public void onInitializeClient() {
         ClientModEvents.initialize();
         ClientGameEvents.initialize();
+        DeepNullCiSmokeClient.initialize();
     }
 }

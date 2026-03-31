@@ -7,8 +7,7 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 import mezz.jei.api.recipe.transfer.IRecipeTransferInfo;
 import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
-import net.minecraft.SharedConstants;
-import net.minecraft.server.Bootstrap;
+import dev.deepdaddyttv.deepnullreforged.testutil.MinecraftBootstrap;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.InventoryMenu;
@@ -29,8 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DeepNullJeiPluginRegistrationTest {
     @BeforeAll
     static void bootstrapMinecraft() {
-        SharedConstants.tryDetectVersion();
-        Bootstrap.bootStrap();
+        MinecraftBootstrap.ensureBootstrapped();
     }
 
     @Test

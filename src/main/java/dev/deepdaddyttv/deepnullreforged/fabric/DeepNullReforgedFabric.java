@@ -20,6 +20,7 @@ public final class DeepNullReforgedFabric implements ModInitializer {
                 .orElse("0.0.0");
         DeepNullConfig.registerFabricConfigs(DeepNullReforged.MODID);
         DeepNullReforged.initialize(version);
+        DeepNullCiSmoke.initializeServer();
         RegisterPayloadHandlersEvent payloadHandlersEvent = new RegisterPayloadHandlersEvent();
         DeepNullPayloads.register(payloadHandlersEvent);
         NullWorkbenchPayloads.register(payloadHandlersEvent);
