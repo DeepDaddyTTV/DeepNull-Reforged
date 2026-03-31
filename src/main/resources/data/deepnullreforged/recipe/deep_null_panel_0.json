@@ -7,15 +7,9 @@
     "aca"
   ],
   "key": {
-    "a": {
-      "item": "minecraft:redstone"
-    },
-    "b": {
-      "item": "minecraft:red_stained_glass_pane"
-    },
-    "c": {
-      "item": "minecraft:coal_block"
-    }
+    "a": "minecraft:redstone",
+    "b": "minecraft:red_stained_glass_pane",
+    "c": "minecraft:coal_block"
   },
   "result": {
     "id": "deepnullreforged:deep_null_panel_0",

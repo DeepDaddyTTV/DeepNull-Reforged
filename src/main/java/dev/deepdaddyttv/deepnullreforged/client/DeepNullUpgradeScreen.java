@@ -12,7 +12,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
@@ -82,15 +81,17 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
         for (int visibleIndex = 0; visibleIndex < menu.getUpgradeSlotCount(); visibleIndex++) {
             Slot upgradeSlot = menu.slots.get(menu.getUpgradeSlotStartIndex() + visibleIndex);
             DeepNullUpgradeType type = menu.getUpgradeTypeAt(visibleIndex);
-            if (!upgradeSlot.hasItem()) {
-                graphics.blit(RenderPipelines.GUI_TEXTURED, iconTexture(type), leftPos + upgradeSlot.x, topPos + upgradeSlot.y, 0.0F, 0.0F, 16, 16, 16, 16);
-                graphics.fill(
-                        leftPos + upgradeSlot.x,
-                        topPos + upgradeSlot.y,
-                        leftPos + upgradeSlot.x + 16,
-                        topPos + upgradeSlot.y + 16,
-                        menu.supportsUpgrade(type) ? 0x88000000 : 0xAA220000
-                );
+            if (upgradeSlot.hasItem()) {
+                continue;
+            }
+
+            if (menu.supportsUpgrade(type)) {
+                renderUpgradePreview(graphics, type, upgradeSlot, 0x88000000);
+                continue;
+            }
+
+            if (!menu.getDankInventory().isFluidOnly()) {
+                renderUpgradePreview(graphics, type, upgradeSlot, 0x88441111);
             }
         }
 
@@ -99,8 +100,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
 
     @Override
     protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        graphics.text(font, Component.translatable("dn.upgrades_screen.desc"), titleLabelX, titleLabelY, 0xFFFFFFFF, false);
-        graphics.text(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFFFFFFFF, false);
+        graphics.text(font, ClientUiText.upgradeScreenTitle(menu.getDankInventory().isFluidOnly()), titleLabelX, titleLabelY, 0xFFFFFFFF, false);
     }
 
     @Override
@@ -116,6 +116,17 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
             return true;
         }
         return event.button() == 2 && isWithin(event.x(), event.y(), leftPos, topPos, imageWidth, imageHeight);
+    }
+
+    private void renderUpgradePreview(GuiGraphicsExtractor graphics, DeepNullUpgradeType type, Slot slot, int overlayColor) {
+        graphics.blit(RenderPipelines.GUI_TEXTURED, iconTexture(type), leftPos + slot.x, topPos + slot.y, 0.0F, 0.0F, 16, 16, 16, 16);
+        graphics.fill(
+                leftPos + slot.x,
+                topPos + slot.y,
+                leftPos + slot.x + 16,
+                topPos + slot.y + 16,
+                overlayColor
+        );
     }
 
     private Identifier iconTexture(DeepNullUpgradeType type) {
@@ -196,38 +207,16 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
             return;
         }
 
-        int visibleIndex = menu.slots.indexOf(hovered) - menu.getUpgradeSlotStartIndex();
-        if (visibleIndex < 0 || visibleIndex >= menu.getUpgradeSlotCount()) {
-            return;
-        }
-
-        DeepNullUpgradeType type = menu.getUpgradeTypeAt(visibleIndex);
+        DeepNullUpgradeType type = ((DeepNullMenu.UpgradeSlot) hovered).getUpgradeType();
         List<Component> tooltip = new ArrayList<>();
         tooltip.add(Component.translatable("item." + DeepNullReforged.MODID + "." + type.itemId()));
         tooltip.add(Component.translatable("upgrade." + type.itemId() + ".desc").withStyle(ChatFormatting.GRAY));
-        tooltip.add(upgradeKindText(type).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("upgrade." + type.itemId() + ".tiers", supportedTierText(type)).withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(ClientUiText.upgradeKindText(menu.getDankInventory().isFluidOnly(), type).withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("upgrade." + type.itemId() + ".tiers", ClientUiText.supportedTierText(type)).withStyle(ChatFormatting.DARK_GRAY));
         if (!menu.supportsUpgrade(type)) {
             tooltip.add(Component.translatable("dn.upgrade_unavailable.desc").withStyle(ChatFormatting.RED));
         }
         graphics.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
-    }
-
-    private MutableComponent upgradeKindText(DeepNullUpgradeType type) {
-        return switch (type) {
-            case STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS -> Component.translatable("upgrade.kind.dampnull");
-            case ENDER -> Component.translatable("upgrade.kind.anynull");
-            default -> Component.translatable("upgrade.kind.deepnull");
-        };
-    }
-
-    private Component supportedTierText(DeepNullUpgradeType type) {
-        return switch (type) {
-            case FILTER -> Component.translatable("upgrade.tiers.iron_plus");
-            case FLUID, AUTO_FEEDING, AUTO_SMELTING, BASIC_COMPRESSION, ADVANCED_COMPRESSION, STONEWORKS, STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS, ENDER -> Component.translatable("upgrade.tiers.every_tier");
-            case ENERGY -> Component.translatable("upgrade.tiers.diamond_plus");
-            case DEEP_ENERGY -> Component.translatable("upgrade.tiers.emerald_only");
-        };
     }
 
     private void renderEnergyFill(GuiGraphicsExtractor graphics) {

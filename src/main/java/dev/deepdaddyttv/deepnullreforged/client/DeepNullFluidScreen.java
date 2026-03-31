@@ -6,6 +6,8 @@ import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismClientComp
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import net.minecraft.client.Minecraft;
@@ -148,9 +150,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             return true;
         }
         if (event.button() == 0 && isWithin(event.x(), event.y(), infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
-            boolean next = !menu.getDankInventory().isTransferLocked();
-            menu.getDankInventory().setTransferLocked(next);
-            ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferLockPayload(next));
+            toggleTransferOutputMode();
             return true;
         }
         if (event.button() == 0 && isWithin(event.x(), event.y(), infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
@@ -319,7 +319,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         graphics.blit(RenderPipelines.GUI_TEXTURED, INFO_BUTTON_TEXTURE, infoButtonX(), topPos + 38, TAB_BUTTON_U, INFO_BUTTON_V, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT, 256, 256);
         graphics.blit(
                 RenderPipelines.GUI_TEXTURED,
-                menu.getDankInventory().isTransferLocked() ? LOCK_BUTTON_ON_TEXTURE : LOCK_BUTTON_OFF_TEXTURE,
+                menu.getDankInventory().getTransferOutputMode().isLocked() ? LOCK_BUTTON_ON_TEXTURE : LOCK_BUTTON_OFF_TEXTURE,
                 infoButtonX(),
                 topPos + 59,
                 TAB_BUTTON_U,
@@ -673,13 +673,18 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private Component transferLockLabel() {
-        return Component.translatable(menu.getDankInventory().isTransferLocked() ? "dn.transfer_locked.desc" : "dn.transfer_unlocked.desc");
+        return ClientUiText.transferOutputModeMessage(true, menu.getDankInventory().getTransferOutputMode());
     }
 
-    public boolean toggleTransferLock() {
-        boolean next = !menu.getDankInventory().isTransferLocked();
-        menu.getDankInventory().setTransferLocked(next);
-        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferLockPayload(next));
+    public TransferOutputMode toggleTransferOutputMode() {
+        TransferOutputMode next = menu.getDankInventory().cycleTransferOutputMode();
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferModePayload(next.ordinal()));
+        return next;
+    }
+
+    public TransferDirectionMode toggleTransferDirectionMode() {
+        TransferDirectionMode next = menu.getDankInventory().cycleTransferDirectionMode();
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferDirectionPayload(next.ordinal()));
         return next;
     }
 

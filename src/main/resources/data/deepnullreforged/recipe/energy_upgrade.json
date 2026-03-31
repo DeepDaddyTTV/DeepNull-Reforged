@@ -7,15 +7,9 @@
     "ERE"
   ],
   "key": {
-    "R": {
-      "item": "minecraft:redstone_block"
-    },
-    "E": {
-      "item": "minecraft:emerald"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    }
+    "R": "minecraft:redstone_block",
+    "E": "minecraft:emerald",
+    "U": "deepnullreforged:upgrade_core"
   },
   "result": {
     "id": "deepnullreforged:energy_upgrade",

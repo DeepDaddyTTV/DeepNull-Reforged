@@ -2,12 +2,8 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "deepnullreforged:filter"
-    },
-    {
-      "item": "deepnullreforged:upgrade_core"
-    }
+    "deepnullreforged:filter",
+    "deepnullreforged:upgrade_core"
   ],
   "result": {
     "id": "deepnullreforged:filter_upgrade",

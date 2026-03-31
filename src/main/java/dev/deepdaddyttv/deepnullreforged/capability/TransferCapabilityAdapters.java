@@ -30,7 +30,16 @@ public final class TransferCapabilityAdapters {
             Supplier<S> snapshotSource,
             Consumer<S> snapshotRestore
     ) {
-        return new FluidHandlerResourceBridge<>(inventory, snapshotSource, snapshotRestore);
+        return fluid(inventory, snapshotSource, snapshotRestore, false);
+    }
+
+    public static <S> ResourceHandler<FluidResource> fluid(
+            DeepNullInventory inventory,
+            Supplier<S> snapshotSource,
+            Consumer<S> snapshotRestore,
+            boolean singleSelectedTankView
+    ) {
+        return new FluidHandlerResourceBridge<>(inventory, snapshotSource, snapshotRestore, singleSelectedTankView);
     }
 
     public static <S> EnergyHandler energy(
@@ -138,66 +147,81 @@ public final class TransferCapabilityAdapters {
         private final DeepNullInventory inventory;
         private final Supplier<S> snapshotSource;
         private final Consumer<S> snapshotRestore;
+        private final boolean singleSelectedTankView;
 
-        private FluidHandlerResourceBridge(DeepNullInventory inventory, Supplier<S> snapshotSource, Consumer<S> snapshotRestore) {
+        private FluidHandlerResourceBridge(
+                DeepNullInventory inventory,
+                Supplier<S> snapshotSource,
+                Consumer<S> snapshotRestore,
+                boolean singleSelectedTankView
+        ) {
             this.inventory = inventory;
             this.snapshotSource = snapshotSource;
             this.snapshotRestore = snapshotRestore;
+            this.singleSelectedTankView = singleSelectedTankView;
         }
 
         @Override
         public int size() {
-            return inventory.supportsFluidStorage() ? inventory.getFluidSlotCount() : 0;
+            if (!inventory.supportsFluidStorage()) {
+                return 0;
+            }
+            return singleSelectedTankView ? 1 : inventory.getFluidSlotCount();
         }
 
         @Override
         public FluidResource getResource(int slot) {
-            if (!isValidSlot(slot)) {
+            int resolvedSlot = resolveSlot(slot);
+            if (resolvedSlot < 0) {
                 return FluidResource.EMPTY;
             }
-            FluidStack stack = inventory.getFluidInSlot(slot);
+            FluidStack stack = inventory.getFluidInSlot(resolvedSlot);
             return stack.isEmpty() ? FluidResource.EMPTY : FluidResource.of(stack);
         }
 
         @Override
         public long getAmountAsLong(int slot) {
-            return isValidSlot(slot) ? inventory.getFluidInSlot(slot).getAmount() : 0L;
+            int resolvedSlot = resolveSlot(slot);
+            return resolvedSlot >= 0 ? inventory.getFluidInSlot(resolvedSlot).getAmount() : 0L;
         }
 
         @Override
         public long getCapacityAsLong(int slot, FluidResource resource) {
-            return isValidSlot(slot) && !resource.isEmpty() ? inventory.getFluidCapacity() : 0L;
+            return resolveSlot(slot) >= 0 && !resource.isEmpty() ? inventory.getFluidCapacity() : 0L;
         }
 
         @Override
         public boolean isValid(int slot, FluidResource resource) {
-            return isValidSlot(slot)
+            int resolvedSlot = resolveSlot(slot);
+            return resolvedSlot >= 0
                     && !resource.isEmpty()
-                    && inventory.fillFluid(slot, resource.toStack(1), true) > 0;
+                    && inventory.fillFluid(resolvedSlot, resource.toStack(1), true) > 0;
         }
 
         @Override
         public int insert(int slot, FluidResource resource, int maxAmount, TransactionContext transaction) {
-            if (!isValid(slot, resource) || maxAmount <= 0) {
+            int resolvedSlot = resolveSlot(slot);
+            if (resolvedSlot < 0 || !isValid(slot, resource) || maxAmount <= 0) {
                 return 0;
             }
             updateSnapshots(transaction);
-            return inventory.fillFluid(slot, resource.toStack(maxAmount), false);
+            return inventory.fillFluid(resolvedSlot, resource.toStack(maxAmount), false);
         }
 
         @Override
         public int extract(int slot, FluidResource resource, int maxAmount, TransactionContext transaction) {
-            if (!isValidSlot(slot) || maxAmount <= 0) {
+            int resolvedSlot = resolveSlot(slot);
+            if (resolvedSlot < 0 || maxAmount <= 0) {
                 return 0;
             }
 
-            FluidStack existing = inventory.getFluidInSlot(slot);
+            FluidStack existing = inventory.getFluidInSlot(resolvedSlot);
             if (existing.isEmpty() || (!resource.isEmpty() && !resource.matches(existing))) {
                 return 0;
             }
 
             updateSnapshots(transaction);
-            return inventory.drainFluid(slot, maxAmount, false).getAmount();
+            return inventory.drainFluid(resolvedSlot, maxAmount, false).getAmount();
         }
 
         @Override
@@ -210,8 +234,21 @@ public final class TransferCapabilityAdapters {
             snapshotRestore.accept(snapshot);
         }
 
-        private boolean isValidSlot(int slot) {
-            return inventory.supportsFluidStorage() && slot >= 0 && slot < inventory.getFluidSlotCount();
+        private int resolveSlot(int slot) {
+            if (!inventory.supportsFluidStorage()) {
+                return -1;
+            }
+            if (!singleSelectedTankView) {
+                return slot >= 0 && slot < inventory.getFluidSlotCount() ? slot : -1;
+            }
+            if (slot != 0) {
+                return -1;
+            }
+            int selectedSlot = inventory.getSelectedSlot();
+            if (selectedSlot >= 0 && selectedSlot < inventory.getFluidSlotCount()) {
+                return selectedSlot;
+            }
+            return inventory.getFluidSlotCount() > 0 ? 0 : -1;
         }
     }
 

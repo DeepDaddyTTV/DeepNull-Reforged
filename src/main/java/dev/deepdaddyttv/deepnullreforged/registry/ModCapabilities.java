@@ -136,7 +136,8 @@ public final class ModCapabilities {
         return TransferCapabilityAdapters.fluid(
                 inventory,
                 stack::copy,
-                snapshot -> TransferCapabilityAdapters.restoreItemStack(stack, snapshot)
+                snapshot -> TransferCapabilityAdapters.restoreItemStack(stack, snapshot),
+                true
         );
     }
 

@@ -37,6 +37,8 @@ public final class ClientModEvents {
     public static final KeyMapping PREVIOUS_ITEM = new KeyMapping("key.previous_item.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping OPEN_DEEP_NULL = new KeyMapping("key.open_deepnull.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_TRANSFER_LOCK = new KeyMapping("key.toggle_transfer_lock.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
+    public static final KeyMapping TOGGLE_TRANSFER_DIRECTION = new KeyMapping("key.toggle_transfer_direction.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
+    public static final KeyMapping TOGGLE_SPONGE = new KeyMapping("key.toggle_sponge.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_HUD = new KeyMapping("key.toggle_hud.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_AUTO_PICKUP = new KeyMapping("key.toggle_auto_pickup.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_AUTO_FEEDING = new KeyMapping("key.toggle_auto_feeding.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
@@ -64,6 +66,8 @@ public final class ClientModEvents {
         event.register(PREVIOUS_ITEM);
         event.register(OPEN_DEEP_NULL);
         event.register(TOGGLE_TRANSFER_LOCK);
+        event.register(TOGGLE_TRANSFER_DIRECTION);
+        event.register(TOGGLE_SPONGE);
         event.register(TOGGLE_HUD);
         event.register(TOGGLE_AUTO_PICKUP);
         event.register(TOGGLE_AUTO_FEEDING);

@@ -30,8 +30,11 @@ public final class Ae2TransferCompat {
         IActionSource actionSource = context.getPlayer() != null
                 ? IActionSource.ofPlayer(context.getPlayer())
                 : IActionSource.empty();
-        boolean moved = moveItemsToStorage(inventory, storage, actionSource);
-        if (!moved) {
+        boolean moved = false;
+        if (inventory.getTransferDirectionMode().allowsInsert()) {
+            moved = moveItemsToStorage(inventory, storage, actionSource);
+        }
+        if (!moved && inventory.getTransferDirectionMode().allowsExtract()) {
             moved = moveItemsFromStorage(inventory, storage, actionSource);
         }
         return moved ? InteractionResult.SUCCESS_SERVER : InteractionResult.FAIL;
@@ -50,8 +53,11 @@ public final class Ae2TransferCompat {
         IActionSource actionSource = context.getPlayer() != null
                 ? IActionSource.ofPlayer(context.getPlayer())
                 : IActionSource.empty();
-        boolean moved = moveFluidsToStorage(inventory, storage, actionSource);
-        if (!moved) {
+        boolean moved = false;
+        if (inventory.getTransferDirectionMode().allowsInsert()) {
+            moved = moveFluidsToStorage(inventory, storage, actionSource);
+        }
+        if (!moved && inventory.getTransferDirectionMode().allowsExtract()) {
             moved = moveFluidsFromStorage(inventory, storage, actionSource);
         }
         return moved ? InteractionResult.SUCCESS_SERVER : InteractionResult.FAIL;
@@ -65,7 +71,10 @@ public final class Ae2TransferCompat {
         return storage;
     }
 
-    private static boolean moveItemsToStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+    public static boolean moveItemsToStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+        if (inventory.getTransferOutputMode().isLocked()) {
+            return false;
+        }
         boolean movedAny = false;
         boolean progressed;
         do {
@@ -78,6 +87,10 @@ public final class Ae2TransferCompat {
 
                 AEItemKey key = AEItemKey.of(extractable);
                 if (key == null) {
+                    continue;
+                }
+                if (inventory.getTransferOutputMode().matchingOnly()
+                        && storage.extract(key, 1, Actionable.SIMULATE, actionSource) <= 0L) {
                     continue;
                 }
 
@@ -94,11 +107,11 @@ public final class Ae2TransferCompat {
         return movedAny;
     }
 
-    private static boolean moveItemsFromStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+    public static boolean moveItemsFromStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
         return refillStoredItemTypes(inventory, storage, actionSource);
     }
 
-    private static boolean refillStoredItemTypes(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+    public static boolean refillStoredItemTypes(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
         boolean movedAny = false;
         for (int slot = 0; slot < inventory.getSlots(); slot++) {
             ItemStack stored = inventory.getStackInSlot(slot);
@@ -140,7 +153,10 @@ public final class Ae2TransferCompat {
         return movedAny;
     }
 
-    private static boolean moveFluidsToStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+    public static boolean moveFluidsToStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+        if (inventory.getTransferOutputMode().isLocked()) {
+            return false;
+        }
         boolean movedAny = false;
         boolean progressed;
         do {
@@ -153,6 +169,10 @@ public final class Ae2TransferCompat {
 
                 AEFluidKey key = AEFluidKey.of(stored);
                 if (key == null) {
+                    continue;
+                }
+                if (inventory.getTransferOutputMode().matchingOnly()
+                        && storage.extract(key, 1, Actionable.SIMULATE, actionSource) <= 0L) {
                     continue;
                 }
 
@@ -169,11 +189,11 @@ public final class Ae2TransferCompat {
         return movedAny;
     }
 
-    private static boolean moveFluidsFromStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+    public static boolean moveFluidsFromStorage(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
         return refillStoredFluidTypes(inventory, storage, actionSource);
     }
 
-    private static boolean refillStoredFluidTypes(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
+    public static boolean refillStoredFluidTypes(DeepNullInventory inventory, MEStorage storage, IActionSource actionSource) {
         boolean movedAny = false;
         for (int slot = 0; slot < inventory.getFluidSlotCount(); slot++) {
             FluidStack stored = inventory.getFluidInSlot(slot);

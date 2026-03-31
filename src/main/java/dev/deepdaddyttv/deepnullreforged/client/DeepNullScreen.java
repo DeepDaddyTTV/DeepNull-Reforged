@@ -6,6 +6,8 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
@@ -114,6 +116,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private int customExtractionAnchorX;
     private int customExtractionAnchorY;
     private int customExtractionInitialValue;
+    private boolean customExtractionApplyAll;
 
     public DeepNullScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, imageWidthFor(menu), imageHeightFor(menu));
@@ -621,13 +624,18 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private Component transferLockLabel() {
-        return Component.translatable(menu.getDankInventory().isTransferLocked() ? "dn.transfer_locked.desc" : "dn.transfer_unlocked.desc");
+        return ClientUiText.transferOutputModeMessage(false, menu.getDankInventory().getTransferOutputMode());
     }
 
-    public boolean toggleTransferLock() {
-        boolean next = !menu.getDankInventory().isTransferLocked();
-        menu.getDankInventory().setTransferLocked(next);
-        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferLockPayload(next));
+    public TransferOutputMode toggleTransferOutputMode() {
+        TransferOutputMode next = menu.getDankInventory().cycleTransferOutputMode();
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferModePayload(next.ordinal()));
+        return next;
+    }
+
+    public TransferDirectionMode toggleTransferDirectionMode() {
+        TransferDirectionMode next = menu.getDankInventory().cycleTransferDirectionMode();
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferDirectionPayload(next.ordinal()));
         return next;
     }
 
@@ -687,7 +695,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private void renderIconButtons(GuiGraphicsExtractor graphics) {
         int x = leftPos + baseImageWidth - 1;
         renderIconButton(graphics, INFO_BUTTON_TEXTURE, x, topPos + 38, INFO_BUTTON_V);
-        renderIconButton(graphics, menu.getDankInventory().isTransferLocked() ? LOCK_BUTTON_ON_TEXTURE : LOCK_BUTTON_OFF_TEXTURE, x, topPos + 59, LOCK_BUTTON_V);
+        renderIconButton(graphics, menu.getDankInventory().getTransferOutputMode().isLocked() ? LOCK_BUTTON_ON_TEXTURE : LOCK_BUTTON_OFF_TEXTURE, x, topPos + 59, LOCK_BUTTON_V);
         renderIconButton(graphics, UPGRADE_BUTTON_TEXTURE, x, topPos + 80, UPGRADE_BUTTON_V);
         if (menu.hasEnergyUpgrade()) {
             renderIconButton(
@@ -735,7 +743,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return true;
         }
         if (isWithin(event.x(), event.y(), x, topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
-            toggleTransferLock();
+            toggleTransferOutputMode();
             return true;
         }
         if (isWithin(event.x(), event.y(), x, topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
@@ -891,7 +899,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
     }
 
-    private void openCustomExtractionEditor(int slot, int mouseX, int mouseY) {
+    private void openCustomExtractionEditor(int slot, int mouseX, int mouseY, boolean applyAll) {
         if (customExtractionBox == null || slot < 0 || slot >= menu.getStorageSlotCount()) {
             return;
         }
@@ -902,6 +910,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         customExtractionSlot = slot;
         customExtractionAnchorX = mouseX;
         customExtractionAnchorY = mouseY;
+        customExtractionApplyAll = applyAll;
         int currentMinimum = currentCustomExtractionEditorValue(slot, stack);
         customExtractionInitialValue = currentMinimum;
         customExtractionBox.setValue(Integer.toString(currentMinimum));
@@ -926,7 +935,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 try {
                     int amount = Integer.parseInt(customExtractionBox.getValue());
                     if (amount != customExtractionInitialValue) {
-                        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuCustomExtractionPayload(customExtractionSlot, amount));
+                        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuCustomExtractionPayload(customExtractionSlot, amount, customExtractionApplyAll));
                     }
                 } catch (NumberFormatException ignored) {
                 }
@@ -936,6 +945,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         customExtractionAnchorX = 0;
         customExtractionAnchorY = 0;
         customExtractionInitialValue = 0;
+        customExtractionApplyAll = false;
         customExtractionBox.setFocused(false);
         customExtractionBox.visible = false;
         customExtractionBox.active = false;
@@ -1094,7 +1104,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
         Slot slot = findSlotAt(mouseX, mouseY);
         if (slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
-            openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY));
+            openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY), ScreenActions.hasControlDown());
         }
         return true;
     }
@@ -1105,7 +1115,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private int stoneworksDialogStep() {
-        return isShiftDown() ? 512 : 64;
+        return isShiftDown() ? 10 : 1;
     }
 
     private Rect2i stoneworksDialogBounds() {

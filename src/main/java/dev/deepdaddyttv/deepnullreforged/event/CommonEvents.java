@@ -1,6 +1,8 @@
 package dev.deepdaddyttv.deepnullreforged.event;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransferSupport;
+import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSession;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -9,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.util.TriState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 
 public final class CommonEvents {
     @SubscribeEvent
@@ -53,6 +56,18 @@ public final class CommonEvents {
             event.setCanPickup(TriState.FALSE);
         } else {
             itemEntity.setItem(remaining);
+        }
+    }
+
+    @SubscribeEvent
+    public void onContainerClose(PlayerContainerEvent.Close event) {
+        Player player = event.getEntity();
+        if (!ServerDeepNullJeiSession.shouldReturn(player, event.getContainer())) {
+            return;
+        }
+
+        if (DeepNullCraftingTransferSupport.returnCurrentCraftingContents(event.getContainer(), player)) {
+            ServerDeepNullJeiSession.clear(player);
         }
     }
 }

@@ -31,6 +31,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.common.ItemAbility;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.NoSuchElementException;
+
 public class DeepNullDockBlock extends BaseEntityBlock {
     public static final MapCodec<DeepNullDockBlock> CODEC = simpleCodec(DeepNullDockBlock::new);
     private static final VoxelShape EMPTY_SHAPE = box(0.0D, 0.0D, 0.0D, 16.0D, 3.0D, 16.0D);
@@ -45,6 +47,7 @@ public class DeepNullDockBlock extends BaseEntityBlock {
         return BlockBehaviour.Properties.of()
                 .setId(ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(DeepNullReforged.MODID, "deepnull_dock")))
                 .mapColor(MapColor.METAL)
+                .requiresCorrectToolForDrops()
                 .strength(5.0F, 6.0F)
                 .noOcclusion();
     }
@@ -79,10 +82,15 @@ public class DeepNullDockBlock extends BaseEntityBlock {
         if (hardness == -1.0F) {
             return 0.0F;
         }
-        float destroySpeed = player.getDestroySpeed(state);
         boolean pickaxeLikeTool = player.getMainHandItem().canPerformAction(ItemAbility.get("pickaxe_dig"));
+        float destroySpeed;
+        try {
+            destroySpeed = player.getDestroySpeed(state);
+        } catch (NoSuchElementException ignored) {
+            destroySpeed = player.getMainHandItem().getDestroySpeed(state);
+        }
         if (pickaxeLikeTool && destroySpeed > 1.0F) {
-            return destroySpeed / hardness / 15.0F;
+            return destroySpeed / hardness / 7.5F;
         }
         return super.getDestroyProgress(state, player, level, pos);
     }

@@ -2,6 +2,8 @@ package dev.deepdaddyttv.deepnullreforged;
 
 import com.mojang.logging.LogUtils;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
+import dev.deepdaddyttv.deepnullreforged.gametest.ModGameTests;
+import dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks.CraftingTweaksCompat;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
@@ -17,9 +19,12 @@ import net.neoforged.fml.InterModComms;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.event.lifecycle.InterModEnqueueEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
+
+import java.util.List;
 
 @Mod(DeepNullReforged.MODID)
 public final class DeepNullReforged {
@@ -35,10 +40,12 @@ public final class DeepNullReforged {
         ModMenus.MENUS.register(modEventBus);
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(modEventBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
+        ModGameTests.register(modEventBus);
 
         modEventBus.addListener(DeepNullPayloads::register);
         modEventBus.addListener(NullWorkbenchPayloads::register);
         modEventBus.addListener(ModCapabilities::register);
+        modEventBus.addListener(DeepNullReforged::commonSetup);
         modEventBus.addListener(DeepNullConfig::onLoad);
         modEventBus.addListener(DeepNullConfig::onReload);
         modEventBus.addListener(DeepNullReforged::registerInventorySorterCompat);
@@ -62,10 +69,37 @@ public final class DeepNullReforged {
         return Identifier.fromNamespaceAndPath(MODID, path);
     }
 
+    private static void commonSetup(FMLCommonSetupEvent event) {
+        if (classPresent("net.blay09.mods.craftingtweaks.api.CraftingTweaksAPI")) {
+            event.enqueueWork(CraftingTweaksCompat::initialize);
+        }
+    }
+
     private static void registerInventorySorterCompat(InterModEnqueueEvent event) {
-        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$StorageSlot");
-        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$DockStorageSlot");
-        InterModComms.sendTo("inventorysorter", "slotblacklist", () -> "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$FluidStorageSlot");
-        InterModComms.sendTo("inventorysorter", "containerblacklist", () -> id("deep_null"));
+        for (String slotClass : inventorySorterSlotBlacklists()) {
+            InterModComms.sendTo("inventorysorter", "slotblacklist", () -> slotClass);
+        }
+        InterModComms.sendTo("inventorysorter", "containerblacklist", DeepNullReforged::inventorySorterContainerBlacklist);
+    }
+
+    static List<String> inventorySorterSlotBlacklists() {
+        return List.of(
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$StorageSlot",
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$DockStorageSlot",
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$FluidStorageSlot"
+        );
+    }
+
+    static Identifier inventorySorterContainerBlacklist() {
+        return id("deep_null");
+    }
+
+    private static boolean classPresent(String className) {
+        try {
+            Class.forName(className, false, DeepNullReforged.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError exception) {
+            return false;
+        }
     }
 }

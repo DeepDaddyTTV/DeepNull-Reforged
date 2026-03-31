@@ -7,15 +7,9 @@
     "IBI"
   ],
   "key": {
-    "B": {
-      "item": "minecraft:bucket"
-    },
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    }
+    "B": "minecraft:bucket",
+    "I": "minecraft:iron_ingot",
+    "U": "deepnullreforged:upgrade_core"
   },
   "result": {
     "id": "deepnullreforged:fluid_upgrade",

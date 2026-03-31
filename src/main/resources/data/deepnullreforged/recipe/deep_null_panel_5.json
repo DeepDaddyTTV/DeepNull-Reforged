@@ -7,15 +7,9 @@
     "aca"
   ],
   "key": {
-    "a": {
-      "item": "minecraft:emerald"
-    },
-    "b": {
-      "item": "minecraft:green_stained_glass_pane"
-    },
-    "c": {
-      "item": "minecraft:coal_block"
-    }
+    "a": "minecraft:emerald",
+    "b": "minecraft:green_stained_glass_pane",
+    "c": "minecraft:coal_block"
   },
   "result": {
     "id": "deepnullreforged:deep_null_panel_5",

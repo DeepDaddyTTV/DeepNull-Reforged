@@ -7,18 +7,10 @@
     "DSD"
   ],
   "key": {
-    "S": {
-      "item": "minecraft:nether_star"
-    },
-    "D": {
-      "item": "minecraft:diamond_block"
-    },
-    "E": {
-      "item": "deepnullreforged:energy_upgrade"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    }
+    "S": "minecraft:nether_star",
+    "D": "minecraft:diamond_block",
+    "E": "deepnullreforged:energy_upgrade",
+    "U": "deepnullreforged:upgrade_core"
   },
   "result": {
     "id": "deepnullreforged:deep_energy_upgrade",

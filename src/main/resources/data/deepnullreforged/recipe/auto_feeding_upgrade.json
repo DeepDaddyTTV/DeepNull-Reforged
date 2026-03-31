@@ -7,21 +7,11 @@
     "PHP"
   ],
   "key": {
-    "B": {
-      "item": "minecraft:bread"
-    },
-    "G": {
-      "item": "minecraft:golden_carrot"
-    },
-    "U": {
-      "item": "deepnullreforged:upgrade_core"
-    },
-    "H": {
-      "item": "minecraft:hay_block"
-    },
-    "P": {
-      "item": "minecraft:baked_potato"
-    }
+    "B": "minecraft:bread",
+    "G": "minecraft:golden_carrot",
+    "U": "deepnullreforged:upgrade_core",
+    "H": "minecraft:hay_block",
+    "P": "minecraft:baked_potato"
   },
   "result": {
     "id": "deepnullreforged:auto_feeding_upgrade",

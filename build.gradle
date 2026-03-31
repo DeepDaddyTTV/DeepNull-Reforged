@@ -4,6 +4,29 @@ plugins {
     id 'net.neoforged.gradle.userdev' version '7.1.21'
 }
 
+def includeJeiRuntime = providers.gradleProperty("includeJeiRuntime").map(Boolean.&parseBoolean).orElse(false)
+def includeAe2Runtime = providers.gradleProperty("includeAe2Runtime").map(Boolean.&parseBoolean).orElse(false)
+def includeMekanismRuntime = providers.gradleProperty("includeMekanismRuntime").map(Boolean.&parseBoolean).orElse(false)
+def neoGameTestClasses = providers.provider {
+    def ngExecuteDir = gradle.gradleUserHomeDir.toPath().resolve("caches/ng_execute")
+    if (!java.nio.file.Files.isDirectory(ngExecuteDir)) {
+        return []
+    }
+
+    def suffix = java.nio.file.Path.of("net", "minecraft", "gametest", "framework", "FunctionGameTestInstance.class")
+    def matches = []
+    java.nio.file.Files.find(ngExecuteDir, 8, { path, attrs ->
+        attrs.isRegularFile() && path.endsWith(suffix)
+    } as java.util.function.BiPredicate).forEach { path ->
+        def classesDir = path
+        for (int i = 0; i < suffix.nameCount; i++) {
+            classesDir = classesDir.parent
+        }
+        matches.add(classesDir.toFile())
+    }
+    return matches.unique()
+}
+
 tasks.named('wrapper', Wrapper).configure {
     // Define wrapper values here so as to not have to always do so when updating gradlew.properties.
     // Switching this to Wrapper.DistributionType.ALL will download the full gradle sources that comes with
@@ -90,10 +113,24 @@ dependencies {
     // And its provides the option to then use net.minecraft as the group, and one of; client, server or joined as the module name, plus the game version as version.
     // For all intends and purposes: You can treat this dependency as if it is a normal library you would use.
     implementation "net.neoforged:neoforge:${neo_version}"
+    compileOnly(files(neoGameTestClasses))
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
+    if (includeJeiRuntime.get()) {
+        localRuntime "mezz.jei:jei-${jei_minecraft_version}-neoforge:${jei_version}"
+    }
     compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}:api"
     compileOnly "org.appliedenergistics:guideme:${guideme_version}:api"
+    if (includeAe2Runtime.get()) {
+        localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    }
+
+    testImplementation platform("org.junit:junit-bom:5.12.1")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testImplementation "org.mockito:mockito-core:5.16.1"
+    testImplementation "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
+    testImplementation "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
@@ -150,6 +187,10 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
 }
 
 tasks.named('jar', Jar).configure {
