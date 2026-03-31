@@ -55,7 +55,7 @@ public final class ModCapabilities {
         if (inventory == null || !inventory.supportsFluidStorage()) {
             return null;
         }
-        return new DeepNullFluidHandler(inventory, stack);
+        return new DeepNullFluidHandler(inventory, stack, true);
     }
 
     public static @Nullable IEnergyStorage getEnergyStorage(ItemStack stack) {

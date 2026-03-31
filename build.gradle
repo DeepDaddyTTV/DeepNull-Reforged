@@ -40,6 +40,13 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
     modLocalRuntime "mezz.jei:jei-${minecraft_version}-fabric:${jei_version}"
+    testImplementation "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+    testImplementation "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
+
+    testImplementation platform("org.junit:junit-bom:5.12.1")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testImplementation "org.mockito:mockito-core:5.16.1"
 }
 
 tasks.withType(ProcessResources).configureEach {
@@ -85,4 +92,8 @@ tasks.named('jar', Jar).configure {
                 'Specification-Title': artifact_name
         )
     }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
 }

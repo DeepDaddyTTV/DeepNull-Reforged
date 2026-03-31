@@ -11,6 +11,8 @@ import dev.deepdaddyttv.deepnullreforged.registry.ModRecipeSerializers;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
 
+import java.util.List;
+
 public final class DeepNullReforged {
     public static final String MODID = "deepnullreforged";
     public static final Logger LOGGER = LogUtils.getLogger();
@@ -40,5 +42,17 @@ public final class DeepNullReforged {
 
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(MODID, path);
+    }
+
+    static List<String> inventorySorterSlotBlacklists() {
+        return List.of(
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$StorageSlot",
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$DockStorageSlot",
+                "dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu$FluidStorageSlot"
+        );
+    }
+
+    static ResourceLocation inventorySorterContainerBlacklist() {
+        return id("deep_null");
     }
 }

@@ -16,6 +16,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
@@ -31,9 +32,11 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,6 +73,8 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String ENERGY_TAG = "Energy";
     private static final String CHARGING_TAG = "Charging";
     private static final String TRANSFER_LOCKED_TAG = "TransferLocked";
+    private static final String TRANSFER_MODE_TAG = "TransferMode";
+    private static final String TRANSFER_DIRECTION_TAG = "TransferDirection";
     private static final String AUTO_PICKUP_TAG = "AutoPickup";
     private static final String AUTO_FEEDING_TAG = "AutoFeeding";
     private static final String AUTO_SMELTING_TAG = "AutoSmelting";
@@ -80,6 +85,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String FRAME_COLOR_TAG = "FrameColor";
     private static final String GLASS_COLOR_TAG = "GlassColor";
     private static final String STYLE_VARIANT_TAG = "StyleVariant";
+    private static final String SPONGE_ENABLED_TAG = "SpongeEnabled";
     private static final int FILTER_SLOT_COUNT = 27;
     private static final int CREATIVE_DISPLAY_ENERGY = Integer.MAX_VALUE / 2;
     private static final int CREATIVE_DISPLAY_FLUID = Integer.MAX_VALUE / 2;
@@ -128,10 +134,12 @@ public class DeepNullInventory extends ItemStackHandler {
     private StoneGeneratorVariant stoneGeneratorVariant = StoneGeneratorVariant.COBBLESTONE;
     private int storedEnergy;
     private boolean chargingEnabled;
-    private boolean transferLocked;
+    private TransferOutputMode transferOutputMode = defaultTransferOutputMode();
+    private TransferDirectionMode transferDirectionMode = TransferDirectionMode.OMNIDIRECTIONAL;
     private boolean autoPickupEnabled = DeepNullConfig.defaultAutoPickupEnabled();
     private boolean autoFeedingEnabled = DeepNullConfig.defaultAutoFeedingEnabled();
     private boolean autoSmeltingEnabled = DeepNullConfig.defaultAutoSmeltingEnabled();
+    private boolean spongeEnabled = true;
     private int stoneworksTargetStacks = DeepNullConfig.defaultStoneworksAmount();
     private final boolean[] stoneworksMonitoring = new boolean[StoneworksMaterial.values().length];
     private int stoneworksCursor;
@@ -180,6 +188,27 @@ public class DeepNullInventory extends ItemStackHandler {
 
     public static DeepNullInventory client(DeepNullTier tier) {
         return new DeepNullInventory(tier, ItemStack.EMPTY, () -> null, null);
+    }
+
+    private static TransferOutputMode defaultTransferOutputMode() {
+        return DeepNullConfig.defaultTransferLocked() ? TransferOutputMode.LOCKED : TransferOutputMode.ALL;
+    }
+
+    private static TransferOutputMode readTransferOutputMode(CompoundTag root) {
+        if (root.contains(TRANSFER_MODE_TAG, Tag.TAG_ANY_NUMERIC)) {
+            return TransferOutputMode.byId(root.getInt(TRANSFER_MODE_TAG));
+        }
+        if (root.contains(TRANSFER_LOCKED_TAG, Tag.TAG_BYTE) && root.getBoolean(TRANSFER_LOCKED_TAG)) {
+            return TransferOutputMode.LOCKED;
+        }
+        return defaultTransferOutputMode();
+    }
+
+    private static TransferDirectionMode readTransferDirectionMode(CompoundTag root) {
+        if (root.contains(TRANSFER_DIRECTION_TAG, Tag.TAG_ANY_NUMERIC)) {
+            return TransferDirectionMode.byId(root.getInt(TRANSFER_DIRECTION_TAG));
+        }
+        return TransferDirectionMode.OMNIDIRECTIONAL;
     }
 
     public static StyleRenderData readStyleRenderData(ItemStack stack, DeepNullTier tier, boolean fluidOnly) {
@@ -1069,7 +1098,8 @@ public class DeepNullInventory extends ItemStackHandler {
                 ? DeepNullContentMode.FLUIDS
                 : DeepNullContentMode.byId(configuration.getInt(CONTENT_MODE_TAG));
         chargingEnabled = configuration.getBoolean(CHARGING_TAG);
-        transferLocked = configuration.getBoolean(TRANSFER_LOCKED_TAG);
+        transferOutputMode = readTransferOutputMode(configuration);
+        transferDirectionMode = readTransferDirectionMode(configuration);
         autoPickupEnabled = configuration.contains(AUTO_PICKUP_TAG, Tag.TAG_BYTE)
                 ? configuration.getBoolean(AUTO_PICKUP_TAG)
                 : DeepNullConfig.defaultAutoPickupEnabled();
@@ -1080,6 +1110,9 @@ public class DeepNullInventory extends ItemStackHandler {
                 ? configuration.getBoolean(AUTO_SMELTING_TAG)
                 : DeepNullConfig.defaultAutoSmeltingEnabled();
         stoneGeneratorVariant = StoneGeneratorVariant.byId(configuration.getInt(STONE_GENERATOR_VARIANT_TAG));
+        spongeEnabled = configuration.contains(SPONGE_ENABLED_TAG, Tag.TAG_BYTE)
+                ? configuration.getBoolean(SPONGE_ENABLED_TAG)
+                : true;
         stoneworksTargetStacks = configuration.contains(STONEWORKS_AMOUNT_TAG, Tag.TAG_ANY_NUMERIC)
                 ? configuration.getInt(STONEWORKS_AMOUNT_TAG)
                 : DeepNullConfig.defaultStoneworksAmount();
@@ -1308,14 +1341,64 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public boolean isTransferLocked() {
-        return transferLocked;
+        return transferOutputMode.isLocked();
     }
 
     public void setTransferLocked(boolean transferLocked) {
-        if (this.transferLocked == transferLocked) {
+        setTransferOutputMode(transferLocked ? TransferOutputMode.LOCKED : TransferOutputMode.ALL);
+    }
+
+    public TransferOutputMode getTransferOutputMode() {
+        return transferOutputMode;
+    }
+
+    public boolean isTransferMatchingOnly() {
+        return transferOutputMode.matchingOnly();
+    }
+
+    public void setTransferOutputMode(TransferOutputMode transferOutputMode) {
+        TransferOutputMode next = transferOutputMode == null ? TransferOutputMode.ALL : transferOutputMode;
+        if (this.transferOutputMode == next) {
             return;
         }
-        this.transferLocked = transferLocked;
+        this.transferOutputMode = next;
+        save();
+    }
+
+    public TransferOutputMode cycleTransferOutputMode() {
+        TransferOutputMode next = transferOutputMode.cycle();
+        setTransferOutputMode(next);
+        return next;
+    }
+
+    public TransferDirectionMode getTransferDirectionMode() {
+        return transferDirectionMode;
+    }
+
+    public void setTransferDirectionMode(TransferDirectionMode transferDirectionMode) {
+        TransferDirectionMode next = transferDirectionMode == null ? TransferDirectionMode.OMNIDIRECTIONAL : transferDirectionMode;
+        if (this.transferDirectionMode == next) {
+            return;
+        }
+        this.transferDirectionMode = next;
+        save();
+    }
+
+    public TransferDirectionMode cycleTransferDirectionMode() {
+        TransferDirectionMode next = transferDirectionMode.cycle();
+        setTransferDirectionMode(next);
+        return next;
+    }
+
+    public boolean isSpongeEnabled() {
+        return hasSpongeUpgrade() && spongeEnabled;
+    }
+
+    public void setSpongeEnabled(boolean spongeEnabled) {
+        if (this.spongeEnabled == spongeEnabled) {
+            return;
+        }
+        this.spongeEnabled = spongeEnabled;
         save();
     }
 
@@ -1439,6 +1522,26 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public void setCustomExtractionMinimum(int slot, int amount) {
+        if (setCustomExtractionMinimumInternal(slot, amount)) {
+            save();
+        }
+    }
+
+    public boolean setCustomExtractionMinimumAllOccupied(int amount) {
+        boolean changed = false;
+        for (int slot = 0; slot < getSlots(); slot++) {
+            if (getStackInSlot(slot).isEmpty()) {
+                continue;
+            }
+            changed |= setCustomExtractionMinimumInternal(slot, amount);
+        }
+        if (changed) {
+            save();
+        }
+        return changed;
+    }
+
+    private boolean setCustomExtractionMinimumInternal(int slot, int amount) {
         validateSlotIndex(slot);
         int clamped = Math.max(0, Math.min(getSlotLimit(slot), amount));
         ItemExtractionMode nextMode = switch (clamped) {
@@ -1450,11 +1553,11 @@ public class DeepNullInventory extends ItemStackHandler {
         };
         int nextCustomAmount = nextMode == ItemExtractionMode.CUSTOM ? clamped : 0;
         if (extractionModes[slot] == nextMode && customExtractionAmounts[slot] == nextCustomAmount) {
-            return;
+            return false;
         }
         extractionModes[slot] = nextMode;
         customExtractionAmounts[slot] = nextCustomAmount;
-        save();
+        return true;
     }
 
     public void cycleExtractionMode(int slot, boolean forward) {
@@ -1727,6 +1830,102 @@ public class DeepNullInventory extends ItemStackHandler {
         }
 
         return matchedStoredSlot;
+    }
+
+    public boolean transferItemsToTarget(IItemHandler target) {
+        if (transferOutputMode.isLocked()) {
+            return false;
+        }
+        return transferOutputMode.matchingOnly()
+                ? moveItemsToMatchingTarget(target)
+                : moveItemsToAnyTarget(target);
+    }
+
+    public boolean transferItemsFromTargetMatching(IItemHandler target) {
+        boolean movedAny = false;
+        boolean progressed;
+        do {
+            progressed = false;
+            for (int targetSlot = 0; targetSlot < target.getSlots(); targetSlot++) {
+                ItemStack preview = target.extractItem(targetSlot, Integer.MAX_VALUE, true);
+                if (preview.isEmpty()) {
+                    continue;
+                }
+
+                ItemStack remainder = insertIntoExistingSlotsOnly(preview.copy(), true);
+                int accepted = preview.getCount() - remainder.getCount();
+                if (accepted <= 0) {
+                    continue;
+                }
+
+                ItemStack extracted = target.extractItem(targetSlot, accepted, false);
+                if (extracted.isEmpty()) {
+                    continue;
+                }
+
+                ItemStack leftover = insertIntoExistingSlotsOnly(extracted, false);
+                int moved = extracted.getCount() - leftover.getCount();
+                if (moved <= 0) {
+                    if (!leftover.isEmpty()) {
+                        reinsertIntoTarget(target, targetSlot, leftover);
+                    }
+                    continue;
+                }
+
+                if (!leftover.isEmpty()) {
+                    reinsertIntoTarget(target, targetSlot, leftover);
+                }
+                movedAny = true;
+                progressed = true;
+            }
+        } while (progressed);
+        return movedAny;
+    }
+
+    public boolean transferFluidsToTarget(IFluidHandler target) {
+        if (transferOutputMode.isLocked()) {
+            return false;
+        }
+        return transferOutputMode.matchingOnly()
+                ? moveFluidsToMatchingTarget(target)
+                : moveFluidsToAnyTarget(target);
+    }
+
+    public boolean transferFluidsFromTargetMatching(IFluidHandler target) {
+        boolean movedAny = false;
+        boolean progressed;
+        do {
+            progressed = false;
+            for (int tank = 0; tank < target.getTanks(); tank++) {
+                FluidStack available = target.getFluidInTank(tank);
+                if (available.isEmpty()) {
+                    continue;
+                }
+
+                int accepted = fillExistingFluidSlotsOnly(available.copy(), true);
+                if (accepted <= 0) {
+                    continue;
+                }
+
+                FluidStack drained = target.drain(available.copyWithAmount(accepted), IFluidHandler.FluidAction.EXECUTE);
+                if (drained.isEmpty()) {
+                    continue;
+                }
+
+                int inserted = fillExistingFluidSlotsOnly(drained, false);
+                if (inserted <= 0) {
+                    target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+                    continue;
+                }
+
+                if (inserted < drained.getAmount()) {
+                    target.fill(drained.copyWithAmount(drained.getAmount() - inserted), IFluidHandler.FluidAction.EXECUTE);
+                }
+                movedAny = true;
+                progressed = true;
+            }
+        } while (progressed);
+        return movedAny;
     }
 
     private ItemStack insertPreparedIntoFirstAvailableSlot(ItemStack stack, boolean simulate) {
@@ -2002,6 +2201,187 @@ public class DeepNullInventory extends ItemStackHandler {
         return result;
     }
 
+    private boolean moveItemsToAnyTarget(IItemHandler target) {
+        boolean movedAny = false;
+        boolean progressed;
+        do {
+            progressed = false;
+            for (int slot = 0; slot < getSlots(); slot++) {
+                ItemStack extractable = getExtractableStackInSlot(slot);
+                if (extractable.isEmpty()) {
+                    continue;
+                }
+
+                ItemStack remaining = extractable.copy();
+                for (int targetSlot = 0; targetSlot < target.getSlots() && !remaining.isEmpty(); targetSlot++) {
+                    remaining = target.insertItem(targetSlot, remaining, false);
+                }
+
+                int moved = extractable.getCount() - remaining.getCount();
+                if (moved <= 0) {
+                    continue;
+                }
+
+                extractItem(slot, moved, false);
+                movedAny = true;
+                progressed = true;
+            }
+        } while (progressed);
+        return movedAny;
+    }
+
+    private boolean moveItemsToMatchingTarget(IItemHandler target) {
+        boolean movedAny = false;
+        boolean progressed;
+        do {
+            progressed = false;
+            for (int slot = 0; slot < getSlots(); slot++) {
+                ItemStack extractable = getExtractableStackInSlot(slot);
+                if (extractable.isEmpty()) {
+                    continue;
+                }
+
+                if (!targetContainsMatchingItem(target, extractable)) {
+                    continue;
+                }
+
+                ItemStack remaining = extractable.copy();
+                for (int targetSlot = 0; targetSlot < target.getSlots() && !remaining.isEmpty(); targetSlot++) {
+                    ItemStack targetStack = target.getStackInSlot(targetSlot);
+                    if (!targetStack.isEmpty()
+                            && !ItemStack.isSameItemSameComponents(targetStack, extractable)
+                            && !ItemStack.isSameItem(targetStack, extractable)) {
+                        continue;
+                    }
+                    remaining = target.insertItem(targetSlot, remaining, false);
+                }
+
+                int moved = extractable.getCount() - remaining.getCount();
+                if (moved <= 0) {
+                    continue;
+                }
+
+                extractItem(slot, moved, false);
+                movedAny = true;
+                progressed = true;
+            }
+        } while (progressed);
+        return movedAny;
+    }
+
+    private boolean targetContainsMatchingItem(IItemHandler target, ItemStack candidate) {
+        for (int slot = 0; slot < target.getSlots(); slot++) {
+            ItemStack targetStack = target.getStackInSlot(slot);
+            if (targetStack.isEmpty()) {
+                continue;
+            }
+            if (ItemStack.isSameItemSameComponents(targetStack, candidate) || ItemStack.isSameItem(targetStack, candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean moveFluidsToAnyTarget(IFluidHandler target) {
+        boolean movedAny = false;
+        boolean progressed;
+        do {
+            progressed = false;
+            for (int slot = 0; slot < getFluidSlotCount(); slot++) {
+                FluidStack stored = getFluidInSlot(slot);
+                if (stored.isEmpty()) {
+                    continue;
+                }
+
+                int accepted = target.fill(stored.copy(), IFluidHandler.FluidAction.SIMULATE);
+                if (accepted <= 0) {
+                    continue;
+                }
+
+                FluidStack drained = drainFluid(slot, accepted, false);
+                if (drained.isEmpty()) {
+                    continue;
+                }
+
+                int filled = target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+                if (filled <= 0) {
+                    fillFluid(slot, drained, false);
+                    continue;
+                }
+
+                if (filled < drained.getAmount()) {
+                    fillFluid(slot, drained.copyWithAmount(drained.getAmount() - filled), false);
+                }
+                movedAny = true;
+                progressed = true;
+            }
+        } while (progressed);
+        return movedAny;
+    }
+
+    private boolean moveFluidsToMatchingTarget(IFluidHandler target) {
+        boolean movedAny = false;
+        boolean progressed;
+        do {
+            progressed = false;
+            for (int slot = 0; slot < getFluidSlotCount(); slot++) {
+                FluidStack stored = getFluidInSlot(slot);
+                if (stored.isEmpty()) {
+                    continue;
+                }
+
+                if (!targetContainsMatchingFluid(target, stored)) {
+                    continue;
+                }
+
+                int accepted = target.fill(stored.copy(), IFluidHandler.FluidAction.SIMULATE);
+                if (accepted <= 0) {
+                    continue;
+                }
+
+                FluidStack drained = drainFluid(slot, accepted, false);
+                if (drained.isEmpty()) {
+                    continue;
+                }
+
+                int filled = target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+                if (filled <= 0) {
+                    fillFluid(slot, drained, false);
+                    continue;
+                }
+
+                if (filled < drained.getAmount()) {
+                    fillFluid(slot, drained.copyWithAmount(drained.getAmount() - filled), false);
+                }
+                movedAny = true;
+                progressed = true;
+            }
+        } while (progressed);
+        return movedAny;
+    }
+
+    private boolean targetContainsMatchingFluid(IFluidHandler target, FluidStack candidate) {
+        for (int tank = 0; tank < target.getTanks(); tank++) {
+            FluidStack targetFluid = target.getFluidInTank(tank);
+            if (!targetFluid.isEmpty()
+                    && FluidStack.isSameFluidSameComponents(targetFluid, candidate)
+                    && target.isFluidValid(tank, candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void reinsertIntoTarget(IItemHandler target, int preferredSlot, ItemStack stack) {
+        ItemStack remaining = target.insertItem(preferredSlot, stack, false);
+        for (int slot = 0; slot < target.getSlots() && !remaining.isEmpty(); slot++) {
+            if (slot == preferredSlot) {
+                continue;
+            }
+            remaining = target.insertItem(slot, remaining, false);
+        }
+    }
+
     private ItemStack normalizeForInsert(int slot, ItemStack incomingStack) {
         ItemStack existing = getStackInSlot(slot);
         if (existing.isEmpty()) {
@@ -2046,7 +2426,8 @@ public class DeepNullInventory extends ItemStackHandler {
                 : DeepNullContentMode.byId(root.getInt(CONTENT_MODE_TAG));
         storedEnergy = Math.max(0, root.getInt(ENERGY_TAG));
         chargingEnabled = root.getBoolean(CHARGING_TAG);
-        transferLocked = root.getBoolean(TRANSFER_LOCKED_TAG);
+        transferOutputMode = readTransferOutputMode(root);
+        transferDirectionMode = readTransferDirectionMode(root);
         autoPickupEnabled = root.contains(AUTO_PICKUP_TAG, Tag.TAG_BYTE)
                 ? root.getBoolean(AUTO_PICKUP_TAG)
                 : DeepNullConfig.defaultAutoPickupEnabled();
@@ -2057,6 +2438,9 @@ public class DeepNullInventory extends ItemStackHandler {
                 ? root.getBoolean(AUTO_SMELTING_TAG)
                 : DeepNullConfig.defaultAutoSmeltingEnabled();
         stoneGeneratorVariant = StoneGeneratorVariant.byId(root.getInt(STONE_GENERATOR_VARIANT_TAG));
+        spongeEnabled = root.contains(SPONGE_ENABLED_TAG, Tag.TAG_BYTE)
+                ? root.getBoolean(SPONGE_ENABLED_TAG)
+                : true;
         stoneworksTargetStacks = root.contains(STONEWORKS_AMOUNT_TAG, Tag.TAG_ANY_NUMERIC)
                 ? root.getInt(STONEWORKS_AMOUNT_TAG)
                 : DeepNullConfig.defaultStoneworksAmount();
@@ -2230,10 +2614,22 @@ public class DeepNullInventory extends ItemStackHandler {
             root.remove(CHARGING_TAG);
         }
 
-        if (transferLocked) {
+        if (transferOutputMode != TransferOutputMode.ALL) {
+            root.putInt(TRANSFER_MODE_TAG, transferOutputMode.ordinal());
+        } else {
+            root.remove(TRANSFER_MODE_TAG);
+        }
+
+        if (transferOutputMode.isLocked()) {
             root.putBoolean(TRANSFER_LOCKED_TAG, true);
         } else {
             root.remove(TRANSFER_LOCKED_TAG);
+        }
+
+        if (transferDirectionMode != TransferDirectionMode.OMNIDIRECTIONAL) {
+            root.putInt(TRANSFER_DIRECTION_TAG, transferDirectionMode.ordinal());
+        } else {
+            root.remove(TRANSFER_DIRECTION_TAG);
         }
 
         root.putBoolean(AUTO_PICKUP_TAG, autoPickupEnabled);
@@ -2244,6 +2640,12 @@ public class DeepNullInventory extends ItemStackHandler {
             root.putInt(STONE_GENERATOR_VARIANT_TAG, stoneGeneratorVariant.ordinal());
         } else {
             root.remove(STONE_GENERATOR_VARIANT_TAG);
+        }
+
+        if (!spongeEnabled) {
+            root.putBoolean(SPONGE_ENABLED_TAG, false);
+        } else {
+            root.remove(SPONGE_ENABLED_TAG);
         }
 
         if (stoneworksTargetStacks != DeepNullConfig.defaultStoneworksAmount()) {
@@ -2869,26 +3271,7 @@ public class DeepNullInventory extends ItemStackHandler {
         if (!isStoneworksOutputAvailable(material, output, hasWaterSupport)) {
             return 0;
         }
-
-        int required = isStoneworksMonitoring(material) ? stoneworksTargetStacks : 0;
-        return switch (material) {
-            case DIRT -> required
-                    + requiredStoneworksOperations(StoneworksMaterial.CLAY, hasWaterSupport)
-                    + requiredStoneworksOperations(StoneworksMaterial.GRAVEL, hasWaterSupport);
-            case GRAVEL -> required
-                    + requiredStoneworksOperations(StoneworksMaterial.SAND, hasWaterSupport);
-            case SAND -> required
-                    + requiredStoneworksOperations(StoneworksMaterial.DUST, hasWaterSupport)
-                    + requiredStoneworksOperations(StoneworksMaterial.GLASS, hasWaterSupport);
-            case DUST, CLAY, GLASS -> required;
-        };
-    }
-
-    private int requiredStoneworksOperations(StoneworksMaterial material, boolean hasWaterSupport) {
-        if (!isStoneworksMonitoring(material)) {
-            return 0;
-        }
-        return requiredStoneworksItems(material, hasWaterSupport);
+        return isStoneworksMonitoring(material) ? stoneworksTargetStacks : 0;
     }
 
     private int countStoredLike(ItemStack sample) {
@@ -2962,6 +3345,12 @@ public class DeepNullInventory extends ItemStackHandler {
                 return filterStack.copyWithCount(1);
             }
         }
+        for (var item : BuiltInRegistries.ITEM) {
+            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+            if (isStoneworksDustCandidate(itemId, item)) {
+                return new ItemStack(item);
+            }
+        }
         return ItemStack.EMPTY;
     }
 
@@ -2971,20 +3360,11 @@ public class DeepNullInventory extends ItemStackHandler {
         }
 
         ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        String path = itemId.getPath().toLowerCase(Locale.ROOT);
-        if (path.equals("dust") || path.endsWith("_dust") || path.startsWith("dust_")) {
-            return true;
-        }
+        return isStoneworksDustCandidate(itemId, stack.getItem());
+    }
 
-        return stack.getTags()
-                .map(TagKey::location)
-                .map(ResourceLocation::getPath)
-                .map(tagPath -> tagPath.toLowerCase(Locale.ROOT))
-                .anyMatch(tagPath -> tagPath.equals("dusts")
-                        || tagPath.startsWith("dusts/")
-                        || tagPath.contains("/dusts/")
-                        || tagPath.equals("dust")
-                        || tagPath.startsWith("dust/"));
+    static boolean isStoneworksDustCandidate(ResourceLocation itemId, Item item) {
+        return item instanceof BlockItem && itemId != null && itemId.getPath().equalsIgnoreCase("dust");
     }
 
     private ItemStack smeltResult(ItemStack stack) {

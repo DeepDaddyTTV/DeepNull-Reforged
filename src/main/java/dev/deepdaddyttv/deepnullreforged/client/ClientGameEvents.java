@@ -4,6 +4,8 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.block.DeepNullDockBlock;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullHudState;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
@@ -80,6 +82,22 @@ public final class ClientGameEvents {
             }
         }
 
+        if (ClientModEvents.TOGGLE_TRANSFER_DIRECTION.consumeClick()) {
+            if (handleTransferDirectionHotkey(minecraft, player)) {
+                return;
+            }
+        }
+
+        if (ClientModEvents.TOGGLE_SPONGE.consumeClick()) {
+            if (handleSpongeHotkey(minecraft, player)) {
+                return;
+            }
+        }
+
+        if (minecraft.screen instanceof AbstractContainerScreen<?> containerScreen) {
+            ClientDeepNullJeiSession.captureCraftContents(containerScreen.getMenu());
+        }
+
         if (minecraft.screen != null) {
             return;
         }
@@ -106,13 +124,13 @@ public final class ClientGameEvents {
         }
 
         if (ClientModEvents.NEXT_ITEM.consumeClick()) {
-            held.inventory().cycleSelected(true);
-            PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), held.inventory().getSelectedSlot()));
+            int selectedSlot = ClientInteractionLogic.cycleSelected(held.inventory(), true);
+            PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), selectedSlot));
         }
 
         if (ClientModEvents.PREVIOUS_ITEM.consumeClick()) {
-            held.inventory().cycleSelected(false);
-            PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), held.inventory().getSelectedSlot()));
+            int selectedSlot = ClientInteractionLogic.cycleSelected(held.inventory(), false);
+            PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), selectedSlot));
         }
     }
 
@@ -131,8 +149,8 @@ public final class ClientGameEvents {
             return false;
         }
 
-        held.inventory().cycleSelected(scrollDeltaY < 0.0D);
-        PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), held.inventory().getSelectedSlot()));
+        int selectedSlot = ClientInteractionLogic.cycleSelected(held.inventory(), scrollDeltaY < 0.0D);
+        PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), selectedSlot));
         return true;
     }
 
@@ -147,7 +165,7 @@ public final class ClientGameEvents {
             return pickedStack;
         }
 
-        int slot = held.inventory().findMatchingSlot(pickedStack);
+        int slot = ClientInteractionLogic.pickBlockSlot(held.inventory(), pickedStack);
         if (slot < 0) {
             return pickedStack;
         }
@@ -166,19 +184,22 @@ public final class ClientGameEvents {
             return;
         }
 
-        PacketDistributor.sendToServer(new DeepNullPayloads.CraftingReturnPayload(containerScreen.getMenu().containerId));
+        PacketDistributor.sendToServer(new DeepNullPayloads.CraftingReturnPayload(
+                containerScreen.getMenu().containerId,
+                ClientDeepNullJeiSession.craftingReturnContents(containerScreen.getMenu())
+        ));
         ClientDeepNullJeiSession.clear();
     }
 
     private static boolean handleTransferLockHotkey(Minecraft minecraft, Player player) {
         if (minecraft.screen instanceof DeepNullScreen screen) {
-            boolean next = screen.toggleTransferLock();
-            player.displayClientMessage(transferLockMessage(next), true);
+            TransferOutputMode next = screen.toggleTransferOutputMode();
+            player.displayClientMessage(ClientUiText.transferOutputModeMessage(false, next), true);
             return true;
         }
         if (minecraft.screen instanceof DeepNullFluidScreen screen) {
-            boolean next = screen.toggleTransferLock();
-            player.displayClientMessage(transferLockMessage(next), true);
+            TransferOutputMode next = screen.toggleTransferOutputMode();
+            player.displayClientMessage(ClientUiText.transferOutputModeMessage(true, next), true);
             return true;
         }
         if (minecraft.screen != null) {
@@ -190,11 +211,78 @@ public final class ClientGameEvents {
             return false;
         }
 
-        boolean next = !held.inventory().isTransferLocked();
-        held.inventory().setTransferLocked(next);
-        PacketDistributor.sendToServer(new DeepNullPayloads.HeldTransferLockPayload(held.inventorySlot(), next));
-        player.displayClientMessage(transferLockMessage(next), true);
+        TransferOutputMode next = held.inventory().cycleTransferOutputMode();
+        PacketDistributor.sendToServer(new DeepNullPayloads.HeldTransferModePayload(held.inventorySlot(), next.ordinal()));
+        player.displayClientMessage(ClientUiText.transferOutputModeMessage(held.inventory().isFluidOnly(), next), true);
         return true;
+    }
+
+    private static boolean handleTransferDirectionHotkey(Minecraft minecraft, Player player) {
+        if (minecraft.screen instanceof DeepNullScreen screen) {
+            TransferDirectionMode next = screen.toggleTransferDirectionMode();
+            player.displayClientMessage(ClientUiText.transferDirectionModeMessage(false, next), true);
+            return true;
+        }
+        if (minecraft.screen instanceof DeepNullFluidScreen screen) {
+            TransferDirectionMode next = screen.toggleTransferDirectionMode();
+            player.displayClientMessage(ClientUiText.transferDirectionModeMessage(true, next), true);
+            return true;
+        }
+        if (minecraft.screen != null) {
+            return false;
+        }
+
+        ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
+        if (held == null) {
+            return false;
+        }
+
+        TransferDirectionMode next = held.inventory().cycleTransferDirectionMode();
+        PacketDistributor.sendToServer(new DeepNullPayloads.HeldTransferDirectionPayload(held.inventorySlot(), next.ordinal()));
+        player.displayClientMessage(ClientUiText.transferDirectionModeMessage(held.inventory().isFluidOnly(), next), true);
+        return true;
+    }
+
+    private static boolean handleSpongeHotkey(Minecraft minecraft, Player player) {
+        if (minecraft.screen != null && !(minecraft.screen instanceof DeepNullFluidScreen)) {
+            return false;
+        }
+
+        ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
+        if (held == null || !held.inventory().isFluidOnly() || !held.inventory().hasSpongeUpgrade()) {
+            return false;
+        }
+
+        boolean next = !held.inventory().isSpongeEnabled();
+        held.inventory().setSpongeEnabled(next);
+        PacketDistributor.sendToServer(new DeepNullPayloads.HeldSpongeTogglePayload(held.inventorySlot(), next));
+        player.displayClientMessage(Component.translatable(next ? "dn.sponge_enabled.desc" : "dn.sponge_disabled.desc"), true);
+        return true;
+    }
+
+    public static boolean handleInvertedDampNullUse() {
+        Minecraft minecraft = Minecraft.getInstance();
+        Player player = minecraft.player;
+        if (!DeepNullConfig.isDampNullInteractionInverted() || player == null || minecraft.screen != null) {
+            return false;
+        }
+
+        ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
+        if (held == null || !held.inventory().isFluidOnly()) {
+            return false;
+        }
+
+        boolean targetingBlock = minecraft.hitResult != null && minecraft.hitResult.getType() == HitResult.Type.BLOCK;
+        if (targetingBlock && minecraft.level != null && minecraft.hitResult instanceof BlockHitResult blockHitResult
+                && minecraft.level.getBlockState(blockHitResult.getBlockPos()).getBlock() instanceof DeepNullDockBlock) {
+            return false;
+        }
+        if (!player.isShiftKeyDown()) {
+            PacketDistributor.sendToServer(new DeepNullPayloads.OpenItemMenuPayload(held.inventorySlot()));
+            return true;
+        }
+
+        return !targetingBlock;
     }
 
     private static void handleAutoPickupHotkey(Player player, ClientDeepNullAccess.HeldDeepNull held) {
@@ -242,10 +330,6 @@ public final class ClientGameEvents {
                 || screen instanceof DeepNullFluidScreen
                 || screen instanceof DeepNullUpgradeScreen
                 || screen instanceof DeepNullFilterScreen;
-    }
-
-    private static Component transferLockMessage(boolean locked) {
-        return Component.translatable(locked ? "dn.transfer_locked.desc" : "dn.transfer_unlocked.desc");
     }
 
     private static Component hudMessage(boolean enabled) {

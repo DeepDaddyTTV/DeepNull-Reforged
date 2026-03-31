@@ -5,7 +5,10 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransferSupport;
+import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSession;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenuOpener;
@@ -73,10 +76,16 @@ public final class DeepNullPayloads {
                         handleMenuCharging(payload, player);
                     }
                 }));
-        registrar.playToServer(MenuTransferLockPayload.TYPE, MenuTransferLockPayload.STREAM_CODEC, (payload, context) ->
+        registrar.playToServer(MenuTransferModePayload.TYPE, MenuTransferModePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        handleMenuTransferLock(payload, player);
+                        handleMenuTransferMode(payload, player);
+                    }
+                }));
+        registrar.playToServer(MenuTransferDirectionPayload.TYPE, MenuTransferDirectionPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuTransferDirection(payload, player);
                     }
                 }));
         registrar.playToServer(MenuFilterModePayload.TYPE, MenuFilterModePayload.STREAM_CODEC, (payload, context) ->
@@ -115,10 +124,22 @@ public final class DeepNullPayloads {
                         handleMenuStoneworksToggle(payload, player);
                     }
                 }));
-        registrar.playToServer(HeldTransferLockPayload.TYPE, HeldTransferLockPayload.STREAM_CODEC, (payload, context) ->
+        registrar.playToServer(HeldTransferModePayload.TYPE, HeldTransferModePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        handleHeldTransferLock(payload, player);
+                        handleHeldTransferMode(payload, player);
+                    }
+                }));
+        registrar.playToServer(HeldTransferDirectionPayload.TYPE, HeldTransferDirectionPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleHeldTransferDirection(payload, player);
+                    }
+                }));
+        registrar.playToServer(HeldSpongeTogglePayload.TYPE, HeldSpongeTogglePayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleHeldSpongeToggle(payload, player);
                     }
                 }));
         registrar.playToServer(HeldAutoPickupPayload.TYPE, HeldAutoPickupPayload.STREAM_CODEC, (payload, context) ->
@@ -251,8 +272,14 @@ public final class DeepNullPayloads {
         }
     }
 
-    private static void handleMenuTransferLock(MenuTransferLockPayload payload, ServerPlayer player) {
-        if (player.containerMenu instanceof DeepNullMenu menu && menu.setTransferLocked(payload.transferLocked())) {
+    private static void handleMenuTransferMode(MenuTransferModePayload payload, ServerPlayer player) {
+        if (player.containerMenu instanceof DeepNullMenu menu && menu.setTransferOutputMode(TransferOutputMode.byId(payload.modeId()))) {
+            menu.broadcastChanges();
+        }
+    }
+
+    private static void handleMenuTransferDirection(MenuTransferDirectionPayload payload, ServerPlayer player) {
+        if (player.containerMenu instanceof DeepNullMenu menu && menu.setTransferDirectionMode(TransferDirectionMode.byId(payload.modeId()))) {
             menu.broadcastChanges();
         }
     }
@@ -319,7 +346,7 @@ public final class DeepNullPayloads {
             return;
         }
 
-        if (menu.setCustomExtractionMinimum(payload.slot(), payload.amount())) {
+        if (menu.setCustomExtractionMinimum(payload.slot(), payload.amount(), payload.applyAll())) {
             menu.broadcastChanges();
         }
     }
@@ -334,8 +361,16 @@ public final class DeepNullPayloads {
         }
     }
 
-    private static void handleHeldTransferLock(HeldTransferLockPayload payload, ServerPlayer player) {
-        withHeldInventory(player, payload.inventorySlot(), inventory -> inventory.setTransferLocked(payload.transferLocked()));
+    private static void handleHeldTransferMode(HeldTransferModePayload payload, ServerPlayer player) {
+        withHeldInventory(player, payload.inventorySlot(), inventory -> inventory.setTransferOutputMode(TransferOutputMode.byId(payload.modeId())));
+    }
+
+    private static void handleHeldTransferDirection(HeldTransferDirectionPayload payload, ServerPlayer player) {
+        withHeldInventory(player, payload.inventorySlot(), inventory -> inventory.setTransferDirectionMode(TransferDirectionMode.byId(payload.modeId())));
+    }
+
+    private static void handleHeldSpongeToggle(HeldSpongeTogglePayload payload, ServerPlayer player) {
+        withHeldInventory(player, payload.inventorySlot(), inventory -> inventory.setSpongeEnabled(payload.enabled()));
     }
 
     private static void handleHeldAutoPickup(HeldAutoPickupPayload payload, ServerPlayer player) {
@@ -381,10 +416,18 @@ public final class DeepNullPayloads {
     }
 
     private static void handleCraftingReturn(CraftingReturnPayload payload, ServerPlayer player) {
-        if (player.containerMenu.containerId != payload.containerId()) {
+        if (!ServerDeepNullJeiSession.shouldReturn(player, payload.containerId())) {
             return;
         }
-        DeepNullCraftingTransferSupport.returnCurrentCraftingContents(player.containerMenu, player);
+
+        boolean returnedFromGrid = false;
+        if (player.containerMenu.containerId == payload.containerId()) {
+            returnedFromGrid = DeepNullCraftingTransferSupport.returnCurrentCraftingContents(player.containerMenu, player);
+        }
+        if (!returnedFromGrid && !payload.craftContents().isEmpty()) {
+            DeepNullCraftingTransferSupport.returnCraftingSnapshotContents(player, payload.containerId(), payload.craftContents());
+        }
+        ServerDeepNullJeiSession.clear(player);
     }
 
     public record OpenItemMenuPayload(int inventorySlot) implements CustomPacketPayload {
@@ -465,10 +508,21 @@ public final class DeepNullPayloads {
         }
     }
 
-    public record MenuTransferLockPayload(boolean transferLocked) implements CustomPacketPayload {
-        public static final Type<MenuTransferLockPayload> TYPE = payloadType("menu_transfer_lock");
-        public static final StreamCodec<RegistryFriendlyByteBuf, MenuTransferLockPayload> STREAM_CODEC =
-                StreamCodec.composite(ByteBufCodecs.BOOL, MenuTransferLockPayload::transferLocked, MenuTransferLockPayload::new);
+    public record MenuTransferModePayload(int modeId) implements CustomPacketPayload {
+        public static final Type<MenuTransferModePayload> TYPE = payloadType("menu_transfer_mode");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuTransferModePayload> STREAM_CODEC =
+                StreamCodec.composite(ByteBufCodecs.VAR_INT, MenuTransferModePayload::modeId, MenuTransferModePayload::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record MenuTransferDirectionPayload(int modeId) implements CustomPacketPayload {
+        public static final Type<MenuTransferDirectionPayload> TYPE = payloadType("menu_transfer_direction");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuTransferDirectionPayload> STREAM_CODEC =
+                StreamCodec.composite(ByteBufCodecs.VAR_INT, MenuTransferDirectionPayload::modeId, MenuTransferDirectionPayload::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
@@ -543,7 +597,7 @@ public final class DeepNullPayloads {
         }
     }
 
-    public record MenuCustomExtractionPayload(int slot, int amount) implements CustomPacketPayload {
+    public record MenuCustomExtractionPayload(int slot, int amount, boolean applyAll) implements CustomPacketPayload {
         public static final Type<MenuCustomExtractionPayload> TYPE = payloadType("menu_custom_extraction");
         public static final StreamCodec<RegistryFriendlyByteBuf, MenuCustomExtractionPayload> STREAM_CODEC =
                 StreamCodec.composite(
@@ -551,6 +605,8 @@ public final class DeepNullPayloads {
                         MenuCustomExtractionPayload::slot,
                         ByteBufCodecs.VAR_INT,
                         MenuCustomExtractionPayload::amount,
+                        ByteBufCodecs.BOOL,
+                        MenuCustomExtractionPayload::applyAll,
                         MenuCustomExtractionPayload::new
                 );
 
@@ -571,15 +627,49 @@ public final class DeepNullPayloads {
         }
     }
 
-    public record HeldTransferLockPayload(int inventorySlot, boolean transferLocked) implements CustomPacketPayload {
-        public static final Type<HeldTransferLockPayload> TYPE = payloadType("held_transfer_lock");
-        public static final StreamCodec<RegistryFriendlyByteBuf, HeldTransferLockPayload> STREAM_CODEC =
+    public record HeldTransferModePayload(int inventorySlot, int modeId) implements CustomPacketPayload {
+        public static final Type<HeldTransferModePayload> TYPE = payloadType("held_transfer_mode");
+        public static final StreamCodec<RegistryFriendlyByteBuf, HeldTransferModePayload> STREAM_CODEC =
                 StreamCodec.composite(
                         ByteBufCodecs.VAR_INT,
-                        HeldTransferLockPayload::inventorySlot,
+                        HeldTransferModePayload::inventorySlot,
+                        ByteBufCodecs.VAR_INT,
+                        HeldTransferModePayload::modeId,
+                        HeldTransferModePayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record HeldTransferDirectionPayload(int inventorySlot, int modeId) implements CustomPacketPayload {
+        public static final Type<HeldTransferDirectionPayload> TYPE = payloadType("held_transfer_direction");
+        public static final StreamCodec<RegistryFriendlyByteBuf, HeldTransferDirectionPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        HeldTransferDirectionPayload::inventorySlot,
+                        ByteBufCodecs.VAR_INT,
+                        HeldTransferDirectionPayload::modeId,
+                        HeldTransferDirectionPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record HeldSpongeTogglePayload(int inventorySlot, boolean enabled) implements CustomPacketPayload {
+        public static final Type<HeldSpongeTogglePayload> TYPE = payloadType("held_sponge_toggle");
+        public static final StreamCodec<RegistryFriendlyByteBuf, HeldSpongeTogglePayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        HeldSpongeTogglePayload::inventorySlot,
                         ByteBufCodecs.BOOL,
-                        HeldTransferLockPayload::transferLocked,
-                        HeldTransferLockPayload::new
+                        HeldSpongeTogglePayload::enabled,
+                        HeldSpongeTogglePayload::new
                 );
 
         @Override
@@ -673,10 +763,16 @@ public final class DeepNullPayloads {
         }
     }
 
-    public record CraftingReturnPayload(int containerId) implements CustomPacketPayload {
+    public record CraftingReturnPayload(int containerId, java.util.List<ItemStack> craftContents) implements CustomPacketPayload {
         public static final Type<CraftingReturnPayload> TYPE = payloadType("crafting_return");
         public static final StreamCodec<RegistryFriendlyByteBuf, CraftingReturnPayload> STREAM_CODEC =
-                StreamCodec.composite(ByteBufCodecs.VAR_INT, CraftingReturnPayload::containerId, CraftingReturnPayload::new);
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        CraftingReturnPayload::containerId,
+                        ItemStack.OPTIONAL_LIST_STREAM_CODEC,
+                        CraftingReturnPayload::craftContents,
+                        CraftingReturnPayload::new
+                );
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

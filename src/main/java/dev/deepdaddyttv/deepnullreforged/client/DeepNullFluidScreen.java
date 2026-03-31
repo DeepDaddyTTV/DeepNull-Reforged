@@ -125,6 +125,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             renderStoneGeneratorPanel(guiGraphics);
         }
         renderTooltip(guiGraphics, mouseX, mouseY);
+        renderOutputModeButtonTooltip(guiGraphics, mouseX, mouseY);
         renderTankTooltip(guiGraphics, mouseX, mouseY);
     }
 
@@ -141,9 +142,8 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             return true;
         }
         if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
-            boolean next = !menu.getDankInventory().isTransferLocked();
-            menu.getDankInventory().setTransferLocked(next);
-            PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferLockPayload(next));
+            menu.getDankInventory().cycleTransferOutputMode();
+            PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferModePayload(menu.getDankInventory().getTransferOutputMode().ordinal()));
             return true;
         }
         if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
@@ -306,6 +306,13 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 mouseX,
                 mouseY
         );
+    }
+
+    private void renderOutputModeButtonTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        if (!isWithin(mouseX, mouseY, infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            return;
+        }
+        guiGraphics.renderTooltip(font, transferLockLabel(), mouseX, mouseY);
     }
 
     private void renderSideButtons(GuiGraphics guiGraphics) {
@@ -596,13 +603,20 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private Component transferLockLabel() {
-        return Component.translatable(menu.getDankInventory().isTransferLocked() ? "dn.transfer_locked.desc" : "dn.transfer_unlocked.desc");
+        return Component.translatable("dn.fluid_output_mode.desc")
+                .append(": ")
+                .append(Component.translatable(menu.getDankInventory().getTransferOutputMode().translationKey()));
     }
 
-    public boolean toggleTransferLock() {
-        boolean next = !menu.getDankInventory().isTransferLocked();
-        menu.getDankInventory().setTransferLocked(next);
-        PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferLockPayload(next));
+    public dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode toggleTransferOutputMode() {
+        var next = menu.getDankInventory().cycleTransferOutputMode();
+        PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferModePayload(next.ordinal()));
+        return next;
+    }
+
+    public dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode toggleTransferDirectionMode() {
+        var next = menu.getDankInventory().cycleTransferDirectionMode();
+        PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferDirectionPayload(next.ordinal()));
         return next;
     }
 

@@ -82,7 +82,7 @@ public final class DeepNullHudRenderer {
         guiGraphics.fill(x, y, x + PANEL_WIDTH, y + panelHeight, bodyColor);
         guiGraphics.renderOutline(x, y, PANEL_WIDTH, panelHeight, outlineColor);
         guiGraphics.fill(x + 1, y + 1, x + PANEL_WIDTH - 1, y + HEADER_HEIGHT - 1, headerColor);
-        guiGraphics.drawString(font, Component.literal("DeepNull"), x + PADDING, y + 4, 0xFFFFFFFF, false);
+        guiGraphics.drawString(font, held.stack().getHoverName(), x + PADDING, y + 4, 0xFFFFFFFF, false);
 
         if (!fluidMode) {
             guiGraphics.renderItem(selectedStack.copyWithCount(1), x + PADDING, y + HEADER_HEIGHT + PADDING);

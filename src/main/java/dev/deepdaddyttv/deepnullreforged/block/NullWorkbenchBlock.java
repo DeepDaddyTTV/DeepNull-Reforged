@@ -28,8 +28,8 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -58,7 +58,7 @@ public class NullWorkbenchBlock extends BaseEntityBlock {
     private static final Map<Direction, VoxelShape> EXTENSION_SHAPES = createShapes(EXTENSION_NORTH_SHAPE);
 
     public NullWorkbenchBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(5.0F, 6.0F).noOcclusion());
+        this(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).requiresCorrectToolForDrops().strength(5.0F, 6.0F).noOcclusion());
     }
 
     private NullWorkbenchBlock(BlockBehaviour.Properties properties) {

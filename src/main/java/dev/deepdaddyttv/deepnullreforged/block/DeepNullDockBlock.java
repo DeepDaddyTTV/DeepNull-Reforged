@@ -34,7 +34,7 @@ public class DeepNullDockBlock extends BaseEntityBlock {
     private static final VoxelShape FULL_SUPPORT_SHAPE = Shapes.block();
 
     public DeepNullDockBlock() {
-        this(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0F, 6.0F).noOcclusion());
+        this(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).requiresCorrectToolForDrops().strength(5.0F, 6.0F).noOcclusion());
     }
 
     private DeepNullDockBlock(BlockBehaviour.Properties properties) {

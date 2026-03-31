@@ -701,9 +701,6 @@ public class DeepNullItem extends Item {
     }
 
     private static InteractionResult tryShiftTransfer(UseOnContext context, DeepNullInventory inventory) {
-        if (inventory.isTransferLocked()) {
-            return InteractionResult.PASS;
-        }
         return inventory.isFluidOnly()
                 ? tryShiftFluidTransfer(context, inventory)
                 : tryShiftItemTransfer(context, inventory);
@@ -726,9 +723,12 @@ public class DeepNullItem extends Item {
             return InteractionResult.sidedSuccess(true);
         }
 
-        boolean moved = moveItemsToTarget(inventory, target);
-        if (!moved) {
-            moved = moveItemsFromTarget(inventory, target);
+        boolean moved = false;
+        if (inventory.getTransferDirectionMode().allowsInsert()) {
+            moved = inventory.transferItemsToTarget(target);
+        }
+        if (!moved && inventory.getTransferDirectionMode().allowsExtract()) {
+            moved = inventory.transferItemsFromTargetMatching(target);
         }
         return moved ? InteractionResult.sidedSuccess(false) : InteractionResult.FAIL;
     }
@@ -760,9 +760,12 @@ public class DeepNullItem extends Item {
             return InteractionResult.sidedSuccess(true);
         }
 
-        boolean moved = moveFluidsToTarget(inventory, target);
-        if (!moved) {
-            moved = moveFluidsFromTarget(inventory, target);
+        boolean moved = false;
+        if (inventory.getTransferDirectionMode().allowsInsert()) {
+            moved = inventory.transferFluidsToTarget(target);
+        }
+        if (!moved && inventory.getTransferDirectionMode().allowsExtract()) {
+            moved = inventory.transferFluidsFromTargetMatching(target);
         }
         return moved ? InteractionResult.sidedSuccess(false) : InteractionResult.FAIL;
     }
@@ -787,160 +790,6 @@ public class DeepNullItem extends Item {
             target = FluidUtil.getFluidHandler(context.getLevel(), context.getClickedPos(), null).orElse(null);
         }
         return target;
-    }
-
-    private static boolean moveItemsToTarget(DeepNullInventory inventory, IItemHandler target) {
-        boolean movedAny = false;
-        boolean progressed;
-        do {
-            progressed = false;
-            for (int slot = 0; slot < inventory.getSlots(); slot++) {
-                ItemStack extractable = inventory.getExtractableStackInSlot(slot);
-                if (extractable.isEmpty()) {
-                    continue;
-                }
-
-                ItemStack remaining = extractable.copy();
-                for (int targetSlot = 0; targetSlot < target.getSlots() && !remaining.isEmpty(); targetSlot++) {
-                    remaining = target.insertItem(targetSlot, remaining, false);
-                }
-
-                int moved = extractable.getCount() - remaining.getCount();
-                if (moved <= 0) {
-                    continue;
-                }
-
-                inventory.extractItem(slot, moved, false);
-                movedAny = true;
-                progressed = true;
-            }
-        } while (progressed);
-        return movedAny;
-    }
-
-    private static boolean moveItemsFromTarget(DeepNullInventory inventory, IItemHandler target) {
-        boolean movedAny = false;
-        boolean progressed;
-        do {
-            progressed = false;
-            for (int targetSlot = 0; targetSlot < target.getSlots(); targetSlot++) {
-                ItemStack preview = target.extractItem(targetSlot, Integer.MAX_VALUE, true);
-                if (preview.isEmpty()) {
-                    continue;
-                }
-
-                ItemStack remainder = inventory.insertIntoExistingSlotsOnly(preview.copy(), true);
-                int accepted = preview.getCount() - remainder.getCount();
-                if (accepted <= 0) {
-                    continue;
-                }
-
-                ItemStack extracted = target.extractItem(targetSlot, accepted, false);
-                if (extracted.isEmpty()) {
-                    continue;
-                }
-
-                ItemStack leftover = inventory.insertIntoExistingSlotsOnly(extracted, false);
-                int moved = extracted.getCount() - leftover.getCount();
-                if (moved <= 0) {
-                    if (!leftover.isEmpty()) {
-                        reinsertIntoTarget(target, targetSlot, leftover);
-                    }
-                    continue;
-                }
-
-                if (!leftover.isEmpty()) {
-                    reinsertIntoTarget(target, targetSlot, leftover);
-                }
-                movedAny = true;
-                progressed = true;
-            }
-        } while (progressed);
-        return movedAny;
-    }
-
-    private static void reinsertIntoTarget(IItemHandler target, int preferredSlot, ItemStack stack) {
-        ItemStack remaining = target.insertItem(preferredSlot, stack, false);
-        for (int slot = 0; slot < target.getSlots() && !remaining.isEmpty(); slot++) {
-            if (slot == preferredSlot) {
-                continue;
-            }
-            remaining = target.insertItem(slot, remaining, false);
-        }
-    }
-
-    private static boolean moveFluidsToTarget(DeepNullInventory inventory, IFluidHandler target) {
-        boolean movedAny = false;
-        boolean progressed;
-        do {
-            progressed = false;
-            for (int slot = 0; slot < inventory.getFluidSlotCount(); slot++) {
-                FluidStack stored = inventory.getFluidInSlot(slot);
-                if (stored.isEmpty()) {
-                    continue;
-                }
-
-                int accepted = target.fill(stored.copy(), IFluidHandler.FluidAction.SIMULATE);
-                if (accepted <= 0) {
-                    continue;
-                }
-
-                FluidStack drained = inventory.drainFluid(slot, accepted, false);
-                if (drained.isEmpty()) {
-                    continue;
-                }
-
-                int filled = target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
-                if (filled <= 0) {
-                    inventory.fillFluid(slot, drained, false);
-                    continue;
-                }
-
-                if (filled < drained.getAmount()) {
-                    inventory.fillFluid(slot, drained.copyWithAmount(drained.getAmount() - filled), false);
-                }
-                movedAny = true;
-                progressed = true;
-            }
-        } while (progressed);
-        return movedAny;
-    }
-
-    private static boolean moveFluidsFromTarget(DeepNullInventory inventory, IFluidHandler target) {
-        boolean movedAny = false;
-        boolean progressed;
-        do {
-            progressed = false;
-            for (int tank = 0; tank < target.getTanks(); tank++) {
-                FluidStack available = target.getFluidInTank(tank);
-                if (available.isEmpty()) {
-                    continue;
-                }
-
-                int accepted = inventory.fillExistingFluidSlotsOnly(available.copy(), true);
-                if (accepted <= 0) {
-                    continue;
-                }
-
-                FluidStack drained = target.drain(available.copyWithAmount(accepted), IFluidHandler.FluidAction.EXECUTE);
-                if (drained.isEmpty()) {
-                    continue;
-                }
-
-                int inserted = inventory.fillExistingFluidSlotsOnly(drained, false);
-                if (inserted <= 0) {
-                    target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
-                    continue;
-                }
-
-                if (inserted < drained.getAmount()) {
-                    target.fill(drained.copyWithAmount(drained.getAmount() - inserted), IFluidHandler.FluidAction.EXECUTE);
-                }
-                movedAny = true;
-                progressed = true;
-            }
-        } while (progressed);
-        return movedAny;
     }
 
     private static InteractionResult tryUseStoredFluid(UseOnContext context, DeepNullInventory inventory) {
@@ -1025,7 +874,7 @@ public class DeepNullItem extends Item {
             DeepNullInventory inventory,
             BlockPos anchorPos
     ) {
-        if (player == null || anchorPos == null || !inventory.hasSpongeUpgrade()) {
+        if (player == null || anchorPos == null || !inventory.isSpongeEnabled()) {
             return null;
         }
 
