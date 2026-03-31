@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="deepnull_media_logo_just_text.png" alt="DeepNull Reforged" width="720">
+  <img src="./deepnull_media_logo_just_text.png" alt="DeepNull Reforged" width="960">
 </p>
 
 A modern Fabric port and expansion of `/dank/null` by p455w0rd, rebuilt for Minecraft `26.1`.
