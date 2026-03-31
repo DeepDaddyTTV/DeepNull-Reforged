@@ -12,6 +12,11 @@
     "client": [
       "dev.deepdaddyttv.deepnullreforged.fabric.client.DeepNullReforgedFabricClient"
     ],
+    "fabric-gametest": [
+      "dev.deepdaddyttv.deepnullreforged.gametest.DeepNullRegressionGameTests",
+      "dev.deepdaddyttv.deepnullreforged.gametest.NullWorkbenchRegressionGameTests",
+      "dev.deepdaddyttv.deepnullreforged.gametest.CraftingTransferRegressionGameTests"
+    ],
     "jei_mod_plugin": [
       "dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullJeiPlugin"
     ]

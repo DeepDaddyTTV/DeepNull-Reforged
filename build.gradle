@@ -26,6 +26,27 @@ repositories {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+def gameTestConfigDir = layout.projectDirectory.dir("run/gametest/config").asFile
+
+loom {
+    runs {
+        gameTestServer {
+            inherit server
+            configName = "DeepNull Fabric GameTest Server"
+            runDir = "run/gametest"
+            property "fabric-api.gametest"
+            property "fabric-api.gametest.report-file", file("$buildDir/test-results/gametest/TEST-fabric-gametest.xml").absolutePath
+            ideConfigGenerated false
+        }
+    }
+}
+
+tasks.named("runGameTestServer").configure {
+    doFirst {
+        gameTestConfigDir.mkdirs()
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings loom.officialMojangMappings()
