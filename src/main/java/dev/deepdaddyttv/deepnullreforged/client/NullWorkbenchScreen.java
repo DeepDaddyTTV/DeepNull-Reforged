@@ -171,13 +171,13 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (clickTab(mouseX, mouseY, tabX(0), tabY(), WorkbenchTab.CRAFT)) {
+        if (ClientModEvents.isPrimaryGuiButton(button) && clickTab(mouseX, mouseY, tabX(0), tabY(), WorkbenchTab.CRAFT)) {
             return true;
         }
-        if (clickTab(mouseX, mouseY, tabX(1), tabY(), WorkbenchTab.SYNC)) {
+        if (ClientModEvents.isPrimaryGuiButton(button) && clickTab(mouseX, mouseY, tabX(1), tabY(), WorkbenchTab.SYNC)) {
             return true;
         }
-        if (clickTab(mouseX, mouseY, tabX(2), tabY(), WorkbenchTab.STYLE)) {
+        if (ClientModEvents.isPrimaryGuiButton(button) && clickTab(mouseX, mouseY, tabX(2), tabY(), WorkbenchTab.STYLE)) {
             return true;
         }
 
@@ -202,7 +202,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
             if (activeTab == WorkbenchTab.STYLE && handleLargeSlotClick(mouseX, mouseY, button, leftPos + STYLE_OUTPUT_PREVIEW_X, topPos + STYLE_OUTPUT_PREVIEW_Y, NullWorkbenchBlockEntity.OUTPUT_SLOT)) {
                 return true;
             }
-            if (activeTab == WorkbenchTab.SYNC && button == 0) {
+            if (activeTab == WorkbenchTab.SYNC && ClientModEvents.isPrimaryGuiButton(button)) {
                 if (insideAbsolute(mouseX, mouseY, leftPos + SYNC_BACKUP_BUTTON_X, topPos + SYNC_BACKUP_BUTTON_Y, SYNC_BACKUP_BUTTON_WIDTH, SYNC_BACKUP_BUTTON_HEIGHT)) {
                     if (minecraft != null && minecraft.gameMode != null) {
                         minecraft.gameMode.handleInventoryButtonClick(menu.containerId, NullWorkbenchMenu.BUTTON_BACKUP);
@@ -219,7 +219,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
             if (activeTab == WorkbenchTab.STYLE && handleStylePickerClick(mouseX, mouseY)) {
                 return true;
             }
-            if (activeTab == WorkbenchTab.STYLE && hasStyledNull() && button == 0) {
+            if (activeTab == WorkbenchTab.STYLE && hasStyledNull() && ClientModEvents.isPrimaryGuiButton(button)) {
                 if (insideAbsolute(mouseX, mouseY, styleApplyButtonX() - STYLE_CLICK_PADDING, styleApplyButtonY() - STYLE_CLICK_PADDING, STYLE_APPLY_BUTTON_WIDTH + (STYLE_CLICK_PADDING * 2), STYLE_APPLY_BUTTON_HEIGHT + (STYLE_CLICK_PADDING * 2))) {
                     applyStyle(false);
                     return true;

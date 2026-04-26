@@ -82,6 +82,10 @@ public final class ClientGameEvents {
             return;
         }
 
+        if (ClientModEvents.TOGGLE_GLOBAL_AUTO_PICKUP.consumeClick()) {
+            PacketDistributor.sendToServer(DeepNullPayloads.ToggleGlobalAutoPickupPayload.INSTANCE);
+        }
+
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
         if (held == null) {
             return;

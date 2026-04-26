@@ -19,6 +19,7 @@ public enum DeepNullFilterMode {
     HERBALIST("herbalist"),
     HUNTER("hunter"),
     NETWORK_ENGINEER("network_engineer"),
+    CONNECTIONS("connections"),
     BUILDER("builder");
 
     private final String id;
@@ -49,6 +50,7 @@ public enum DeepNullFilterMode {
             case HERBALIST -> isHerbalistItem(stack);
             case HUNTER -> isHunterItem(stack);
             case NETWORK_ENGINEER -> isNetworkEngineerItem(stack);
+            case CONNECTIONS -> isConnectionsItem(stack);
             case BUILDER -> stack.getItem() instanceof BlockItem;
             default -> false;
         };
@@ -94,11 +96,42 @@ public enum DeepNullFilterMode {
         return "ae2".equals(namespace) || "refinedstorage".equals(namespace);
     }
 
+    private static boolean isConnectionsItem(ItemStack stack) {
+        return matchesConnectionsIdentifier(BuiltInRegistries.ITEM.getKey(stack.getItem()))
+                || hasAnyTagWord(stack, "pipe", "connector", "wire", "cable", "conduit", "duct", "tube", "transporter", "conductor", "plug", "point", "tunnel", "bus");
+    }
+
+    static boolean matchesConnectionsIdentifier(ResourceLocation key) {
+        String namespace = key.getNamespace();
+        String path = key.getPath().toLowerCase(Locale.ROOT);
+
+        if (hasAnyPathWord(path, "pipe", "connector", "wire", "cable", "conduit", "duct", "tube", "transporter", "conductor", "plug", "point")) {
+            return true;
+        }
+
+        return switch (namespace) {
+            case "ae2" -> hasAnyPathWord(path, "bus", "tunnel", "p2p", "anchor");
+            case "refinedstorage", "refinedstorageaddons" -> hasAnyPathWord(path, "external", "importer", "exporter", "constructor", "destructor", "detector", "interface");
+            case "mekanism" -> hasAnyPathWord(path, "transmitter");
+            case "xnet" -> hasAnyPathWord(path, "router", "channel");
+            case "laserio" -> hasAnyPathWord(path, "node");
+            case "fluxnetworks" -> hasAnyPathWord(path, "controller");
+            default -> false;
+        };
+    }
+
     private static boolean hasAnyTagToken(ItemStack stack, String... tokens) {
         return tagLocations(stack)
                 .map(ResourceLocation::getPath)
                 .map(path -> path.toLowerCase(Locale.ROOT))
                 .anyMatch(path -> containsAny(path, tokens));
+    }
+
+    private static boolean hasAnyTagWord(ItemStack stack, String... words) {
+        return tagLocations(stack)
+                .map(ResourceLocation::getPath)
+                .map(path -> path.toLowerCase(Locale.ROOT))
+                .anyMatch(path -> hasAnyPathWord(path, words));
     }
 
     private static boolean pathContains(ItemStack stack, String... tokens) {
@@ -110,6 +143,18 @@ public enum DeepNullFilterMode {
         for (String token : tokens) {
             if (value.contains(token)) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasAnyPathWord(String value, String... words) {
+        String[] parts = value.toLowerCase(Locale.ROOT).split("[^a-z0-9]+");
+        for (String part : parts) {
+            for (String word : words) {
+                if (part.equals(word)) {
+                    return true;
+                }
             }
         }
         return false;

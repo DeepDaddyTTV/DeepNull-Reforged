@@ -22,10 +22,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build and run unit tests
-        run: ./gradlew build --stacktrace -PincludeJeiRuntime=true -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
+        run: ./gradlew build --stacktrace -PincludeJeiRuntime=false -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
 
       - name: Run regression GameTests
-        run: ./gradlew runGameTestServer --stacktrace -PincludeJeiRuntime=true -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
+        run: ./gradlew runGameTestServer --stacktrace -PincludeJeiRuntime=false -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
 
       - name: Upload test logs
         if: failure()
@@ -45,10 +45,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: jei-mekanism
-            gradle_args: "-PincludeJeiRuntime=true -PincludeMekanismRuntime=true -PincludeAe2Runtime=false"
-          - name: jei-ae2-mekanism
-            gradle_args: "-PincludeJeiRuntime=true -PincludeMekanismRuntime=true -PincludeAe2Runtime=true"
+          - name: mekanism
+            gradle_args: "-PincludeJeiRuntime=false -PincludeMekanismRuntime=true -PincludeAe2Runtime=false"
+          - name: ae2-mekanism
+            gradle_args: "-PincludeJeiRuntime=false -PincludeMekanismRuntime=true -PincludeAe2Runtime=true"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

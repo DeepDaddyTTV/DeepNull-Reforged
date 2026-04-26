@@ -142,27 +142,27 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 2 && isWithin(mouseX, mouseY, leftPos, topPos, imageWidth, imageHeight)) {
+        if (ClientModEvents.isTertiaryGuiButton(button) && isWithin(mouseX, mouseY, leftPos, topPos, imageWidth, imageHeight)) {
             return true;
         }
-        if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 38, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+        if (ClientModEvents.isPrimaryGuiButton(button) && isWithin(mouseX, mouseY, infoButtonX(), topPos + 38, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             infoPanelOpen = !infoPanelOpen;
             if (infoPanelOpen) {
                 stonePanelOpen = false;
             }
             return true;
         }
-        if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+        if (ClientModEvents.isPrimaryGuiButton(button) && isWithin(mouseX, mouseY, infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             menu.getDankInventory().cycleTransferOutputMode();
             PacketDistributor.sendToServer(new DeepNullPayloads.MenuTransferModePayload(menu.getDankInventory().getTransferOutputMode().ordinal()));
             return true;
         }
-        if (button == 0 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+        if (ClientModEvents.isPrimaryGuiButton(button) && isWithin(mouseX, mouseY, infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             PacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.UPGRADES.ordinal()));
             return true;
         }
         if (menu.hasUpgrade(DeepNullUpgradeType.STONE_GENERATOR)
-                && button == 0
+                && ClientModEvents.isPrimaryGuiButton(button)
                 && isWithin(mouseX, mouseY, infoButtonX(), topPos + 101, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
             stonePanelOpen = !stonePanelOpen;
             if (stonePanelOpen) {
@@ -171,7 +171,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             return true;
         }
 
-        if (stonePanelOpen && button == 0) {
+        if (stonePanelOpen && ClientModEvents.isPrimaryGuiButton(button)) {
             StoneGeneratorVariant clickedVariant = stoneVariantAt(mouseX, mouseY);
             if (clickedVariant != null) {
                 menu.getDankInventory().setStoneGeneratorVariant(clickedVariant);
@@ -182,7 +182,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
 
         int tankIndex = getTankIndexAt(mouseX, mouseY);
         if (tankIndex >= 0 && menu.getCarried().isEmpty()) {
-            if (button == 0 && Screen.hasShiftDown()) {
+            if (ClientModEvents.isPrimaryGuiButton(button) && Screen.hasShiftDown()) {
                 if (menu.clearFluidSlot(tankIndex)) {
                     PacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                             tankIndex,
@@ -191,7 +191,7 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
                 }
                 return true;
             }
-            if (button == 0) {
+            if (ClientModEvents.isPrimaryGuiButton(button)) {
                 menu.getDankInventory().setSelectedSlot(tankIndex);
                 PacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         tankIndex,

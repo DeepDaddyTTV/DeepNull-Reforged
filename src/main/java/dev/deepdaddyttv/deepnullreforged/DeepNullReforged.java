@@ -2,10 +2,10 @@ package dev.deepdaddyttv.deepnullreforged;
 
 import com.mojang.logging.LogUtils;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
-import dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks.CraftingTweaksCompat;
 import dev.deepdaddyttv.deepnullreforged.gametest.CraftingTransferRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.gametest.DeepNullRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.gametest.NullWorkbenchRegressionGameTests;
+import dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks.CraftingTweaksCompat;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;

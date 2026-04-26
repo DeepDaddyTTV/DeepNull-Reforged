@@ -384,7 +384,7 @@ public class DeepNullDockBlockEntity extends BlockEntity {
                 }
                 return result;
             }
-            return inventory.isFluidOnly() ? ItemStack.EMPTY : inventory.extractItem(slot, amount, simulate);
+            return inventory.isFluidOnly() ? ItemStack.EMPTY : inventory.extractItemForDockAutomation(slot, amount, simulate);
         }
 
         @Override
