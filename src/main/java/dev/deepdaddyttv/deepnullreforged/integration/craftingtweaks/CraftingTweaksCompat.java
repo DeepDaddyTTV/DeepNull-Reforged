@@ -1,5 +1,6 @@
 package dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks;
 
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransferSupport;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSession;
@@ -70,6 +71,9 @@ public final class CraftingTweaksCompat {
     }
 
     public static boolean handleJeiAwareClear(AbstractContainerMenu menu, Player player) {
+        if (!DeepNullConfig.enableCraftingTweaksReturnIntegration()) {
+            return false;
+        }
         if (!ServerDeepNullJeiSession.shouldReturn(player, menu)) {
             return false;
         }

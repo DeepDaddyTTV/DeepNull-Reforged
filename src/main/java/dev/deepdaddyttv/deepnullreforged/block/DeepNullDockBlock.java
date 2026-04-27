@@ -1,7 +1,9 @@
 package dev.deepdaddyttv.deepnullreforged.block;
 
 import com.mojang.serialization.MapCodec;
+import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenuOpener;
 import net.minecraft.core.BlockPos;
@@ -25,6 +27,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.FluidUtil;
+import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import org.jetbrains.annotations.Nullable;
 
 public class DeepNullDockBlock extends BaseEntityBlock {
@@ -95,6 +101,16 @@ public class DeepNullDockBlock extends BaseEntityBlock {
             return ItemInteractionResult.sidedSuccess(level.isClientSide);
         }
 
+        if (dock.hasStoredDeepNull()) {
+            ItemStack updatedContainer = transferFluidContainerWithDockedDampNull(dock, stack, level.isClientSide);
+            if (updatedContainer != null) {
+                if (!level.isClientSide) {
+                    player.setItemInHand(hand, updatedContainer);
+                }
+                return ItemInteractionResult.sidedSuccess(level.isClientSide);
+            }
+        }
+
         if (dock.hasStoredDeepNull() && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
             DeepNullMenuOpener.openDock(serverPlayer, dock);
             return ItemInteractionResult.sidedSuccess(level.isClientSide);
@@ -145,5 +161,77 @@ public class DeepNullDockBlock extends BaseEntityBlock {
     @Override
     public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> blockEntityType) {
         return createTickerHelper(blockEntityType, dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockBlockEntity::serverTick);
+    }
+
+    public static @Nullable ItemStack transferFluidContainerWithDockedDampNull(DeepNullDockBlockEntity dock, ItemStack heldStack, boolean simulate) {
+        DeepNullInventory inventory = dock.createInventory();
+        if (inventory == null || !inventory.supportsFluidStorage() || heldStack.isEmpty()) {
+            return null;
+        }
+
+        ItemStack working = heldStack.copyWithCount(1);
+        IFluidHandlerItem itemHandler = FluidUtil.getFluidHandler(working).orElse(null);
+        if (itemHandler == null) {
+            return null;
+        }
+        FluidStack contained = FluidUtil.getFluidContained(working).orElseGet(() -> firstFluidIn(itemHandler));
+
+        if (!contained.isEmpty()) {
+            int targetSlot = inventory.findFluidInsertSlot(contained);
+            if (targetSlot < 0) {
+                return null;
+            }
+
+            DeepNullFluidHandler targetHandler = new DeepNullFluidHandler(inventory, ItemStack.EMPTY, targetSlot);
+            FluidStack transferred = FluidUtil.tryFluidTransfer(targetHandler, itemHandler, contained.getAmount(), !simulate);
+            if (transferred.isEmpty()) {
+                return null;
+            }
+
+            if (!simulate && inventory.getSelectedSlot() != targetSlot) {
+                inventory.setSelectedSlot(targetSlot);
+            }
+            return heldStack.getCount() == 1 ? itemHandler.getContainer() : heldStack;
+        }
+
+        int sourceSlot = resolveDockedFluidSourceSlot(inventory);
+        if (sourceSlot < 0) {
+            return null;
+        }
+
+        DeepNullFluidHandler sourceHandler = new DeepNullFluidHandler(inventory, ItemStack.EMPTY, sourceSlot);
+        FluidStack selectedFluid = inventory.getFluidInSlot(sourceSlot);
+        FluidStack transferred = FluidUtil.tryFluidTransfer(itemHandler, sourceHandler, Math.min(selectedFluid.getAmount(), FluidType.BUCKET_VOLUME), !simulate);
+        if (transferred.isEmpty()) {
+            return null;
+        }
+
+        if (!simulate && inventory.getSelectedSlot() != sourceSlot) {
+            inventory.setSelectedSlot(sourceSlot);
+        }
+        return heldStack.getCount() == 1 ? itemHandler.getContainer() : heldStack;
+    }
+
+    private static int resolveDockedFluidSourceSlot(DeepNullInventory inventory) {
+        int selectedSlot = inventory.getSelectedSlot();
+        if (selectedSlot >= 0 && selectedSlot < inventory.getFluidSlotCount() && !inventory.getFluidInSlot(selectedSlot).isEmpty()) {
+            return selectedSlot;
+        }
+        for (int slot = 0; slot < inventory.getFluidSlotCount(); slot++) {
+            if (!inventory.getFluidInSlot(slot).isEmpty()) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    private static FluidStack firstFluidIn(IFluidHandlerItem itemHandler) {
+        for (int tank = 0; tank < itemHandler.getTanks(); tank++) {
+            FluidStack fluidInTank = itemHandler.getFluidInTank(tank);
+            if (!fluidInTank.isEmpty()) {
+                return fluidInTank;
+            }
+        }
+        return FluidStack.EMPTY;
     }
 }

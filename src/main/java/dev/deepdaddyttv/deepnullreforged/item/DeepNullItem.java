@@ -461,7 +461,6 @@ public class DeepNullItem extends Item {
 
     private static boolean shouldProxyStoredInteraction(ItemStack selectedStack) {
         return !selectedStack.isEmpty()
-                && selectedStack.getMaxStackSize() == 1
                 && !(selectedStack.getItem() instanceof BlockItem)
                 && !(selectedStack.getItem() instanceof BucketItem)
                 && !supportsStoredConsumeUse(selectedStack, null);

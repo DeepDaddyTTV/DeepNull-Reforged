@@ -16,6 +16,8 @@ item_ids:
 
 The Filter Upgrade adds ghost-item filtering to DeepNulls. It controls what can enter matching slots and gives access to whitelist, blacklist, and preset filter modes.
 
+Preset modes now include a `Connections` option for common cables, pipes, ducts, conduits, connectors, buses, tunnels, and similar transport or routing parts.
+
 ## Availability
 
 - DeepNull only
@@ -29,4 +31,3 @@ The Filter Upgrade adds ghost-item filtering to DeepNulls. It controls what can 
 ## Crafting
 
 <RecipeFor id="deepnullreforged:filter_upgrade" fallbackText="See JEI for the current recipe." />
-

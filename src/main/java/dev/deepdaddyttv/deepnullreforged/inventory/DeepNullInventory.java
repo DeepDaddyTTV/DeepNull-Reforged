@@ -90,7 +90,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final int CREATIVE_DISPLAY_ENERGY = Integer.MAX_VALUE / 2;
     private static final int CREATIVE_DISPLAY_FLUID = Integer.MAX_VALUE / 2;
     private static final int DEFAULT_STONEWORKS_AMOUNT = 1;
-    private static final int MAX_STONEWORKS_AMOUNT = 9_999;
+    private static final int MAX_STONEWORKS_AMOUNT = Integer.MAX_VALUE;
     private static final int DEFAULT_STYLE_COLOR = 0xFFFFFF;
     private static final int[] DEFAULT_DEEPNULL_GLASS_COLORS = {
             0xC62121,
@@ -383,6 +383,10 @@ public class DeepNullInventory extends ItemStackHandler {
         return fluidOnly;
     }
 
+    public boolean acceptsNormalFluids() {
+        return supportsFluidStorage() && !hasGasUpgrade();
+    }
+
     public boolean supportsChemicalStorage() {
         return fluidOnly && hasGasUpgrade() && DeepNullConfig.isChemicalStorageAvailable();
     }
@@ -538,6 +542,9 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public int findFluidInsertSlot(FluidStack stack) {
+        if (!acceptsNormalFluids()) {
+            return -1;
+        }
         int pickupSlot = findFluidPickupSlot(stack);
         if (pickupSlot >= 0) {
             return pickupSlot;
@@ -564,7 +571,7 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public int fillFluid(FluidStack resource, boolean simulate) {
-        if (!supportsFluidStorage() || resource.isEmpty()) {
+        if (!acceptsNormalFluids() || resource.isEmpty()) {
             return 0;
         }
         int remaining = resource.getAmount();
@@ -593,7 +600,7 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public int fillExistingFluidSlotsOnly(FluidStack resource, boolean simulate) {
-        if (!supportsFluidStorage() || resource.isEmpty()) {
+        if (!acceptsNormalFluids() || resource.isEmpty()) {
             return 0;
         }
 
@@ -615,7 +622,7 @@ public class DeepNullInventory extends ItemStackHandler {
 
     public int fillFluid(int slot, FluidStack resource, boolean simulate) {
         validateSlotIndex(slot);
-        if (!supportsFluidStorage() || resource.isEmpty()) {
+        if (!acceptsNormalFluids() || resource.isEmpty()) {
             return 0;
         }
 
@@ -1681,6 +1688,13 @@ public class DeepNullInventory extends ItemStackHandler {
         return extractItemInternal(slot, amount, simulate, true);
     }
 
+    public ItemStack extractItemForDockAutomation(int slot, int amount, boolean simulate) {
+        if (getExtractionMode(slot) == ItemExtractionMode.KEEP_1) {
+            return extractItemInternal(slot, amount, simulate, true);
+        }
+        return extractItemInternal(slot, amount, simulate, false);
+    }
+
     public int findMatchingSlot(ItemStack stack) {
         if (stack.isEmpty()) {
             return -1;
@@ -1843,42 +1857,37 @@ public class DeepNullInventory extends ItemStackHandler {
 
     public boolean transferItemsFromTargetMatching(IItemHandler target) {
         boolean movedAny = false;
-        boolean progressed;
-        do {
-            progressed = false;
-            for (int targetSlot = 0; targetSlot < target.getSlots(); targetSlot++) {
-                ItemStack preview = target.extractItem(targetSlot, Integer.MAX_VALUE, true);
-                if (preview.isEmpty()) {
-                    continue;
-                }
+        for (int targetSlot = 0; targetSlot < target.getSlots(); targetSlot++) {
+            ItemStack preview = target.getStackInSlot(targetSlot);
+            if (preview.isEmpty()) {
+                continue;
+            }
 
-                ItemStack remainder = insertIntoExistingSlotsOnly(preview.copy(), true);
-                int accepted = preview.getCount() - remainder.getCount();
-                if (accepted <= 0) {
-                    continue;
-                }
+            ItemStack remainder = insertIntoExistingSlotsOnly(preview.copy(), true);
+            int accepted = preview.getCount() - remainder.getCount();
+            if (accepted <= 0) {
+                continue;
+            }
 
-                ItemStack extracted = target.extractItem(targetSlot, accepted, false);
-                if (extracted.isEmpty()) {
-                    continue;
-                }
+            ItemStack extracted = target.extractItem(targetSlot, accepted, false);
+            if (extracted.isEmpty()) {
+                continue;
+            }
 
-                ItemStack leftover = insertIntoExistingSlotsOnly(extracted, false);
-                int moved = extracted.getCount() - leftover.getCount();
-                if (moved <= 0) {
-                    if (!leftover.isEmpty()) {
-                        reinsertIntoTarget(target, targetSlot, leftover);
-                    }
-                    continue;
-                }
-
+            ItemStack leftover = insertIntoExistingSlotsOnly(extracted, false);
+            int moved = extracted.getCount() - leftover.getCount();
+            if (moved <= 0) {
                 if (!leftover.isEmpty()) {
                     reinsertIntoTarget(target, targetSlot, leftover);
                 }
-                movedAny = true;
-                progressed = true;
+                continue;
             }
-        } while (progressed);
+
+            if (!leftover.isEmpty()) {
+                reinsertIntoTarget(target, targetSlot, leftover);
+            }
+            movedAny = true;
+        }
         return movedAny;
     }
 

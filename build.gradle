@@ -27,6 +27,10 @@ repositories {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 def gameTestConfigDir = layout.projectDirectory.dir("run/gametest/config").asFile
+def gameTestConfigFiles = fileTree(gameTestConfigDir) {
+    include "deepnullreforged-common*.toml"
+    include "deepnullreforged-server*.toml"
+}.files
 
 loom {
     runs {
@@ -41,7 +45,12 @@ loom {
     }
 }
 
+def cleanDeepNullGameTestConfig = tasks.register("cleanDeepNullGameTestConfig", Delete) {
+    delete gameTestConfigFiles
+}
+
 tasks.named("runGameTestServer").configure {
+    dependsOn(cleanDeepNullGameTestConfig)
     doFirst {
         gameTestConfigDir.mkdirs()
     }

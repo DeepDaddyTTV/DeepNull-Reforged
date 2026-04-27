@@ -19,6 +19,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import org.lwjgl.glfw.GLFW;
 
 public final class ClientModEvents {
     public static final KeyMapping NEXT_ITEM = new KeyMapping("key.next_item.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
@@ -29,9 +30,13 @@ public final class ClientModEvents {
     public static final KeyMapping TOGGLE_SPONGE = new KeyMapping("key.toggle_sponge.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping TOGGLE_HUD = new KeyMapping("key.toggle_hud.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping TOGGLE_AUTO_PICKUP = new KeyMapping("key.toggle_auto_pickup.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
+    public static final KeyMapping TOGGLE_GLOBAL_AUTO_PICKUP = new KeyMapping("key.toggle_global_auto_pickup.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping TOGGLE_AUTO_FEEDING = new KeyMapping("key.toggle_auto_feeding.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping TOGGLE_AUTO_SMELTING = new KeyMapping("key.toggle_auto_smelting.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
     public static final KeyMapping CYCLE_STONE_GENERATOR = new KeyMapping("key.cycle_stone_generator.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), "key.categories." + DeepNullReforged.MODID);
+    public static final KeyMapping GUI_PRIMARY_ACTION = new KeyMapping("key.gui_primary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_LEFT, "key.categories." + DeepNullReforged.MODID);
+    public static final KeyMapping GUI_SECONDARY_ACTION = new KeyMapping("key.gui_secondary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_RIGHT, "key.categories." + DeepNullReforged.MODID);
+    public static final KeyMapping GUI_TERTIARY_ACTION = new KeyMapping("key.gui_tertiary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, "key.categories." + DeepNullReforged.MODID);
     private static boolean initialized;
 
     private ClientModEvents() {
@@ -56,9 +61,13 @@ public final class ClientModEvents {
         KeyBindingHelper.registerKeyBinding(TOGGLE_SPONGE);
         KeyBindingHelper.registerKeyBinding(TOGGLE_HUD);
         KeyBindingHelper.registerKeyBinding(TOGGLE_AUTO_PICKUP);
+        KeyBindingHelper.registerKeyBinding(TOGGLE_GLOBAL_AUTO_PICKUP);
         KeyBindingHelper.registerKeyBinding(TOGGLE_AUTO_FEEDING);
         KeyBindingHelper.registerKeyBinding(TOGGLE_AUTO_SMELTING);
         KeyBindingHelper.registerKeyBinding(CYCLE_STONE_GENERATOR);
+        KeyBindingHelper.registerKeyBinding(GUI_PRIMARY_ACTION);
+        KeyBindingHelper.registerKeyBinding(GUI_SECONDARY_ACTION);
+        KeyBindingHelper.registerKeyBinding(GUI_TERTIARY_ACTION);
 
         BlockEntityRendererRegistry.register(ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockRenderer::new);
 
@@ -101,5 +110,17 @@ public final class ClientModEvents {
             case UPGRADES -> new DeepNullUpgradeScreen(menu, inventory, title);
             case FILTER, AUTO_SMELT_FILTER -> new DeepNullFilterScreen(menu, inventory, title);
         };
+    }
+
+    public static boolean isPrimaryGuiButton(int button) {
+        return GUI_PRIMARY_ACTION.matchesMouse(button);
+    }
+
+    public static boolean isSecondaryGuiButton(int button) {
+        return GUI_SECONDARY_ACTION.matchesMouse(button);
+    }
+
+    public static boolean isTertiaryGuiButton(int button) {
+        return GUI_TERTIARY_ACTION.matchesMouse(button);
     }
 }

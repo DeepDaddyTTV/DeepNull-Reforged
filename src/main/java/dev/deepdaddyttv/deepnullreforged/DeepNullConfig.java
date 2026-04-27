@@ -8,6 +8,7 @@ import net.neoforged.fml.ModList;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,6 +28,9 @@ public final class DeepNullConfig {
             128, 512, 1152, 2048, 3200, Integer.MAX_VALUE, Integer.MAX_VALUE
     };
     private static final int[] DEFAULT_FLUID_CAPACITY_BY_TIER = {
+            16_000, 32_000, 64_000, 128_000, 256_000, 512_000, Integer.MAX_VALUE
+    };
+    private static final int[] LEGACY_DEFAULT_FLUID_CAPACITY_BY_TIER = {
             8_000, 16_000, 32_000, 64_000, 128_000, 256_000, Integer.MAX_VALUE
     };
     private static final int[] DEFAULT_ENERGY_CAPACITY_BY_TIER = {
@@ -74,6 +78,7 @@ public final class DeepNullConfig {
     private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_FEEDING_ENABLED;
     private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_SMELTING_ENABLED;
     private static final ModConfigSpec.IntValue COMMON_DEFAULT_STONEWORKS_AMOUNT;
+    private static final ModConfigSpec.BooleanValue COMMON_ENABLE_CRAFTINGTWEAKS_RETURN_INTEGRATION;
 
     private static final ModConfigSpec.BooleanValue SERVER_DISABLE_TAG_MATCHING;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> SERVER_TAG_BLACKLIST;
@@ -119,6 +124,7 @@ public final class DeepNullConfig {
     private static volatile boolean defaultAutoFeedingEnabled = true;
     private static volatile boolean defaultAutoSmeltingEnabled = true;
     private static volatile int defaultStoneworksAmount = 1;
+    private static volatile boolean enableCraftingTweaksReturnIntegration = true;
 
     private static volatile boolean tagMatchingDisabled;
     private static volatile Set<ResourceLocation> tagBlacklist = Set.of();
@@ -192,8 +198,10 @@ public final class DeepNullConfig {
                 .define("defaultAutoFeedingEnabled", true);
         COMMON_DEFAULT_AUTO_SMELTING_ENABLED = COMMON_BUILDER.comment("Default auto-smelting state when the upgrade is installed.")
                 .define("defaultAutoSmeltingEnabled", true);
-        COMMON_DEFAULT_STONEWORKS_AMOUNT = COMMON_BUILDER.comment("Default Stoneworks target stack count for newly created DeepNulls.")
-                .defineInRange("defaultStoneworksAmount", 1, 0, 9_999);
+        COMMON_DEFAULT_STONEWORKS_AMOUNT = COMMON_BUILDER.comment("Default Stoneworks target item count for newly created DeepNulls.")
+                .defineInRange("defaultStoneworksAmount", 1, 0, Integer.MAX_VALUE);
+        COMMON_ENABLE_CRAFTINGTWEAKS_RETURN_INTEGRATION = COMMON_BUILDER.comment("Enable the Crafting Tweaks clear-grid integration that returns JEI-filled ingredients back into DeepNulls instead of normal player inventory.")
+                .define("enableCraftingTweaksReturnIntegration", true);
         COMMON_BUILDER.pop();
         COMMON_SPEC = COMMON_BUILDER.build();
 
@@ -351,6 +359,10 @@ public final class DeepNullConfig {
         return defaultStoneworksAmount;
     }
 
+    public static boolean enableCraftingTweaksReturnIntegration() {
+        return enableCraftingTweaksReturnIntegration;
+    }
+
     public static boolean isTagMatchingEnabled() {
         return !tagMatchingDisabled;
     }
@@ -493,6 +505,7 @@ public final class DeepNullConfig {
         defaultAutoFeedingEnabled = COMMON_DEFAULT_AUTO_FEEDING_ENABLED.getAsBoolean();
         defaultAutoSmeltingEnabled = COMMON_DEFAULT_AUTO_SMELTING_ENABLED.getAsBoolean();
         defaultStoneworksAmount = COMMON_DEFAULT_STONEWORKS_AMOUNT.getAsInt();
+        enableCraftingTweaksReturnIntegration = COMMON_ENABLE_CRAFTINGTWEAKS_RETURN_INTEGRATION.getAsBoolean();
     }
 
     private static void bakeServer() {
@@ -512,7 +525,11 @@ public final class DeepNullConfig {
         serverEnableChemicalStorage = SERVER_ENABLE_CHEMICAL_STORAGE.getAsBoolean();
         dockGeneratorBufferSize = SERVER_DOCK_GENERATOR_BUFFER_SIZE.getAsInt();
         itemCapacityByTier = normalizeIntList(SERVER_ITEM_CAPACITY_BY_TIER.get(), DEFAULT_ITEM_CAPACITY_BY_TIER);
-        fluidCapacityByTier = normalizeIntList(SERVER_FLUID_CAPACITY_BY_TIER.get(), DEFAULT_FLUID_CAPACITY_BY_TIER);
+        fluidCapacityByTier = normalizeFluidCapacityByTier(SERVER_FLUID_CAPACITY_BY_TIER.get());
+        if (Arrays.equals(fluidCapacityByTier, DEFAULT_FLUID_CAPACITY_BY_TIER)
+                && !SERVER_FLUID_CAPACITY_BY_TIER.get().equals(intList(DEFAULT_FLUID_CAPACITY_BY_TIER))) {
+            SERVER_FLUID_CAPACITY_BY_TIER.set(intList(DEFAULT_FLUID_CAPACITY_BY_TIER));
+        }
         energyCapacityByTier = normalizeIntList(SERVER_ENERGY_CAPACITY_BY_TIER.get(), DEFAULT_ENERGY_CAPACITY_BY_TIER);
         deepEnergyCapacityByTier = normalizeIntList(SERVER_DEEP_ENERGY_CAPACITY_BY_TIER.get(), DEFAULT_DEEP_ENERGY_CAPACITY_BY_TIER);
         energyTransferByTier = normalizeIntList(SERVER_ENERGY_TRANSFER_BY_TIER.get(), DEFAULT_ENERGY_TRANSFER_BY_TIER);
@@ -541,6 +558,14 @@ public final class DeepNullConfig {
 
     private static List<Integer> intList(int[] values) {
         return java.util.Arrays.stream(values).boxed().toList();
+    }
+
+    static int[] normalizeFluidCapacityByTier(List<? extends Integer> configuredValues) {
+        int[] normalized = normalizeIntList(configuredValues, DEFAULT_FLUID_CAPACITY_BY_TIER);
+        if (Arrays.equals(normalized, LEGACY_DEFAULT_FLUID_CAPACITY_BY_TIER)) {
+            return DEFAULT_FLUID_CAPACITY_BY_TIER.clone();
+        }
+        return normalized;
     }
 
     private static int[] normalizeIntList(List<? extends Integer> configuredValues, int[] defaults) {

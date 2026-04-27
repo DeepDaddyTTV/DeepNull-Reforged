@@ -43,9 +43,9 @@ public final class ClientGameEvents {
             }
 
             ScreenMouseEvents.allowMouseClick(screen).register((currentScreen, mouseX, mouseY, button) ->
-                    button != 2 || !deepNullScreen.handleBlockedMiddleClick(mouseX, mouseY));
+                    !ClientModEvents.isTertiaryGuiButton(button) || !deepNullScreen.handleBlockedMiddleClick(mouseX, mouseY));
             ScreenMouseEvents.allowMouseRelease(screen).register((currentScreen, mouseX, mouseY, button) ->
-                    button != 2 || !deepNullScreen.handleBlockedMiddleRelease(mouseX, mouseY));
+                    !ClientModEvents.isTertiaryGuiButton(button) || !deepNullScreen.handleBlockedMiddleRelease(mouseX, mouseY));
         });
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) ->
                 ScreenEvents.remove(screen).register(ClientGameEvents::onScreenClosing));
@@ -100,6 +100,10 @@ public final class ClientGameEvents {
 
         if (minecraft.screen != null) {
             return;
+        }
+
+        if (ClientModEvents.TOGGLE_GLOBAL_AUTO_PICKUP.consumeClick()) {
+            PacketDistributor.sendToServer(DeepNullPayloads.ToggleGlobalAutoPickupPayload.INSTANCE);
         }
 
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
