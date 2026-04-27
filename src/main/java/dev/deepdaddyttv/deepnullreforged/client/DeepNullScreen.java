@@ -143,7 +143,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 DIALOGUE_TEXTBOX_HEIGHT,
                 Component.translatable("dn.stoneworks_amount.desc")
         ));
-        stoneworksAmountBox.setMaxLength(4);
+        stoneworksAmountBox.setMaxLength(10);
         stoneworksAmountBox.setBordered(false);
         stoneworksAmountBox.setTextColor(0xFFFFFFFF);
         stoneworksAmountBox.setTextColorUneditable(0xFFFFFFFF);
@@ -232,7 +232,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 2 && handleBlockedMiddleClick(event.x(), event.y())) {
+        if (ClientModEvents.isTertiaryGuiButton(event.button()) && handleBlockedMiddleClick(event.x(), event.y())) {
             return true;
         }
         if (customExtractionBox != null && customExtractionBox.visible) {
@@ -251,7 +251,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (stoneworksPanelOpen && handleStoneworksAmountClick(event)) {
             return true;
         }
-        if (stoneworksPanelOpen && event.button() == 0) {
+        if (stoneworksPanelOpen && ClientModEvents.isPrimaryGuiButton(event.button())) {
             StoneworksMaterial material = stoneworksMaterialAt(event.x(), event.y());
             if (material != null) {
                 menu.toggleStoneworksMonitoring(material);
@@ -295,7 +295,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         clearShiftQuickMoveState();
-        if (event.button() == 2 && handleBlockedMiddleRelease(event.x(), event.y())) {
+        if (ClientModEvents.isTertiaryGuiButton(event.button()) && handleBlockedMiddleRelease(event.x(), event.y())) {
             return true;
         }
         return super.mouseReleased(event);
@@ -714,7 +714,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private boolean handleIconButtonClick(MouseButtonEvent event) {
-        if (event.button() != 0) {
+        if (!ClientModEvents.isPrimaryGuiButton(event.button())) {
             return false;
         }
         int x = leftPos + baseImageWidth - 1;
@@ -1000,7 +1000,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private boolean handleStoneworksAmountClick(MouseButtonEvent event) {
-        if (event.button() != 0 || stoneworksAmountBox == null || !stoneworksAmountBox.visible) {
+        if (!ClientModEvents.isPrimaryGuiButton(event.button()) || stoneworksAmountBox == null || !stoneworksAmountBox.visible) {
             return false;
         }
         if (isWithin(stoneworksMinusButtonBounds(), event.x(), event.y())) {
@@ -1021,7 +1021,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     private boolean handleCustomExtractionEditorClick(MouseButtonEvent event) {
-        if (event.button() != 0 || customExtractionBox == null || !customExtractionBox.visible) {
+        if (!ClientModEvents.isPrimaryGuiButton(event.button()) || customExtractionBox == null || !customExtractionBox.visible) {
             return false;
         }
         if (isWithin(customExtractionMinusButtonBounds(), event.x(), event.y())) {
@@ -1043,7 +1043,8 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     private void adjustStoneworksAmount(int delta) {
         int current = parseNumericBox(stoneworksAmountBox, menu.getStoneworksTargetStacks());
-        int next = Math.max(0, current + delta);
+        long unclamped = (long) current + delta;
+        int next = (int) Math.max(0L, Math.min((long) Integer.MAX_VALUE, unclamped));
         if (next != current) {
             stoneworksAmountBox.setValue(Integer.toString(next));
         }
@@ -1251,7 +1252,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
 
         private static boolean handle(DeepNullScreen screen, int storageSlot, int button) {
-            if (button != 0 && button != 1) {
+            boolean primary = ClientModEvents.isPrimaryGuiButton(button);
+            boolean secondary = ClientModEvents.isSecondaryGuiButton(button);
+            if (!primary && !secondary) {
                 return false;
             }
 
@@ -1268,19 +1271,19 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             }
 
             if (hasModeKey(GLFW.GLFW_KEY_P)) {
-                screen.menu.getDankInventory().cyclePlacementMode(storageSlot, button == 0);
+                screen.menu.getDankInventory().cyclePlacementMode(storageSlot, primary);
                 PacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         storageSlot,
-                        (button == 0 ? DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_BACKWARD).ordinal()
+                        (primary ? DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_BACKWARD).ordinal()
                 ));
                 return true;
             }
 
             if (hasControlDown()) {
-                screen.menu.getDankInventory().cycleExtractionMode(storageSlot, button == 0);
+                screen.menu.getDankInventory().cycleExtractionMode(storageSlot, primary);
                 PacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         storageSlot,
-                        (button == 0 ? DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_BACKWARD).ordinal()
+                        (primary ? DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_BACKWARD).ordinal()
                 ));
                 return true;
             }

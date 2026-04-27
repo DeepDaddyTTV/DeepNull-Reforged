@@ -3,7 +3,8 @@
   "package": "dev.deepdaddyttv.deepnullreforged.fabric.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "ItemEntityMixin"
+    "ItemEntityMixin",
+    "PlayerMixin"
   ],
   "client": [
     "client.AbstractContainerScreenMixin",

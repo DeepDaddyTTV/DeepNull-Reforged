@@ -12,6 +12,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.event.client.player.ClientPickBlockApplyCallback;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
@@ -36,15 +37,16 @@ public final class ClientGameEvents {
 
         ClientTickEvents.END_CLIENT_TICK.register(ClientGameEvents::onClientTick);
         HudElementRegistry.addLast(DeepNullReforged.id("deepnull_hud"), DeepNullHudRenderer::render);
+        ClientPickBlockApplyCallback.EVENT.register(ClientGameEvents::onPickBlockApply);
         ScreenEvents.BEFORE_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof DeepNullScreen deepNullScreen)) {
                 return;
             }
 
             ScreenMouseEvents.allowMouseClick(screen).register((currentScreen, event) ->
-                    event.button() != 2 || !deepNullScreen.handleBlockedMiddleClick(event.x(), event.y()));
+                    !ClientModEvents.isTertiaryGuiButton(event.button()) || !deepNullScreen.handleBlockedMiddleClick(event.x(), event.y()));
             ScreenMouseEvents.allowMouseRelease(screen).register((currentScreen, event) ->
-                    event.button() != 2 || !deepNullScreen.handleBlockedMiddleRelease(event.x(), event.y()));
+                    !ClientModEvents.isTertiaryGuiButton(event.button()) || !deepNullScreen.handleBlockedMiddleRelease(event.x(), event.y()));
         });
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) ->
                 ScreenEvents.remove(screen).register(ClientGameEvents::onScreenClosing));
@@ -99,6 +101,10 @@ public final class ClientGameEvents {
 
         if (minecraft.screen != null) {
             return;
+        }
+
+        if (ClientModEvents.TOGGLE_GLOBAL_AUTO_PICKUP.consumeClick()) {
+            PacketDistributor.sendToServer(DeepNullPayloads.ToggleGlobalAutoPickupPayload.INSTANCE);
         }
 
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);

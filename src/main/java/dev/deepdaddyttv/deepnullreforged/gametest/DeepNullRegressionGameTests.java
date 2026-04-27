@@ -1,7 +1,10 @@
 package dev.deepdaddyttv.deepnullreforged.gametest;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.block.DeepNullDockBlock;
+import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
+import dev.deepdaddyttv.deepnullreforged.compat.items.IItemHandler;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
@@ -14,6 +17,7 @@ import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
+import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -57,6 +61,7 @@ public final class DeepNullRegressionGameTests {
         helper.assertTrue(DeepNullConfig.voidFullFluidsOnSponge(), "voidFullFluidsOnSponge should default to true");
         helper.assertValueEqual(DeepNullTier.EMERALD.spongeRangeWidth(), 16, "Emerald sponge width");
         helper.assertValueEqual(DeepNullTier.EMERALD.spongeRangeHeight(), 12, "Emerald sponge height");
+        helper.assertValueEqual(DeepNullTier.EMERALD.fluidCapacity(), 512_000, "Emerald DampNull tank capacity");
         helper.assertValueEqual(DeepNullTier.GOLD.dampNullTankCount(), 18, "Gold DampNull tank count");
         helper.assertValueEqual(DeepNullConfig.defaultStoneworksAmount(), 1, "Default Stoneworks amount");
         helper.succeed();
@@ -171,6 +176,53 @@ public final class DeepNullRegressionGameTests {
     }
 
     @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void player_tossed_items_get_a_ten_second_pickup_delay(GameTestHelper helper) {
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        player.getInventory().setItem(0, deepNullStack);
+
+        DeepNullInventory inventory = new DeepNullInventory(DeepNullTier.REDSTONE, deepNullStack, helper.getLevel().registryAccess(), null);
+        inventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 8));
+
+        ItemEntity tossed = new ItemEntity(helper.getLevel(), 1.5D, 1.5D, 1.5D, new ItemStack(Items.COBBLESTONE, 2));
+        helper.getLevel().addFreshEntity(tossed);
+
+        CommonEvents.markPlayerTossedItem(player, tossed);
+        boolean handled = CommonEvents.handleItemPickup(player, tossed);
+
+        helper.assertTrue(tossed.hasPickUpDelay(), "Player-tossed items should wait before pickup");
+        helper.assertTrue(tossed.getOwner() == player, "Player-tossed items should record the tossing player as the owner");
+        helper.assertFalse(handled, "Thrown items should not be absorbed by DeepNull while pickup delay is active");
+        helper.assertFalse(tossed.isRemoved(), "Thrown item entity should remain while pickup delay is active");
+        helper.assertValueEqual(tossed.getItem().getCount(), 2, "Thrown stack should remain unchanged while pickup delay is active");
+        helper.assertValueEqual(inventory.getStackInSlot(0).getCount(), 8, "Stored DeepNull contents should not change during thrown-item pickup delay");
+        helper.succeed();
+    }
+
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void global_auto_pickup_toggle_blocks_item_absorption_for_that_player(GameTestHelper helper) {
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        player.getInventory().setItem(0, deepNullStack);
+
+        DeepNullInventory inventory = new DeepNullInventory(DeepNullTier.REDSTONE, deepNullStack, helper.getLevel().registryAccess(), null);
+        inventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 8));
+        DeepNullPlayerState.setGlobalAutoPickupEnabled(player, false);
+
+        ItemEntity dropped = new ItemEntity(helper.getLevel(), 1.5D, 1.5D, 1.5D, new ItemStack(Items.COBBLESTONE, 4));
+        helper.getLevel().addFreshEntity(dropped);
+        boolean handled = CommonEvents.handleItemPickup(player, dropped);
+
+        helper.assertFalse(handled, "Global auto-pickup disable should leave pickup handling untouched");
+        helper.assertFalse(dropped.isRemoved(), "Global auto-pickup disable should not consume the dropped entity");
+        helper.assertValueEqual(dropped.getItem().getCount(), 4, "Dropped stack should remain unchanged while global auto-pickup is disabled");
+        helper.assertValueEqual(inventory.getStackInSlot(0).getCount(), 8, "Stored stack should not change when global auto-pickup is disabled");
+
+        DeepNullPlayerState.setGlobalAutoPickupEnabled(player, true);
+        helper.succeed();
+    }
+
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
     public void dampnull_fluid_storage_round_trip(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.dampNullInventory(helper, DeepNullTier.IRON);
         helper.assertTrue(inventory.supportsFluidStorage(), "DampNull should support fluid storage");
@@ -205,6 +257,52 @@ public final class DeepNullRegressionGameTests {
     }
 
     @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void dampnull_gas_upgrade_rejects_normal_fluid_insertion(GameTestHelper helper) {
+        DeepNullInventory inventory = DeepNullGameTestSupport.dampNullInventory(helper, DeepNullTier.REDSTONE);
+        inventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.GAS.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.GAS));
+
+        helper.assertFalse(inventory.acceptsNormalFluids(), "Gas-upgraded DampNulls should reject normal fluid insertion");
+        helper.assertValueEqual(inventory.findFluidInsertSlot(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME)), -1, "Gas-upgraded DampNulls should not expose a fluid insert slot");
+        helper.assertValueEqual(inventory.fillFluid(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME), false), 0, "Gas-upgraded DampNulls should not accept water fills");
+
+        DeepNullFluidHandler handler = new DeepNullFluidHandler(inventory, inventory.backingStack(), true);
+        helper.assertFalse(handler.isFluidValid(0, new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME)), "Held DampNull fluid capability should reject normal fluid insertion when Gas Upgrade is installed");
+        helper.succeed();
+    }
+
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void docked_dampnull_accepts_fluid_container_right_click_transfer(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory inventory = dock.createInventory();
+        if (inventory == null) {
+            helper.fail("Docked DampNull inventory was not created");
+            return;
+        }
+        inventory.setSelectedSlot(0);
+
+        ItemStack emptiedBucket = DeepNullDockBlock.transferFluidContainerWithDockedDampNull(dock, new ItemStack(Items.WATER_BUCKET), false);
+        helper.assertTrue(emptiedBucket != null && emptiedBucket.is(Items.BUCKET), "Docked DampNull should accept a water bucket and return an empty bucket");
+
+        DeepNullInventory filledInventory = dock.createInventory();
+        helper.assertValueEqual(filledInventory.getFluidInSlot(0).getAmount(), FluidType.BUCKET_VOLUME, "Docked DampNull should receive bucket fluid into the selected tank");
+
+        ItemStack refilledBucket = DeepNullDockBlock.transferFluidContainerWithDockedDampNull(dock, new ItemStack(Items.BUCKET), false);
+        helper.assertTrue(refilledBucket != null && refilledBucket.is(Items.WATER_BUCKET), "Docked DampNull should fill an empty bucket from the selected tank");
+
+        DeepNullInventory drainedInventory = dock.createInventory();
+        helper.assertTrue(drainedInventory.getFluidInSlot(0).isEmpty(), "Docked DampNull should drain the transferred fluid back out");
+        helper.succeed();
+    }
+
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
     public void stoneworks_respects_literal_item_target_count(GameTestHelper helper) {
         DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
         inventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.STONEWORKS.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.STONEWORKS));
@@ -223,6 +321,15 @@ public final class DeepNullRegressionGameTests {
         helper.assertTrue(inventory.runStoneworksCycle(false), "Stoneworks should produce dirt while below the configured target");
         helper.assertValueEqual(DeepNullGameTestSupport.storedItemCount(inventory, Items.DIRT), 4, "Stoneworks should stop exactly at the configured item target");
         helper.assertFalse(inventory.runStoneworksCycle(false), "Stoneworks should stop once the target item count is reached");
+        helper.succeed();
+    }
+
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void stoneworks_target_allows_full_integer_range(GameTestHelper helper) {
+        DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.EMERALD);
+        inventory.setStoneworksTargetStacks(Integer.MAX_VALUE);
+
+        helper.assertValueEqual(inventory.getStoneworksTargetStacks(), Integer.MAX_VALUE, "Stoneworks target should allow the full integer range");
         helper.succeed();
     }
 
@@ -304,6 +411,43 @@ public final class DeepNullRegressionGameTests {
 
         assertPickaxeBlockBehavior(helper, player, dockPos, ModBlocks.DEEP_NULL_DOCK.get().defaultBlockState(), new ItemStack(ModBlocks.DEEP_NULL_DOCK.get().asItem()));
         assertPickaxeBlockBehavior(helper, player, workbenchPos, helper.getLevel().getBlockState(workbenchPos), new ItemStack(ModBlocks.NULL_WORKBENCH.get().asItem()));
+        helper.succeed();
+    }
+
+    @GameTest(structure = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public void dock_automation_extracts_default_keep_one_fully_but_respects_explicit_keep_amounts(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory defaultInventory = dock.createInventory();
+        if (defaultInventory == null) {
+            helper.fail("Docked DeepNull inventory was not created");
+            return;
+        }
+        defaultInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 20));
+
+        IItemHandler dockHandler = dock.getAutomationHandler(null);
+        ItemStack fullyExtracted = dockHandler.extractItem(0, 64, false);
+        helper.assertValueEqual(fullyExtracted.getCount(), 20, "Dock automation should fully extract a default Keep 1 slot");
+        helper.assertTrue(dock.createInventory().getStackInSlot(0).isEmpty(), "Dock automation should leave the slot empty after full extraction from a default Keep 1 slot");
+
+        DeepNullInventory limitedInventory = dock.createInventory();
+        if (limitedInventory == null) {
+            helper.fail("Docked DeepNull inventory was not recreated");
+            return;
+        }
+        limitedInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 20));
+        limitedInventory.setExtractionMode(0, ItemExtractionMode.KEEP_16);
+
+        ItemStack partiallyExtracted = dockHandler.extractItem(0, 64, false);
+        helper.assertValueEqual(partiallyExtracted.getCount(), 4, "Dock automation should still respect explicit Keep 16 extraction settings");
+        helper.assertValueEqual(dock.createInventory().getStackInSlot(0).getCount(), 16, "Explicit Keep 16 extraction should leave the configured amount behind");
         helper.succeed();
     }
 

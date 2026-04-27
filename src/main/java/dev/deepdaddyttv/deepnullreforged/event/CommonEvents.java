@@ -3,18 +3,30 @@ package dev.deepdaddyttv.deepnullreforged.event;
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 public final class CommonEvents {
+    private static final int THROWN_ITEM_PICKUP_DELAY_TICKS = 20 * 10;
+
     private CommonEvents() {
     }
 
     public static void register() {
     }
 
+    public static void markPlayerTossedItem(Player player, ItemEntity itemEntity) {
+        itemEntity.setThrower(player);
+        itemEntity.setPickUpDelay(THROWN_ITEM_PICKUP_DELAY_TICKS);
+    }
+
     public static boolean handleItemPickup(Player player, ItemEntity itemEntity) {
+        if (!DeepNullPlayerState.isGlobalAutoPickupEnabled(player) || itemEntity.hasPickUpDelay()) {
+            return false;
+        }
+
         ItemStack stack = itemEntity.getItem();
         if (stack.isEmpty()) {
             return false;

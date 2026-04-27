@@ -8,6 +8,7 @@ import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
@@ -63,7 +64,9 @@ public final class DeepNullCraftingTransferHandler implements IRecipeTransferHan
         }
 
         if (!doTransfer) {
-            return null;
+            return DeepNullCraftingTransferSupport.planTransfer(container, player, recipe, maxTransfer) == null
+                    ? transferHelper.createUserErrorWithTooltip(Component.translatable("jei.deepnullreforged.transfer.missing"))
+                    : null;
         }
 
         ClientDeepNullJeiSession.markTransfer(container);

@@ -2,9 +2,11 @@ package dev.deepdaddyttv.deepnullreforged.fabric;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
+import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
 import dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks.CraftingTweaksCompat;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
+import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import dev.deepdaddyttv.deepnullreforged.compat.network.event.RegisterPayloadHandlersEvent;
@@ -18,8 +20,10 @@ public final class DeepNullReforgedFabric implements ModInitializer {
                 .getModContainer(DeepNullReforged.MODID)
                 .map(container -> container.getMetadata().getVersion().getFriendlyString())
                 .orElse("0.0.0");
+        DeepNullPlayerState.initialize();
         DeepNullConfig.registerFabricConfigs(DeepNullReforged.MODID);
         DeepNullReforged.initialize(version);
+        CommonEvents.register();
         DeepNullCiSmoke.initializeServer();
         RegisterPayloadHandlersEvent payloadHandlersEvent = new RegisterPayloadHandlersEvent();
         DeepNullPayloads.register(payloadHandlersEvent);

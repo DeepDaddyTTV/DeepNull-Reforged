@@ -68,12 +68,12 @@ public final class DeepNullFluidHandler implements IFluidHandlerItem {
     @Override
     public boolean isFluidValid(int tank, FluidStack stack) {
         if (fixedTank >= 0) {
-            return tank == 0 && inventory.supportsFluidStorage() && !stack.isEmpty();
+            return tank == 0 && inventory.acceptsNormalFluids() && !stack.isEmpty();
         }
         if (singleSelectedTankView) {
-            return tank == 0 && inventory.supportsFluidStorage() && !stack.isEmpty();
+            return tank == 0 && inventory.acceptsNormalFluids() && !stack.isEmpty();
         }
-        return tank >= 0 && tank < inventory.getFluidSlotCount() && inventory.supportsFluidStorage() && !stack.isEmpty();
+        return tank >= 0 && tank < inventory.getFluidSlotCount() && inventory.acceptsNormalFluids() && !stack.isEmpty();
     }
 
     @Override

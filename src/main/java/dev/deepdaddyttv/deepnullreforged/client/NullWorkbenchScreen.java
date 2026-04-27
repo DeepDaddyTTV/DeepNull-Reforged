@@ -229,9 +229,9 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (clickTab(event.x(), event.y(), tabX(0), tabY(), WorkbenchTab.CRAFT)
+        if (ClientModEvents.isPrimaryGuiButton(event.button()) && (clickTab(event.x(), event.y(), tabX(0), tabY(), WorkbenchTab.CRAFT)
                 || clickTab(event.x(), event.y(), tabX(1), tabY(), WorkbenchTab.SYNC)
-                || clickTab(event.x(), event.y(), tabX(2), tabY(), WorkbenchTab.STYLE)) {
+                || clickTab(event.x(), event.y(), tabX(2), tabY(), WorkbenchTab.STYLE))) {
             return true;
         }
 
@@ -259,7 +259,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
             if (activeTab == WorkbenchTab.STYLE && handleStylePickerClick(event)) {
                 return true;
             }
-            if (activeTab == WorkbenchTab.STYLE && hasStyledNull() && event.button() == 0) {
+            if (activeTab == WorkbenchTab.STYLE && hasStyledNull() && ClientModEvents.isPrimaryGuiButton(event.button())) {
                 if (insideAbsolute(event.x(), event.y(), styleApplyButtonX() - STYLE_CLICK_PADDING, styleApplyButtonY() - STYLE_CLICK_PADDING, STYLE_APPLY_BUTTON_WIDTH + (STYLE_CLICK_PADDING * 2), STYLE_APPLY_BUTTON_HEIGHT + (STYLE_CLICK_PADDING * 2))) {
                     applyStyle(false);
                     return true;
