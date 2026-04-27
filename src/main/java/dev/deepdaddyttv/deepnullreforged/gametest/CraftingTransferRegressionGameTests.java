@@ -1,38 +1,25 @@
 package dev.deepdaddyttv.deepnullreforged.gametest;
 
 import dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks.CraftingTweaksCompat;
-import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransferHandler;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransferSupport;
-import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullJeiPlugin;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSession;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
-import mezz.jei.api.helpers.IJeiHelpers;
-import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
-import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
-import mezz.jei.api.recipe.transfer.IRecipeTransferInfo;
-import mezz.jei.api.registration.IRecipeTransferRegistration;
-import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
-import mezz.jei.api.recipe.types.IRecipeType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.server.level.ServerLevel;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static net.minecraft.world.item.Items.CHEST;
 import static net.minecraft.world.item.Items.CRAFTING_TABLE;
@@ -40,73 +27,6 @@ import static net.minecraft.world.item.Items.OAK_PLANKS;
 
 public final class CraftingTransferRegressionGameTests {
     private CraftingTransferRegressionGameTests() {
-    }
-
-    public static void jei_transfer_detects_carried_deepnull_in_player_two_by_two(GameTestHelper helper) {
-        var player = DeepNullGameTestSupport.fakePlayer(helper);
-        ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE);
-        player.getInventory().setItem(0, deepNullStack);
-
-        var inventory = new dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory(
-                dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier.REDSTONE,
-                deepNullStack,
-                helper.getLevel().registryAccess(),
-                null
-        );
-        inventory.setStackInSlot(0, new ItemStack(OAK_PLANKS, 4));
-        inventory.setCustomExtractionMinimum(0, 0);
-
-        InventoryMenu menu = new InventoryMenu(player.getInventory(), false, player);
-        RecipeHolder<CraftingRecipe> recipe = recipe(helper.getLevel(), "minecraft:crafting_table");
-
-        helper.assertTrue(DeepNullCraftingTransferSupport.planTransfer(menu, player, recipe, false) != null, "2x2 JEI transfer should detect carried DeepNull ingredients");
-        helper.assertTrue(DeepNullCraftingTransferSupport.executeTransfer(menu, player, recipe, false), "2x2 JEI transfer should fill the crafting grid from the carried DeepNull");
-
-        int plankSlots = 0;
-        for (int i = 0; i < menu.getCraftSlots().getContainerSize(); i++) {
-            ItemStack stack = menu.getCraftSlots().getItem(i);
-            if (stack.is(OAK_PLANKS)) {
-                plankSlots++;
-                helper.assertValueEqual(stack.getCount(), 1, "Each 2x2 crafting slot should receive one plank");
-            }
-        }
-        helper.assertValueEqual(plankSlots, 4, "All four 2x2 slots should be filled");
-        helper.assertTrue(menu.getResultSlot().getItem().is(CRAFTING_TABLE), "2x2 transfer should yield the crafting table result");
-        helper.succeed();
-    }
-
-    public static void jei_plugin_registers_exact_menu_handlers_for_carried_deepnulls(GameTestHelper helper) {
-        RecordingTransferRegistration registration = new RecordingTransferRegistration();
-        new DeepNullJeiPlugin().registerRecipeTransferHandlers(registration);
-
-        List<DeepNullCraftingTransferHandler> handlers = registration.specificHandlers.stream()
-                .map(SpecificRegistration::handler)
-                .filter(DeepNullCraftingTransferHandler.class::isInstance)
-                .map(DeepNullCraftingTransferHandler.class::cast)
-                .toList();
-
-        helper.assertValueEqual(handlers.size(), 2, "JEI should register exactly two carried DeepNull crafting handlers");
-
-        DeepNullCraftingTransferHandler inventoryHandler = handlers.stream()
-                .filter(handler -> handler.getContainerClass() == InventoryMenu.class)
-                .findFirst()
-                .orElse(null);
-        helper.assertTrue(inventoryHandler != null, "JEI should register a carried DeepNull handler for the player 2x2 inventory menu");
-        if (inventoryHandler == null) {
-            return;
-        }
-        helper.assertTrue(inventoryHandler.getMenuType().isEmpty(), "InventoryMenu JEI handler should not require a menu type");
-
-        DeepNullCraftingTransferHandler craftingHandler = handlers.stream()
-                .filter(handler -> handler.getContainerClass() == CraftingMenu.class)
-                .findFirst()
-                .orElse(null);
-        helper.assertTrue(craftingHandler != null, "JEI should register a carried DeepNull handler for the crafting table menu");
-        if (craftingHandler == null) {
-            return;
-        }
-        helper.assertTrue(craftingHandler.getMenuType().equals(Optional.of(MenuType.CRAFTING)), "CraftingMenu JEI handler should require MenuType.CRAFTING");
-        helper.succeed();
     }
 
     public static void jei_transfer_detects_carried_deepnull_in_main_inventory_slot(GameTestHelper helper) {
@@ -488,53 +408,12 @@ public final class CraftingTransferRegressionGameTests {
         helper.succeed();
     }
 
-    private static RecipeHolder<CraftingRecipe> recipe(ServerLevel level, String id) {
+    static RecipeHolder<CraftingRecipe> recipe(ServerLevel level, String id) {
         return level.getServer()
                 .getRecipeManager()
                 .byKey(ResourceKey.create(Registries.RECIPE, Identifier.parse(id)))
                 .filter(holder -> holder.value() instanceof CraftingRecipe)
                 .map(holder -> (RecipeHolder<CraftingRecipe>) holder)
                 .orElseThrow(() -> new AssertionError("Missing crafting recipe " + id));
-    }
-
-    private static final class RecordingTransferRegistration implements IRecipeTransferRegistration {
-        private final IJeiHelpers jeiHelpers = proxy(IJeiHelpers.class);
-        private final IRecipeTransferHandlerHelper transferHelper = proxy(IRecipeTransferHandlerHelper.class);
-        private final List<SpecificRegistration> specificHandlers = new ArrayList<>();
-
-        @Override
-        public IJeiHelpers getJeiHelpers() {
-            return jeiHelpers;
-        }
-
-        @Override
-        public IRecipeTransferHandlerHelper getTransferHelper() {
-            return transferHelper;
-        }
-
-        @Override
-        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(Class<? extends C> containerClass, MenuType<C> menuType, IRecipeType<R> recipeType, int recipeSlotStart, int recipeSlotCount, int inventorySlotStart, int inventorySlotCount) {
-        }
-
-        @Override
-        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(IRecipeTransferInfo<C, R> recipeTransferInfo) {
-        }
-
-        @Override
-        public <C extends AbstractContainerMenu, R> void addRecipeTransferHandler(IRecipeTransferHandler<C, R> recipeTransferHandler, IRecipeType<R> recipeType) {
-            specificHandlers.add(new SpecificRegistration(recipeTransferHandler, recipeType));
-        }
-
-        @Override
-        public <C extends AbstractContainerMenu> void addUniversalRecipeTransferHandler(IUniversalRecipeTransferHandler<C> recipeTransferHandler) {
-        }
-
-        @SuppressWarnings("unchecked")
-        private static <T> T proxy(Class<T> type) {
-            return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, (proxy, method, args) -> null);
-        }
-    }
-
-    private record SpecificRegistration(IRecipeTransferHandler<?, ?> handler, IRecipeType<?> recipeType) {
     }
 }

@@ -5,19 +5,37 @@ import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransfe
 import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSession;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.util.TriState;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 
 public final class CommonEvents {
+    private static final int THROWN_ITEM_PICKUP_DELAY_TICKS = 20 * 10;
+
+    @SubscribeEvent
+    public void onItemToss(ItemTossEvent event) {
+        ItemEntity itemEntity = event.getEntity();
+        itemEntity.setThrower(event.getPlayer());
+        itemEntity.setPickUpDelay(THROWN_ITEM_PICKUP_DELAY_TICKS);
+    }
+
     @SubscribeEvent
     public void onItemPickup(ItemEntityPickupEvent.Pre event) {
         Player player = event.getPlayer();
+        if (!DeepNullPlayerState.isGlobalAutoPickupEnabled(player)) {
+            return;
+        }
         ItemEntity itemEntity = event.getItemEntity();
+        if (itemEntity.hasPickUpDelay()) {
+            return;
+        }
         ItemStack stack = itemEntity.getItem();
         if (stack.isEmpty()) {
             return;
@@ -69,5 +87,10 @@ public final class CommonEvents {
         if (DeepNullCraftingTransferSupport.returnCurrentCraftingContents(event.getContainer(), player)) {
             ServerDeepNullJeiSession.clear(player);
         }
+    }
+
+    @SubscribeEvent
+    public void onPlayerClone(PlayerEvent.Clone event) {
+        DeepNullPlayerState.copyForClone(event.getOriginal(), event.getEntity());
     }
 }

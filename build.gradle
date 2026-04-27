@@ -170,6 +170,20 @@ tasks.withType(ProcessResources).configureEach {
     }
 }
 
+def gameTestConfigDir = file('runs/gameTestServer/config')
+def gameTestConfigFiles = fileTree(gameTestConfigDir) {
+    include 'deepnullreforged-common*.toml'
+    include 'deepnullreforged-server*.toml'
+}.files
+
+def cleanDeepNullGameTestConfig = tasks.register('cleanDeepNullGameTestConfig', Delete) {
+    delete gameTestConfigFiles
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    dependsOn(cleanDeepNullGameTestConfig)
+}
+
 // Example configuration to allow publishing using the maven-publish plugin
 publishing {
     publications {

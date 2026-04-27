@@ -82,6 +82,10 @@ public final class ClientGameEvents {
             return;
         }
 
+        if (ClientModEvents.TOGGLE_GLOBAL_AUTO_PICKUP.consumeClick()) {
+            ClientPacketDistributor.sendToServer(DeepNullPayloads.ToggleGlobalAutoPickupPayload.INSTANCE);
+        }
+
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
         if (held == null) {
             return;
@@ -198,7 +202,7 @@ public final class ClientGameEvents {
 
     @SubscribeEvent
     public static void onDeepNullMiddleClick(ScreenEvent.MouseButtonPressed.Pre event) {
-        if (event.getButton() != 2 || !(event.getScreen() instanceof DeepNullScreen screen)) {
+        if (!ClientModEvents.isTertiaryGuiButton(event.getButton()) || !(event.getScreen() instanceof DeepNullScreen screen)) {
             return;
         }
         if (screen.handleBlockedMiddleClick(event.getMouseX(), event.getMouseY())) {
@@ -208,7 +212,7 @@ public final class ClientGameEvents {
 
     @SubscribeEvent
     public static void onDeepNullMiddleRelease(ScreenEvent.MouseButtonReleased.Pre event) {
-        if (event.getButton() != 2 || !(event.getScreen() instanceof DeepNullScreen screen)) {
+        if (!ClientModEvents.isTertiaryGuiButton(event.getButton()) || !(event.getScreen() instanceof DeepNullScreen screen)) {
             return;
         }
         if (screen.handleBlockedMiddleRelease(event.getMouseX(), event.getMouseY())) {

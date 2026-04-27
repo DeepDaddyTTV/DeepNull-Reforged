@@ -23,6 +23,7 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterItemModelsEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import org.lwjgl.glfw.GLFW;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -41,9 +42,13 @@ public final class ClientModEvents {
     public static final KeyMapping TOGGLE_SPONGE = new KeyMapping("key.toggle_sponge.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_HUD = new KeyMapping("key.toggle_hud.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_AUTO_PICKUP = new KeyMapping("key.toggle_auto_pickup.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
+    public static final KeyMapping TOGGLE_GLOBAL_AUTO_PICKUP = new KeyMapping("key.toggle_global_auto_pickup.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_AUTO_FEEDING = new KeyMapping("key.toggle_auto_feeding.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping TOGGLE_AUTO_SMELTING = new KeyMapping("key.toggle_auto_smelting.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
     public static final KeyMapping CYCLE_STONE_GENERATOR = new KeyMapping("key.cycle_stone_generator.desc", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
+    public static final KeyMapping GUI_PRIMARY_ACTION = new KeyMapping("key.gui_primary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_LEFT, KEY_CATEGORY);
+    public static final KeyMapping GUI_SECONDARY_ACTION = new KeyMapping("key.gui_secondary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_RIGHT, KEY_CATEGORY);
+    public static final KeyMapping GUI_TERTIARY_ACTION = new KeyMapping("key.gui_tertiary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, KEY_CATEGORY);
 
     private ClientModEvents() {
     }
@@ -70,9 +75,28 @@ public final class ClientModEvents {
         event.register(TOGGLE_SPONGE);
         event.register(TOGGLE_HUD);
         event.register(TOGGLE_AUTO_PICKUP);
+        event.register(TOGGLE_GLOBAL_AUTO_PICKUP);
         event.register(TOGGLE_AUTO_FEEDING);
         event.register(TOGGLE_AUTO_SMELTING);
         event.register(CYCLE_STONE_GENERATOR);
+        event.register(GUI_PRIMARY_ACTION);
+        event.register(GUI_SECONDARY_ACTION);
+        event.register(GUI_TERTIARY_ACTION);
+    }
+
+    public static boolean isPrimaryGuiButton(int button) {
+        return GUI_PRIMARY_ACTION.getKey().getType() == InputConstants.Type.MOUSE
+                && GUI_PRIMARY_ACTION.getKey().getValue() == button;
+    }
+
+    public static boolean isSecondaryGuiButton(int button) {
+        return GUI_SECONDARY_ACTION.getKey().getType() == InputConstants.Type.MOUSE
+                && GUI_SECONDARY_ACTION.getKey().getValue() == button;
+    }
+
+    public static boolean isTertiaryGuiButton(int button) {
+        return GUI_TERTIARY_ACTION.getKey().getType() == InputConstants.Type.MOUSE
+                && GUI_TERTIARY_ACTION.getKey().getValue() == button;
     }
 
     public static void registerItemModels(RegisterItemModelsEvent event) {

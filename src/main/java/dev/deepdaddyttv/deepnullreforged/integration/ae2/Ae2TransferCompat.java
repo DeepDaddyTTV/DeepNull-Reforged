@@ -63,7 +63,7 @@ public final class Ae2TransferCompat {
         return moved ? InteractionResult.SUCCESS_SERVER : InteractionResult.FAIL;
     }
 
-    private static @Nullable MEStorage getStorage(UseOnContext context) {
+    public static @Nullable MEStorage getStorage(UseOnContext context) {
         MEStorage storage = context.getLevel().getCapability(AECapabilities.ME_STORAGE, context.getClickedPos(), context.getClickedFace());
         if (storage == null) {
             storage = context.getLevel().getCapability(AECapabilities.ME_STORAGE, context.getClickedPos(), null);
@@ -87,10 +87,6 @@ public final class Ae2TransferCompat {
 
                 AEItemKey key = AEItemKey.of(extractable);
                 if (key == null) {
-                    continue;
-                }
-                if (inventory.getTransferOutputMode().matchingOnly()
-                        && storage.extract(key, 1, Actionable.SIMULATE, actionSource) <= 0L) {
                     continue;
                 }
 
@@ -129,20 +125,7 @@ public final class Ae2TransferCompat {
                 continue;
             }
 
-            long available = storage.extract(key, space, Actionable.SIMULATE, actionSource);
-            if (available <= 0) {
-                continue;
-            }
-
-            int toMove = (int) Math.min(available, space);
-            ItemStack extracted = key.toStack(toMove);
-            ItemStack remainder = inventory.insertItem(slot, extracted, true);
-            int accepted = extracted.getCount() - remainder.getCount();
-            if (accepted <= 0) {
-                continue;
-            }
-
-            long moved = storage.extract(key, accepted, Actionable.MODULATE, actionSource);
+            long moved = storage.extract(key, space, Actionable.MODULATE, actionSource);
             if (moved <= 0) {
                 continue;
             }
@@ -211,17 +194,7 @@ public final class Ae2TransferCompat {
                 continue;
             }
 
-            long available = storage.extract(key, space, Actionable.SIMULATE, actionSource);
-            if (available <= 0) {
-                continue;
-            }
-
-            int accepted = inventory.fillFluid(slot, key.toStack((int) Math.min(available, Integer.MAX_VALUE)), true);
-            if (accepted <= 0) {
-                continue;
-            }
-
-            long moved = storage.extract(key, accepted, Actionable.MODULATE, actionSource);
+            long moved = storage.extract(key, space, Actionable.MODULATE, actionSource);
             if (moved <= 0) {
                 continue;
             }

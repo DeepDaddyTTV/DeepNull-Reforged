@@ -12,10 +12,12 @@ import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSessio
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenuOpener;
+import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -149,6 +151,12 @@ public final class DeepNullPayloads {
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
                         handleHeldAutoPickup(payload, player);
+                    }
+                }));
+        registrar.playToServer(ToggleGlobalAutoPickupPayload.TYPE, ToggleGlobalAutoPickupPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleToggleGlobalAutoPickup(player);
                     }
                 }));
         registrar.playToServer(HeldAutoFeedingPayload.TYPE, HeldAutoFeedingPayload.STREAM_CODEC, (payload, context) ->
@@ -378,6 +386,13 @@ public final class DeepNullPayloads {
 
     private static void handleHeldAutoPickup(HeldAutoPickupPayload payload, ServerPlayer player) {
         withHeldInventory(player, payload.inventorySlot(), inventory -> inventory.setAutoPickupEnabled(payload.enabled()));
+    }
+
+    private static void handleToggleGlobalAutoPickup(ServerPlayer player) {
+        boolean next = DeepNullPlayerState.toggleGlobalAutoPickup(player);
+        player.sendSystemMessage(Component.translatable(next
+                ? "dn.global_auto_pickup_enabled.desc"
+                : "dn.global_auto_pickup_disabled.desc"));
     }
 
     private static void handleHeldAutoFeeding(HeldAutoFeedingPayload payload, ServerPlayer player) {
@@ -694,6 +709,20 @@ public final class DeepNullPayloads {
                         HeldAutoPickupPayload::enabled,
                         HeldAutoPickupPayload::new
                 );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public static final class ToggleGlobalAutoPickupPayload implements CustomPacketPayload {
+        public static final ToggleGlobalAutoPickupPayload INSTANCE = new ToggleGlobalAutoPickupPayload();
+        public static final Type<ToggleGlobalAutoPickupPayload> TYPE = payloadType("toggle_global_auto_pickup");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ToggleGlobalAutoPickupPayload> STREAM_CODEC = StreamCodec.unit(INSTANCE);
+
+        private ToggleGlobalAutoPickupPayload() {
+        }
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
