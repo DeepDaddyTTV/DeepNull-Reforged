@@ -13,7 +13,6 @@ import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -71,36 +70,6 @@ public final class ClientModEvents {
         KeyMappingHelper.registerKeyMapping(GUI_TERTIARY_ACTION);
 
         BlockEntityRendererRegistry.register(ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockRenderer::new);
-        ColorProviderRegistry.ITEM.register((stack, tintIndex) -> {
-                    if (!(stack.getItem() instanceof DeepNullItem deepNullItem) || tintIndex < 0 || tintIndex > 1) {
-                        return 0xFFFFFF;
-                    }
-                    DeepNullInventory.StyleRenderData style = DeepNullInventory.readStyleRenderData(
-                            stack,
-                            deepNullItem.tier(),
-                            stack.getItem() instanceof DampNullItem
-                    );
-                    if (!style.hasCustomStyle()) {
-                        return 0xFFFFFFFF;
-                    }
-                    int rgb = tintIndex == 0 ? style.frameColor() : style.glassColor();
-                    return 0xFF000000 | (rgb & 0xFFFFFF);
-                },
-                ModItems.REDSTONE_DEEP_NULL.get(),
-                ModItems.LAPIS_DEEP_NULL.get(),
-                ModItems.IRON_DEEP_NULL.get(),
-                ModItems.GOLD_DEEP_NULL.get(),
-                ModItems.DIAMOND_DEEP_NULL.get(),
-                ModItems.EMERALD_DEEP_NULL.get(),
-                ModItems.CREATIVE_DEEP_NULL.get(),
-                ModItems.REDSTONE_DAMP_NULL.get(),
-                ModItems.LAPIS_DAMP_NULL.get(),
-                ModItems.IRON_DAMP_NULL.get(),
-                ModItems.GOLD_DAMP_NULL.get(),
-                ModItems.DIAMOND_DAMP_NULL.get(),
-                ModItems.EMERALD_DAMP_NULL.get(),
-                ModItems.CREATIVE_DAMP_NULL.get()
-        );
     }
 
     private static AbstractContainerScreen<DeepNullMenu> createDeepNullScreen(DeepNullMenu menu, Inventory inventory, Component title) {
@@ -113,14 +82,18 @@ public final class ClientModEvents {
     }
 
     public static boolean isPrimaryGuiButton(int button) {
-        return GUI_PRIMARY_ACTION.matchesMouse(button);
+        return matchesMouseButton(GUI_PRIMARY_ACTION, button);
     }
 
     public static boolean isSecondaryGuiButton(int button) {
-        return GUI_SECONDARY_ACTION.matchesMouse(button);
+        return matchesMouseButton(GUI_SECONDARY_ACTION, button);
     }
 
     public static boolean isTertiaryGuiButton(int button) {
-        return GUI_TERTIARY_ACTION.matchesMouse(button);
+        return matchesMouseButton(GUI_TERTIARY_ACTION, button);
+    }
+
+    private static boolean matchesMouseButton(KeyMapping keyMapping, int button) {
+        return keyMapping.saveString().equals(InputConstants.Type.MOUSE.getOrCreate(button).getName());
     }
 }

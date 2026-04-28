@@ -29,10 +29,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidStack;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidType;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.FluidUtil;
+import dev.deepdaddyttv.deepnullreforged.compat.fluids.capability.IFluidHandlerItem;
 import org.jetbrains.annotations.Nullable;
 
 public class DeepNullDockBlock extends BaseEntityBlock {
@@ -109,7 +109,7 @@ public class DeepNullDockBlock extends BaseEntityBlock {
         }
 
         if (dock.hasStoredDeepNull()) {
-            ItemStack updatedContainer = transferFluidContainerWithDockedDampNull(dock, stack, level.isClientSide);
+            ItemStack updatedContainer = transferFluidContainerWithDockedDampNull(dock, stack, level.isClientSide());
             if (updatedContainer != null) {
                 if (!level.isClientSide()) {
                     player.setItemInHand(hand, updatedContainer);

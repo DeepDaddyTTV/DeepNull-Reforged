@@ -78,13 +78,14 @@ dependencies {
 
 tasks.withType(ProcessResources).configureEach {
     var replaceProperties = [
-            mod_id           : mod_id,
-            mod_name         : mod_name,
-            mod_license      : mod_license,
-            mod_version      : mod_version,
-            minecraft_version: minecraft_version,
-            loader_version   : loader_version,
-            java_version     : java_version
+            mod_id                    : mod_id,
+            mod_name                  : mod_name,
+            mod_license               : mod_license,
+            mod_version               : mod_version,
+            minecraft_version         : minecraft_version,
+            minecraft_dependency_version: minecraft_dependency_version,
+            loader_version            : loader_version,
+            java_version              : java_version
     ]
     inputs.properties replaceProperties
 

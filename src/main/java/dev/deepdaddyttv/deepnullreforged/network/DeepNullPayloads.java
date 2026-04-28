@@ -390,9 +390,9 @@ public final class DeepNullPayloads {
 
     private static void handleToggleGlobalAutoPickup(ServerPlayer player) {
         boolean next = DeepNullPlayerState.toggleGlobalAutoPickup(player);
-        player.displayClientMessage(Component.translatable(next
+        player.sendSystemMessage(Component.translatable(next
                 ? "dn.global_auto_pickup_enabled.desc"
-                : "dn.global_auto_pickup_disabled.desc"), true);
+                : "dn.global_auto_pickup_disabled.desc"));
     }
 
     private static void handleHeldAutoFeeding(HeldAutoFeedingPayload payload, ServerPlayer player) {

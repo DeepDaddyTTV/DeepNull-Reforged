@@ -2,7 +2,7 @@
   <img src="./deepnull_media_logo_just_text.png" alt="DeepNull Reforged" width="960">
 </p>
 
-A modern Fabric port and expansion of `/dank/null` by p455w0rd, rebuilt for Minecraft `26.1`.
+A modern Fabric port and expansion of `/dank/null` by p455w0rd, rebuilt for Minecraft `26.1.x` and currently targeting `26.1.2`.
 
 DeepNull Reforged keeps the original fast-access storage concept, then pushes it further with modern automation support, fluid handling, JEI integration, upgrades, configuration, in-game documentation, and a full companion fluid variant called the DampNull.
 
@@ -52,8 +52,8 @@ Stable builds are published on:
 
 ## Installation
 
-1. Install Minecraft `26.1`.
-2. Install Fabric Loader `0.18.5` or newer for the supported `26.1` range.
+1. Install Minecraft `26.1.2` or another supported `26.1.x` build.
+2. Install Fabric Loader `0.19.2` or newer for the supported `26.1.x` range.
 3. Place the downloaded `deepnull-reforged-*.jar` file in your `minecraft/mods/` folder.
 
 ## What It Does
@@ -174,8 +174,8 @@ The full user-facing documentation is available on the GitHub wiki:
 
 This project targets:
 
-- Minecraft `26.1`
-- Fabric Loader `0.18.5`
+- Minecraft `26.1.2` for development and supports the `26.1.x` line in metadata
+- Fabric Loader `0.19.2`
 - Java `25`
 
 Build with:
