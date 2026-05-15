@@ -30,7 +30,7 @@ public final class TransferCapabilityAdapters {
             Supplier<S> snapshotSource,
             Consumer<S> snapshotRestore
     ) {
-        return fluid(inventory, snapshotSource, snapshotRestore, false);
+        return fluid(() -> inventory, snapshotSource, snapshotRestore, false);
     }
 
     public static <S> ResourceHandler<FluidResource> fluid(
@@ -39,7 +39,24 @@ public final class TransferCapabilityAdapters {
             Consumer<S> snapshotRestore,
             boolean singleSelectedTankView
     ) {
-        return new FluidHandlerResourceBridge<>(inventory, snapshotSource, snapshotRestore, singleSelectedTankView);
+        return fluid(() -> inventory, snapshotSource, snapshotRestore, singleSelectedTankView);
+    }
+
+    public static <S> ResourceHandler<FluidResource> fluid(
+            Supplier<@Nullable DeepNullInventory> inventorySupplier,
+            Supplier<S> snapshotSource,
+            Consumer<S> snapshotRestore
+    ) {
+        return fluid(inventorySupplier, snapshotSource, snapshotRestore, false);
+    }
+
+    public static <S> ResourceHandler<FluidResource> fluid(
+            Supplier<@Nullable DeepNullInventory> inventorySupplier,
+            Supplier<S> snapshotSource,
+            Consumer<S> snapshotRestore,
+            boolean singleSelectedTankView
+    ) {
+        return new FluidHandlerResourceBridge<>(inventorySupplier, snapshotSource, snapshotRestore, singleSelectedTankView);
     }
 
     public static <S> EnergyHandler energy(
@@ -47,7 +64,15 @@ public final class TransferCapabilityAdapters {
             Supplier<S> snapshotSource,
             Consumer<S> snapshotRestore
     ) {
-        return new EnergyStorageResourceBridge<>(inventory, snapshotSource, snapshotRestore);
+        return energy(() -> inventory, snapshotSource, snapshotRestore);
+    }
+
+    public static <S> EnergyHandler energy(
+            Supplier<@Nullable DeepNullInventory> inventorySupplier,
+            Supplier<S> snapshotSource,
+            Consumer<S> snapshotRestore
+    ) {
+        return new EnergyStorageResourceBridge<>(inventorySupplier, snapshotSource, snapshotRestore);
     }
 
     public static void restoreItemStack(ItemStack target, ItemStack snapshot) {
@@ -89,7 +114,7 @@ public final class TransferCapabilityAdapters {
             if (!isValidSlot(slot) || resource.isEmpty()) {
                 return 0L;
             }
-            return Math.min(handler.getSlotLimit(slot), resource.getMaxStackSize());
+            return handler.getSlotLimit(slot);
         }
 
         @Override
@@ -144,18 +169,18 @@ public final class TransferCapabilityAdapters {
     }
 
     private static final class FluidHandlerResourceBridge<S> extends SnapshotJournal<S> implements ResourceHandler<FluidResource> {
-        private final DeepNullInventory inventory;
+        private final Supplier<@Nullable DeepNullInventory> inventorySupplier;
         private final Supplier<S> snapshotSource;
         private final Consumer<S> snapshotRestore;
         private final boolean singleSelectedTankView;
 
         private FluidHandlerResourceBridge(
-                DeepNullInventory inventory,
+                Supplier<@Nullable DeepNullInventory> inventorySupplier,
                 Supplier<S> snapshotSource,
                 Consumer<S> snapshotRestore,
                 boolean singleSelectedTankView
         ) {
-            this.inventory = inventory;
+            this.inventorySupplier = inventorySupplier;
             this.snapshotSource = snapshotSource;
             this.snapshotRestore = snapshotRestore;
             this.singleSelectedTankView = singleSelectedTankView;
@@ -163,7 +188,8 @@ public final class TransferCapabilityAdapters {
 
         @Override
         public int size() {
-            if (!inventory.supportsFluidStorage()) {
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null) {
                 return 0;
             }
             return singleSelectedTankView ? 1 : inventory.getFluidSlotCount();
@@ -171,7 +197,11 @@ public final class TransferCapabilityAdapters {
 
         @Override
         public FluidResource getResource(int slot) {
-            int resolvedSlot = resolveSlot(slot);
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null) {
+                return FluidResource.EMPTY;
+            }
+            int resolvedSlot = resolveSlot(inventory, slot);
             if (resolvedSlot < 0) {
                 return FluidResource.EMPTY;
             }
@@ -181,18 +211,30 @@ public final class TransferCapabilityAdapters {
 
         @Override
         public long getAmountAsLong(int slot) {
-            int resolvedSlot = resolveSlot(slot);
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null) {
+                return 0L;
+            }
+            int resolvedSlot = resolveSlot(inventory, slot);
             return resolvedSlot >= 0 ? inventory.getFluidInSlot(resolvedSlot).getAmount() : 0L;
         }
 
         @Override
         public long getCapacityAsLong(int slot, FluidResource resource) {
-            return resolveSlot(slot) >= 0 && !resource.isEmpty() ? inventory.getFluidCapacity() : 0L;
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null || resource.isEmpty()) {
+                return 0L;
+            }
+            return resolveSlot(inventory, slot) >= 0 ? inventory.getFluidCapacity() : 0L;
         }
 
         @Override
         public boolean isValid(int slot, FluidResource resource) {
-            int resolvedSlot = resolveSlot(slot);
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null) {
+                return false;
+            }
+            int resolvedSlot = resolveSlot(inventory, slot);
             return resolvedSlot >= 0
                     && !resource.isEmpty()
                     && inventory.fillFluid(resolvedSlot, resource.toStack(1), true) > 0;
@@ -200,8 +242,12 @@ public final class TransferCapabilityAdapters {
 
         @Override
         public int insert(int slot, FluidResource resource, int maxAmount, TransactionContext transaction) {
-            int resolvedSlot = resolveSlot(slot);
-            if (resolvedSlot < 0 || !isValid(slot, resource) || maxAmount <= 0) {
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null || maxAmount <= 0 || resource.isEmpty()) {
+                return 0;
+            }
+            int resolvedSlot = resolveSlot(inventory, slot);
+            if (resolvedSlot < 0 || inventory.fillFluid(resolvedSlot, resource.toStack(1), true) <= 0) {
                 return 0;
             }
             updateSnapshots(transaction);
@@ -210,8 +256,12 @@ public final class TransferCapabilityAdapters {
 
         @Override
         public int extract(int slot, FluidResource resource, int maxAmount, TransactionContext transaction) {
-            int resolvedSlot = resolveSlot(slot);
-            if (resolvedSlot < 0 || maxAmount <= 0) {
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null || maxAmount <= 0) {
+                return 0;
+            }
+            int resolvedSlot = resolveSlot(inventory, slot);
+            if (resolvedSlot < 0) {
                 return 0;
             }
 
@@ -234,10 +284,15 @@ public final class TransferCapabilityAdapters {
             snapshotRestore.accept(snapshot);
         }
 
-        private int resolveSlot(int slot) {
-            if (!inventory.supportsFluidStorage()) {
-                return -1;
+        private @Nullable DeepNullInventory currentInventory() {
+            DeepNullInventory inventory = inventorySupplier.get();
+            if (inventory == null || !inventory.supportsFluidStorage()) {
+                return null;
             }
+            return inventory;
+        }
+
+        private int resolveSlot(DeepNullInventory inventory, int slot) {
             if (!singleSelectedTankView) {
                 return slot >= 0 && slot < inventory.getFluidSlotCount() ? slot : -1;
             }
@@ -253,29 +308,32 @@ public final class TransferCapabilityAdapters {
     }
 
     private static final class EnergyStorageResourceBridge<S> extends SnapshotJournal<S> implements EnergyHandler {
-        private final DeepNullInventory inventory;
+        private final Supplier<@Nullable DeepNullInventory> inventorySupplier;
         private final Supplier<S> snapshotSource;
         private final Consumer<S> snapshotRestore;
 
-        private EnergyStorageResourceBridge(DeepNullInventory inventory, Supplier<S> snapshotSource, Consumer<S> snapshotRestore) {
-            this.inventory = inventory;
+        private EnergyStorageResourceBridge(Supplier<@Nullable DeepNullInventory> inventorySupplier, Supplier<S> snapshotSource, Consumer<S> snapshotRestore) {
+            this.inventorySupplier = inventorySupplier;
             this.snapshotSource = snapshotSource;
             this.snapshotRestore = snapshotRestore;
         }
 
         @Override
         public long getAmountAsLong() {
-            return inventory.getEnergyStored();
+            DeepNullInventory inventory = currentInventory();
+            return inventory == null ? 0L : inventory.getEnergyStored();
         }
 
         @Override
         public long getCapacityAsLong() {
-            return inventory.getEnergyCapacity();
+            DeepNullInventory inventory = currentInventory();
+            return inventory == null ? 0L : inventory.getEnergyCapacity();
         }
 
         @Override
         public int insert(int maxAmount, TransactionContext transaction) {
-            if (!inventory.hasEnergyUpgrade() || maxAmount <= 0) {
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null || maxAmount <= 0) {
                 return 0;
             }
             updateSnapshots(transaction);
@@ -284,7 +342,8 @@ public final class TransferCapabilityAdapters {
 
         @Override
         public int extract(int maxAmount, TransactionContext transaction) {
-            if (!inventory.hasEnergyUpgrade() || maxAmount <= 0) {
+            DeepNullInventory inventory = currentInventory();
+            if (inventory == null || maxAmount <= 0) {
                 return 0;
             }
             updateSnapshots(transaction);
@@ -299,6 +358,14 @@ public final class TransferCapabilityAdapters {
         @Override
         protected void revertToSnapshot(S snapshot) {
             snapshotRestore.accept(snapshot);
+        }
+
+        private @Nullable DeepNullInventory currentInventory() {
+            DeepNullInventory inventory = inventorySupplier.get();
+            if (inventory == null || !inventory.hasEnergyUpgrade()) {
+                return null;
+            }
+            return inventory;
         }
     }
 }

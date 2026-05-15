@@ -2,6 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.block.entity;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.capability.LegacyCapabilityBridge;
+import dev.deepdaddyttv.deepnullreforged.capability.TransferCapabilityAdapters;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
@@ -19,6 +20,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +37,9 @@ public class DeepNullDockBlockEntity extends BlockEntity {
     private ItemStack storedDeepNull = ItemStack.EMPTY;
     private ItemStack generatorBuffer = ItemStack.EMPTY;
     private final IItemHandler automationHandler = new DockAutomationHandler(this);
+    private final ResourceHandler<ItemResource> transferItemHandler = TransferCapabilityAdapters.item((IItemHandlerModifiable) automationHandler);
+    private final ResourceHandler<FluidResource> transferFluidHandler = TransferCapabilityAdapters.fluid(this::createInventory, this::snapshotState, this::restoreState);
+    private final EnergyHandler transferEnergyHandler = TransferCapabilityAdapters.energy(this::createInventory, this::snapshotState, this::restoreState);
 
     public DeepNullDockBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.DEEP_NULL_DOCK.get(), pos, blockState);
@@ -88,6 +96,20 @@ public class DeepNullDockBlockEntity extends BlockEntity {
 
     public IItemHandler getAutomationHandler(@Nullable Direction side) {
         return automationHandler;
+    }
+
+    public ResourceHandler<ItemResource> getTransferItemHandler(@Nullable Direction side) {
+        return transferItemHandler;
+    }
+
+    public @Nullable ResourceHandler<FluidResource> getTransferFluidHandler(@Nullable Direction side) {
+        DeepNullInventory inventory = createInventory();
+        return inventory != null && inventory.supportsFluidStorage() ? transferFluidHandler : null;
+    }
+
+    public @Nullable EnergyHandler getTransferEnergyHandler(@Nullable Direction side) {
+        DeepNullInventory inventory = createInventory();
+        return inventory != null && inventory.hasEnergyUpgrade() ? transferEnergyHandler : null;
     }
 
     public boolean exposesGeneratorBuffer() {

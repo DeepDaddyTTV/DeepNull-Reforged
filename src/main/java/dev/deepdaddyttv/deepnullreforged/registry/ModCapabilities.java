@@ -171,34 +171,15 @@ public final class ModCapabilities {
     }
 
     private static @Nullable ResourceHandler<ItemResource> createDockEntityHandler(DeepNullDockBlockEntity dock, @Nullable Direction side) {
-        IItemHandler handler = dock.getAutomationHandler(side);
-        return handler instanceof IItemHandlerModifiable modifiable
-                ? TransferCapabilityAdapters.item(modifiable)
-                : null;
+        return dock.getTransferItemHandler(side);
     }
 
     private static @Nullable ResourceHandler<FluidResource> createDockEntityFluidHandler(DeepNullDockBlockEntity dock, @Nullable Direction side) {
-        DeepNullInventory inventory = dock.createInventory();
-        if (inventory == null || !inventory.supportsFluidStorage()) {
-            return null;
-        }
-        return TransferCapabilityAdapters.fluid(
-                inventory,
-                dock::snapshotState,
-                dock::restoreState
-        );
+        return dock.getTransferFluidHandler(side);
     }
 
     private static @Nullable EnergyHandler createDockEntityEnergyStorage(DeepNullDockBlockEntity dock, @Nullable Direction side) {
-        DeepNullInventory inventory = dock.createInventory();
-        if (inventory == null || !inventory.hasEnergyUpgrade()) {
-            return null;
-        }
-        return TransferCapabilityAdapters.energy(
-                inventory,
-                dock::snapshotState,
-                dock::restoreState
-        );
+        return dock.getTransferEnergyHandler(side);
     }
 
     private static @Nullable ResourceHandler<ItemResource> createDockHandler(Level level, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, @Nullable Direction side) {
@@ -293,7 +274,7 @@ public final class ModCapabilities {
             if (stack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
-            return stack.copyWithCount(Math.min(stack.getCount(), stack.getMaxStackSize()));
+            return stack.copy();
         }
 
         @Override
