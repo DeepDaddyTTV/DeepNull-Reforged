@@ -15,6 +15,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.List;
 
 public final class CraftingTweaksCompat {
@@ -108,11 +109,13 @@ public final class CraftingTweaksCompat {
     private static InvocationHandler providerInvocation(ClassLoader classLoader, Object clearHandler) throws ReflectiveOperationException {
         Class<?> builderInterface = Class.forName(BUILDER_INTERFACE, false, classLoader);
         Class<?> decoratorInterface = Class.forName(DECORATOR_INTERFACE, false, classLoader);
-        Method addGrid = builderInterface.getMethod("addGrid", int.class, int.class);
-        Method setButtonAlignment = decoratorInterface.getMethod("setButtonAlignment", Class.forName(BUTTON_ALIGNMENT_CLASS, false, classLoader));
-        Method hideAllTweakButtons = decoratorInterface.getMethod("hideAllTweakButtons");
-        Method setClearHandler = decoratorInterface.getMethod("clearHandler", Class.forName(CLEAR_HANDLER_INTERFACE, false, classLoader));
-        Object leftAlignment = Enum.valueOf((Class<Enum>) Class.forName(BUTTON_ALIGNMENT_CLASS, false, classLoader), "LEFT");
+        Class<?> clearHandlerInterface = Class.forName(CLEAR_HANDLER_INTERFACE, false, classLoader);
+        Class<?> buttonAlignmentClass = Class.forName(BUTTON_ALIGNMENT_CLASS, false, classLoader);
+        Method addGrid = findAddGridMethod(builderInterface, decoratorInterface);
+        Method setButtonAlignment = findOptionalMethod(decoratorInterface, "setButtonAlignment", buttonAlignmentClass);
+        Method hideAllTweakButtons = findOptionalMethod(decoratorInterface, "hideAllTweakButtons");
+        Method setClearHandler = findRequiredMethod(decoratorInterface, clearHandlerInterface, "clearHandler", "setClearHandler");
+        Object leftAlignment = Enum.valueOf((Class<Enum>) buttonAlignmentClass, "LEFT");
 
         return (proxy, method, args) -> {
             String methodName = method.getName();
@@ -127,11 +130,15 @@ public final class CraftingTweaksCompat {
                     AbstractContainerMenu menu = (AbstractContainerMenu) args[1];
                     Object decorator;
                     if (menu instanceof CraftingMenu) {
-                        decorator = addGrid.invoke(builder, 1, 9);
-                        setButtonAlignment.invoke(decorator, leftAlignment);
+                        decorator = invokeAddGrid(addGrid, builder, 1, 9);
+                        if (setButtonAlignment != null) {
+                            setButtonAlignment.invoke(decorator, leftAlignment);
+                        }
                     } else if (menu instanceof InventoryMenu) {
-                        decorator = addGrid.invoke(builder, 1, 4);
-                        hideAllTweakButtons.invoke(decorator);
+                        decorator = invokeAddGrid(addGrid, builder, 1, 4);
+                        if (hideAllTweakButtons != null) {
+                            hideAllTweakButtons.invoke(decorator);
+                        }
                     } else {
                         yield null;
                     }
@@ -143,6 +150,64 @@ public final class CraftingTweaksCompat {
                 default -> handleProxyObjectMethod(proxy, method, args, "DeepNullCraftingTweaksProvider");
             };
         };
+    }
+
+    private static Method findAddGridMethod(Class<?> builderInterface, Class<?> decoratorInterface) throws NoSuchMethodException {
+        return Arrays.stream(builderInterface.getMethods())
+                .filter(method -> method.getName().equals("addGrid"))
+                .filter(method -> decoratorInterface.isAssignableFrom(method.getReturnType()))
+                .filter(method -> {
+                    Class<?>[] parameterTypes = method.getParameterTypes();
+                    return parameterTypes.length == 2
+                            && parameterTypes[0] == int.class
+                            && parameterTypes[1] == int.class
+                            || parameterTypes.length == 3
+                            && parameterTypes[0] == String.class
+                            && parameterTypes[1] == int.class
+                            && parameterTypes[2] == int.class;
+                })
+                .findFirst()
+                .orElseThrow(() -> new NoSuchMethodException("No compatible addGrid overload found on " + builderInterface.getName()));
+    }
+
+    private static Object invokeAddGrid(Method addGrid, Object builder, int width, int height) throws ReflectiveOperationException {
+        return switch (addGrid.getParameterCount()) {
+            case 2 -> addGrid.invoke(builder, width, height);
+            case 3 -> addGrid.invoke(builder, "deepnullreforged", width, height);
+            default -> throw new NoSuchMethodException("Unsupported addGrid overload: " + addGrid);
+        };
+    }
+
+    private static Method findRequiredMethod(Class<?> type, Class<?> parameterType, String... names) throws NoSuchMethodException {
+        Method method = findOptionalMethod(type, parameterType, names);
+        if (method != null) {
+            return method;
+        }
+        throw new NoSuchMethodException("No compatible method found on " + type.getName() + " for " + String.join(", ", names));
+    }
+
+    private static Method findOptionalMethod(Class<?> type, String name, Class<?>... parameterTypes) {
+        try {
+            return type.getMethod(name, parameterTypes);
+        } catch (NoSuchMethodException ignored) {
+            return null;
+        }
+    }
+
+    private static Method findOptionalMethod(Class<?> type, Class<?> parameterType, String... names) {
+        for (String name : names) {
+            Method method = Arrays.stream(type.getMethods())
+                    .filter(candidate -> candidate.getName().equals(name))
+                    .filter(candidate -> candidate.getParameterCount() == 1)
+                    .filter(candidate -> candidate.getParameterTypes()[0].isAssignableFrom(parameterType)
+                            || parameterType.isAssignableFrom(candidate.getParameterTypes()[0]))
+                    .findFirst()
+                    .orElse(null);
+            if (method != null) {
+                return method;
+            }
+        }
+        return null;
     }
 
     private static Object handleProxyObjectMethod(Object proxy, Method method, Object[] args, String name) {

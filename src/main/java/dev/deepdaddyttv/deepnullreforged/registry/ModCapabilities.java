@@ -160,7 +160,7 @@ public final class ModCapabilities {
         if (inventory == null || !inventory.supportsFluidStorage()) {
             return null;
         }
-        return new DeepNullFluidHandler(inventory, dock.getStoredDeepNull());
+        return new DeepNullFluidHandler(dock::createInventory, dock::getStoredDeepNull);
     }
 
     private static @Nullable IEnergyStorage createDockEntityEnergyStorage(DeepNullDockBlockEntity dock, @Nullable Direction side) {
@@ -168,7 +168,7 @@ public final class ModCapabilities {
         if (inventory == null || !inventory.hasEnergyUpgrade()) {
             return null;
         }
-        return new DeepNullEnergyStorage(inventory);
+        return new DeepNullEnergyStorage(dock::createInventory);
     }
 
     private static @Nullable IItemHandler createDockHandler(Level level, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, @Nullable Direction side) {
@@ -260,7 +260,7 @@ public final class ModCapabilities {
             if (stack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
-            return stack.copyWithCount(Math.min(stack.getCount(), stack.getMaxStackSize()));
+            return stack.copy();
         }
 
         @Override

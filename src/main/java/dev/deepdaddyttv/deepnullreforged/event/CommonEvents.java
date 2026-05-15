@@ -22,7 +22,11 @@ public final class CommonEvents {
     @SubscribeEvent
     public void onItemToss(ItemTossEvent event) {
         ItemEntity itemEntity = event.getEntity();
-        itemEntity.setThrower(event.getPlayer());
+        Player player = event.getPlayer();
+        if (!canDeepNullAutoPickup(player, itemEntity.getItem())) {
+            return;
+        }
+        itemEntity.setThrower(player);
         itemEntity.setPickUpDelay(THROWN_ITEM_PICKUP_DELAY_TICKS);
     }
 
@@ -75,6 +79,36 @@ public final class CommonEvents {
         } else {
             itemEntity.setItem(remaining);
         }
+    }
+
+    private static boolean canDeepNullAutoPickup(Player player, ItemStack stack) {
+        if (stack.isEmpty() || !DeepNullPlayerState.isGlobalAutoPickupEnabled(player)) {
+            return false;
+        }
+
+        ItemStack remaining = stack.copy();
+        for (int slot = 0; slot < player.getInventory().getContainerSize() && !remaining.isEmpty(); slot++) {
+            ItemStack candidate = player.getInventory().getItem(slot);
+            if (!(candidate.getItem() instanceof DeepNullItem deepNullItem)) {
+                continue;
+            }
+
+            DeepNullInventory inventory = new DeepNullInventory(deepNullItem.tier(), candidate, player.level().registryAccess(), null);
+            if (!inventory.isAutoPickupEnabled()) {
+                continue;
+            }
+            int before = remaining.getCount();
+            remaining = inventory.supportsFiltering()
+                    ? inventory.insertPickedUpIntoFirstAvailableSlot(remaining, true)
+                    : inventory.insertPickedUpIntoMatchingSlots(remaining, true);
+            if (remaining.getCount() != before) {
+                return true;
+            }
+            if (DeepNullConfig.voidFullItemsOnPickup() && inventory.shouldVoidOverflowingPickup(remaining)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @SubscribeEvent

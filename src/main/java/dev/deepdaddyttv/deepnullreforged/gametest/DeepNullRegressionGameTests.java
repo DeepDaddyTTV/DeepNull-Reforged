@@ -19,8 +19,10 @@ import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
+import dev.deepdaddyttv.deepnullreforged.registry.ModCapabilities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -34,15 +36,21 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.items.ItemStackHandler;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @GameTestHolder(DeepNullReforged.MODID)
 @PrefixGameTestTemplate(false)
@@ -216,6 +224,49 @@ public final class DeepNullRegressionGameTests {
     }
 
     @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void incompatible_player_tossed_items_keep_vanilla_pickup_delay(GameTestHelper helper) {
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        player.getInventory().setItem(0, deepNullStack);
+
+        DeepNullInventory inventory = new DeepNullInventory(DeepNullTier.REDSTONE, deepNullStack, helper.getLevel().registryAccess(), null);
+        inventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 8));
+
+        ItemEntity tossed = new ItemEntity(helper.getLevel(), 1.5D, 1.5D, 1.5D, new ItemStack(Items.DIRT, 2));
+        helper.getLevel().addFreshEntity(tossed);
+
+        new CommonEvents().onItemToss(new ItemTossEvent(tossed, player));
+
+        CompoundTag saved = tossed.saveWithoutId(new CompoundTag());
+        helper.assertTrue(!saved.hasUUID("Thrower"), "Incompatible tossed items should not be claimed by DeepNull");
+        helper.assertTrue(saved.getShort("PickupDelay") < 200, "Incompatible tossed items should keep the vanilla pickup delay");
+        helper.assertValueEqual(inventory.getStackInSlot(0).getCount(), 8, "Stored DeepNull contents should not change when tossed item is incompatible");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void visible_item_capability_round_trip_preserves_large_stored_counts(GameTestHelper helper) throws ReflectiveOperationException {
+        ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory inventory = new DeepNullInventory(DeepNullTier.REDSTONE, deepNullStack, helper.getLevel().registryAccess(), null);
+        inventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 250));
+
+        Method createItemHandler = ModCapabilities.class.getDeclaredMethod("createItemHandler", ItemStack.class);
+        createItemHandler.setAccessible(true);
+        IItemHandler visibleHandler = (IItemHandler) createItemHandler.invoke(null, deepNullStack);
+
+        helper.assertTrue(visibleHandler instanceof IItemHandlerModifiable, "Visible item capability should be mutable");
+        helper.assertValueEqual(visibleHandler.getStackInSlot(0).getCount(), 250, "Visible item capability should expose the full stored stack count");
+
+        ItemStack roundTripped = visibleHandler.getStackInSlot(0).copy();
+        ((IItemHandlerModifiable) visibleHandler).setStackInSlot(0, roundTripped);
+
+        DeepNullInventory reloaded = new DeepNullInventory(DeepNullTier.REDSTONE, deepNullStack, helper.getLevel().registryAccess(), null);
+        helper.assertValueEqual(reloaded.getStackInSlot(0).getCount(), 250, "Round-tripping a visible stored stack should not collapse it to one vanilla stack");
+        helper.assertValueEqual(visibleHandler.getSlotLimit(0), inventory.getSlotLimit(0), "Visible item capability should report the full DeepNull slot capacity");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
     public static void global_auto_pickup_toggle_blocks_item_absorption_for_that_player(GameTestHelper helper) {
         ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
         ItemStack deepNullStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
@@ -315,6 +366,71 @@ public final class DeepNullRegressionGameTests {
 
         DeepNullInventory drainedInventory = dock.createInventory();
         helper.assertTrue(drainedInventory.getFluidInSlot(0).isEmpty(), "Docked DampNull should drain the transferred fluid back out");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void dock_fluid_capability_side_queries_share_live_state(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory inventory = dock.createInventory();
+        if (inventory == null) {
+            helper.fail("Docked DampNull inventory was not created");
+            return;
+        }
+        inventory.fillFluid(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME), false);
+
+        IFluidHandler northHandler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, absoluteDockPos, Direction.NORTH);
+        IFluidHandler southHandler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, absoluteDockPos, Direction.SOUTH);
+        helper.assertTrue(northHandler != null, "Dock should expose a fluid capability for the stored DampNull");
+        helper.assertTrue(southHandler != null, "Dock should expose a fluid capability on multiple sides");
+
+        FluidStack extracted = northHandler.drain(FluidType.BUCKET_VOLUME, IFluidHandler.FluidAction.EXECUTE);
+        helper.assertValueEqual(extracted.getAmount(), FluidType.BUCKET_VOLUME, "Dock fluid capability should allow extracting the stored fluid");
+        helper.assertTrue(southHandler.getFluidInTank(0).isEmpty(), "Fluid capability queried from another side should reflect the committed drain");
+        helper.assertTrue(southHandler.drain(FluidType.BUCKET_VOLUME, IFluidHandler.FluidAction.EXECUTE).isEmpty(), "A stale side handler must not duplicate already-drained fluid");
+        helper.assertTrue(dock.createInventory().getFluidInSlot(0).isEmpty(), "Docked DampNull state should persist the drained fluid amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void dock_item_capability_extracts_generator_buffer_through_block_capability(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory inventory = dock.createInventory();
+        if (inventory == null) {
+            helper.fail("Docked DampNull inventory was not created");
+            return;
+        }
+        inventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.STONE_GENERATOR.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.STONE_GENERATOR));
+        if (!setGeneratorBuffer(dock, new ItemStack(Items.COBBLESTONE, 20))) {
+            helper.fail("Unable to seed dock generator buffer");
+            return;
+        }
+
+        IItemHandler northHandler = helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, absoluteDockPos, Direction.NORTH);
+        IItemHandler southHandler = helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, absoluteDockPos, Direction.SOUTH);
+        helper.assertTrue(northHandler != null, "Dock should expose an item capability while the generator buffer is visible");
+        helper.assertTrue(southHandler != null, "Dock should expose the generator buffer item capability on multiple sides");
+
+        ItemStack extracted = northHandler.extractItem(0, 64, false);
+        helper.assertValueEqual(extracted.getCount(), 20, "Block item capability should extract the full generator buffer contents");
+        helper.assertTrue(dock.getGeneratorBuffer().isEmpty(), "Generator buffer should be empty after block capability extraction");
+        helper.assertTrue(southHandler.extractItem(0, 64, false).isEmpty(), "A second side should not extract stale generator buffer contents");
         helper.succeed();
     }
 
@@ -542,6 +658,18 @@ public final class DeepNullRegressionGameTests {
             DeepNullMenu.UpgradeSlot slot = (DeepNullMenu.UpgradeSlot) menu.slots.get(menu.getUpgradeSlotStartIndex() + index);
             helper.assertValueEqual(slot.getUpgradeType(), menu.getUpgradeTypeAt(index),
                     label + " upgrade slot " + index + " should map to the same upgrade type as the visible placeholder order");
+        }
+    }
+
+    private static boolean setGeneratorBuffer(DeepNullDockBlockEntity dock, ItemStack stack) {
+        try {
+            Field field = DeepNullDockBlockEntity.class.getDeclaredField("generatorBuffer");
+            field.setAccessible(true);
+            field.set(dock, stack.copy());
+            dock.markStoredDeepNullChanged();
+            return true;
+        } catch (ReflectiveOperationException exception) {
+            return false;
         }
     }
 }
