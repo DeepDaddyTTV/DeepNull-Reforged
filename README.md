@@ -201,6 +201,6 @@ Credit is appreciated, but not required.
 
 ## Development Note
 
-This project has been developed with substantial help from ChatGPT Codex, alongside a lot of manual direction, iteration, testing, and cleanup.
+This project has been developed with help from ChatGPT Codex, alongside a lot of manual direction, iteration, testing, and cleanup.
 
 I want to be fully open about that so people can decide for themselves whether they want to use it.
