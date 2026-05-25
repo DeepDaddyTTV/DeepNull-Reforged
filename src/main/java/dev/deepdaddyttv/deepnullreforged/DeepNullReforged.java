@@ -3,15 +3,23 @@ package dev.deepdaddyttv.deepnullreforged;
 import com.mojang.logging.LogUtils;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
 import dev.deepdaddyttv.deepnullreforged.gametest.CraftingTransferRegressionGameTests;
+import dev.deepdaddyttv.deepnullreforged.gametest.DenNullRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.gametest.DeepNullRegressionGameTests;
+import dev.deepdaddyttv.deepnullreforged.gametest.DripNullRegressionGameTests;
+import dev.deepdaddyttv.deepnullreforged.gametest.HubNullRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.gametest.NullWorkbenchRegressionGameTests;
 import dev.deepdaddyttv.deepnullreforged.integration.craftingtweaks.CraftingTweaksCompat;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
+import dev.deepdaddyttv.deepnullreforged.network.DeepNullDevModePayloads;
+import dev.deepdaddyttv.deepnullreforged.network.DenNullPayloads;
+import dev.deepdaddyttv.deepnullreforged.network.DripNullPayloads;
+import dev.deepdaddyttv.deepnullreforged.network.HubNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.network.NullWorkbenchPayloads;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModCapabilities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModCreativeTabs;
+import dev.deepdaddyttv.deepnullreforged.registry.ModEntityTypes;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import dev.deepdaddyttv.deepnullreforged.registry.ModRecipeSerializers;
@@ -41,11 +49,16 @@ public final class DeepNullReforged {
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
+        ModEntityTypes.ENTITY_TYPES.register(modEventBus);
         ModMenus.MENUS.register(modEventBus);
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(modEventBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(DeepNullPayloads::register);
+        modEventBus.addListener(DeepNullDevModePayloads::register);
+        modEventBus.addListener(DenNullPayloads::register);
+        modEventBus.addListener(DripNullPayloads::register);
+        modEventBus.addListener(HubNullPayloads::register);
         modEventBus.addListener(NullWorkbenchPayloads::register);
         modEventBus.addListener(ModCapabilities::register);
         modEventBus.addListener(DeepNullReforged::commonSetup);
@@ -79,6 +92,9 @@ public final class DeepNullReforged {
 
     private static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(DeepNullRegressionGameTests.class);
+        event.register(DenNullRegressionGameTests.class);
+        event.register(DripNullRegressionGameTests.class);
+        event.register(HubNullRegressionGameTests.class);
         event.register(NullWorkbenchRegressionGameTests.class);
         event.register(CraftingTransferRegressionGameTests.class);
         if (classPresent("appeng.api.storage.MEStorage")) {

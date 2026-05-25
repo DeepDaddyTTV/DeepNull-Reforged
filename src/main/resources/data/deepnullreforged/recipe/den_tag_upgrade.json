@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PNP",
+    "IUI",
+    "PNP"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:ink_sac"
+    },
+    "N": {
+      "item": "minecraft:name_tag"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:den_tag_upgrade",
+    "count": 1
+  }
+}

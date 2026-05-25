@@ -2,6 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.registry;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.DeepNullDockBlock;
+import dev.deepdaddyttv.deepnullreforged.block.DripStandBlock;
 import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchBlock;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.Block;
@@ -13,6 +14,7 @@ public final class ModBlocks {
 
     public static final DeferredBlock<Block> DEEP_NULL_DOCK = BLOCKS.register("deepnull_dock", DeepNullDockBlock::new);
     public static final DeferredBlock<Block> NULL_WORKBENCH = BLOCKS.register("null_workbench", NullWorkbenchBlock::new);
+    public static final DeferredBlock<Block> DRIP_STAND = BLOCKS.register("drip_stand", DripStandBlock::new);
 
     private ModBlocks() {
     }

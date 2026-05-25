@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "NDN",
+    "DSD",
+    "NDN"
+  ],
+  "key": {
+    "D": {
+      "item": "deepnullreforged:den_null_5"
+    },
+    "N": {
+      "item": "minecraft:netherite_block"
+    },
+    "S": {
+      "item": "minecraft:nether_star"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:den_clone_upgrade",
+    "count": 1
+  }
+}

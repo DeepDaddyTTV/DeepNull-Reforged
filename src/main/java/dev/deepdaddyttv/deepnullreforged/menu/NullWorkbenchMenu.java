@@ -1,12 +1,21 @@
 package dev.deepdaddyttv.deepnullreforged.menu;
 
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
+import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DenNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DockableNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DumpNullItem;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedEntry;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedKind;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedPlan;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -16,12 +25,15 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.SlotItemHandler;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 public class NullWorkbenchMenu extends AbstractContainerMenu {
     public static final int BUTTON_BACKUP = 0;
     public static final int BUTTON_RESTORE = 1;
 
     private final BlockPos blockPos;
     private final @Nullable NullWorkbenchBlockEntity workbench;
+    private final Inventory playerInventory;
     private final boolean clientSide;
     private final int[] syncedData = new int[5];
     private final ContainerData data;
@@ -43,6 +55,7 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
         super(ModMenus.NULL_WORKBENCH_MENU.get(), containerId);
         this.workbench = workbench;
         this.blockPos = blockPos;
+        this.playerInventory = playerInventory;
         this.clientSide = playerInventory.player.level().isClientSide;
         this.data = new ContainerData() {
             @Override
@@ -107,27 +120,27 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
     }
 
     public ItemStack getNullStack() {
-        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT);
+        return getMachineSlotStack(NullWorkbenchBlockEntity.NULL_SLOT);
     }
 
     public ItemStack getSynchronizerStack() {
-        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT);
+        return getMachineSlotStack(NullWorkbenchBlockEntity.SYNCHRONIZER_SLOT);
     }
 
     public ItemStack getOutputStack() {
-        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.OUTPUT_SLOT);
+        return getMachineSlotStack(NullWorkbenchBlockEntity.OUTPUT_SLOT);
     }
 
     public ItemStack getSyncNullOutputStack() {
-        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.SYNC_NULL_OUTPUT_SLOT);
+        return getMachineSlotStack(NullWorkbenchBlockEntity.SYNC_NULL_OUTPUT_SLOT);
     }
 
     public ItemStack getSyncSynchronizerOutputStack() {
-        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.SYNC_SYNCHRONIZER_OUTPUT_SLOT);
+        return getMachineSlotStack(NullWorkbenchBlockEntity.SYNC_SYNCHRONIZER_OUTPUT_SLOT);
     }
 
     public ItemStack getStyleModifierStack() {
-        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT);
+        return getMachineSlotStack(NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT);
     }
 
     public boolean canBackup() {
@@ -170,6 +183,51 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
         return workbench;
     }
 
+    public boolean canSeedNull() {
+        return seedKind() != null;
+    }
+
+    public boolean canStyleNull() {
+        return isStyleableNull(getNullStack());
+    }
+
+    public @Nullable NullSeedKind seedKind() {
+        return seedKind(getNullStack());
+    }
+
+    public @Nullable DeepNullInventory createNullInventory() {
+        ItemStack stack = getNullStack();
+        if (!(stack.getItem() instanceof DeepNullItem deepNullItem) || stack.getItem() instanceof DumpNullItem) {
+            return null;
+        }
+        if (!clientSide && workbench != null) {
+            return workbench.createNullInventory();
+        }
+        return new DeepNullInventory(deepNullItem.tier(), stack, playerInventory.player.level().registryAccess(), null);
+    }
+
+    public NullSeedPlan planSeedConfig(List<ResourceLocation> itemIds) {
+        return NullSeedPlan.plan(createNullInventory(), itemIds);
+    }
+
+    public NullSeedPlan planSeedEntries(List<NullSeedEntry> entries) {
+        NullSeedKind kind = seedKind();
+        if (!clientSide && workbench != null) {
+            return workbench.planSeedEntries(entries);
+        }
+        if (kind == NullSeedKind.ENTITY && getNullStack().getItem() instanceof DenNullItem denNullItem) {
+            return NullSeedPlan.planEntities(getNullStack(), denNullItem.tier(), entries);
+        }
+        if (kind == NullSeedKind.DUMP_RULE) {
+            return NullSeedPlan.planDump(getNullStack(), entries);
+        }
+        DeepNullInventory inventory = createNullInventory();
+        if (kind == NullSeedKind.FLUID) {
+            return NullSeedPlan.planFluids(inventory, entries);
+        }
+        return NullSeedPlan.planItems(inventory, entries);
+    }
+
     public void setCraftSlotsActive(boolean active) {
         if (inputSlot0 != null) {
             inputSlot0.setActive(active);
@@ -183,6 +241,51 @@ public class NullWorkbenchMenu extends AbstractContainerMenu {
         if (outputSlot != null) {
             outputSlot.setActive(active);
         }
+    }
+
+    private ItemStack getMachineSlotStack(int machineSlot) {
+        if (machineSlot >= 0 && machineSlot < slots.size()) {
+            Slot slot = slots.get(machineSlot);
+            if (slot.index == machineSlot) {
+                return slot.getItem();
+            }
+        }
+        return workbench == null ? ItemStack.EMPTY : workbench.getStackInSlot(machineSlot);
+    }
+
+    private static @Nullable NullSeedKind seedKind(ItemStack stack) {
+        if (!(stack.getItem() instanceof DockableNullItem)) {
+            return null;
+        }
+        if (stack.getItem() instanceof DenNullItem) {
+            return NullSeedKind.ENTITY;
+        }
+        if (stack.getItem() instanceof DumpNullItem) {
+            return NullSeedKind.DUMP_RULE;
+        }
+        if (stack.getItem() instanceof DampNullItem) {
+            return NullSeedKind.FLUID;
+        }
+        return NullSeedKind.ITEM;
+    }
+
+    public int seedTargetCapacity() {
+        NullSeedKind kind = seedKind();
+        if (kind == NullSeedKind.DUMP_RULE) {
+            return 14;
+        }
+        if (kind == NullSeedKind.ENTITY && getNullStack().getItem() instanceof DenNullItem denNullItem) {
+            return denNullItem.tier().slotCount();
+        }
+        DeepNullInventory inventory = createNullInventory();
+        if (kind == NullSeedKind.FLUID) {
+            return inventory == null ? 0 : inventory.getFluidSlotCount();
+        }
+        return inventory == null ? 0 : inventory.getSlots();
+    }
+
+    private static boolean isStyleableNull(ItemStack stack) {
+        return stack.getItem() instanceof DeepNullItem && !(stack.getItem() instanceof DumpNullItem);
     }
 
     @Override

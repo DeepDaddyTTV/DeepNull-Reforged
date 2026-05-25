@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " a ",
+    "bcb",
+    "ded"
+  ],
+  "key": {
+    "a": { "item": "minecraft:armor_stand" },
+    "b": { "item": "minecraft:iron_ingot" },
+    "c": { "item": "deepnullreforged:deepnull_dock" },
+    "d": { "item": "deepnullreforged:deep_null_panel_0" },
+    "e": { "item": "minecraft:iron_block" }
+  },
+  "result": {
+    "id": "deepnullreforged:drip_stand",
+    "count": 1
+  }
+}

@@ -1,10 +1,15 @@
 package dev.deepdaddyttv.deepnullreforged.block.entity;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.dennull.DenNullAutomation;
+import dev.deepdaddyttv.deepnullreforged.dumpnull.DumpNullAutomation;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
+import dev.deepdaddyttv.deepnullreforged.item.DockableNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DenNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DumpNullItem;
 import net.minecraft.core.Direction;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
@@ -37,7 +42,7 @@ public class DeepNullDockBlockEntity extends BlockEntity {
     }
 
     public boolean hasStoredDeepNull() {
-        return !storedDeepNull.isEmpty() && storedDeepNull.getItem() instanceof DeepNullItem;
+        return !storedDeepNull.isEmpty() && storedDeepNull.getItem() instanceof DockableNullItem;
     }
 
     public ItemStack getStoredDeepNull() {
@@ -60,7 +65,7 @@ public class DeepNullDockBlockEntity extends BlockEntity {
     }
 
     public boolean canAcceptDeepNull(ItemStack stack) {
-        return !hasStoredDeepNull() && !stack.isEmpty() && stack.getItem() instanceof DeepNullItem;
+        return !hasStoredDeepNull() && !stack.isEmpty() && stack.getItem() instanceof DockableNullItem;
     }
 
     public ItemStack removeStoredDeepNull() {
@@ -72,20 +77,23 @@ public class DeepNullDockBlockEntity extends BlockEntity {
     }
 
     public DeepNullTier getTier() {
-        if (storedDeepNull.getItem() instanceof DeepNullItem deepNullItem) {
-            return deepNullItem.tier();
+        if (storedDeepNull.getItem() instanceof DockableNullItem dockableNullItem) {
+            return dockableNullItem.tier();
         }
         return DeepNullTier.REDSTONE;
     }
 
     public @Nullable DeepNullInventory createInventory() {
-        if (!hasStoredDeepNull() || level == null) {
+        if (!hasStoredDeepNull() || level == null || storedDeepNull.getItem() instanceof DumpNullItem || !(storedDeepNull.getItem() instanceof DeepNullItem deepNullItem)) {
             return null;
         }
-        return new DeepNullInventory(getTier(), storedDeepNull, level.registryAccess(), () -> setChangedAndSync(false));
+        return new DeepNullInventory(deepNullItem.tier(), storedDeepNull, level.registryAccess(), () -> setChangedAndSync(false));
     }
 
     public IItemHandler getAutomationHandler(@Nullable Direction side) {
+        if (storedDeepNull.getItem() instanceof DumpNullItem) {
+            return DumpNullAutomation.createHandler(this, side);
+        }
         return automationHandler;
     }
 
@@ -103,6 +111,16 @@ public class DeepNullDockBlockEntity extends BlockEntity {
             return;
         }
 
+        if (dock.storedDeepNull.getItem() instanceof DenNullItem denNullItem && level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            DenNullAutomation.tickDock(serverLevel, pos, dock, dock.storedDeepNull, denNullItem);
+            return;
+        }
+
+        if (dock.storedDeepNull.getItem() instanceof DumpNullItem) {
+            DumpNullAutomation.tickDock(level, pos, dock);
+            return;
+        }
+
         DeepNullInventory inventory = dock.createInventory();
         if (inventory == null) {
             return;
@@ -115,6 +133,9 @@ public class DeepNullDockBlockEntity extends BlockEntity {
             }
             if (inventory.hasStoneworksUpgrade() && level.getGameTime() % 20L == 0L) {
                 inventory.runStoneworksCycle(false);
+            }
+            if (inventory.hasFarmUpgrade()) {
+                inventory.runFarmCycle(level.getGameTime());
             }
             return;
         }
@@ -195,6 +216,10 @@ public class DeepNullDockBlockEntity extends BlockEntity {
 
     public void markStoredDeepNullChanged() {
         setChangedAndSync(false);
+    }
+
+    public void markStoredDeepNullChanged(boolean invalidateCapabilities) {
+        setChangedAndSync(invalidateCapabilities);
     }
 
     private void generateStone(DeepNullInventory inventory) {
@@ -292,6 +317,32 @@ public class DeepNullDockBlockEntity extends BlockEntity {
             generatorBuffer = remaining;
             setChangedAndSync(false);
         }
+    }
+
+    public ItemStack pushDenNullOutput(ItemStack stack, boolean simulate) {
+        Level level = getLevel();
+        if (level == null || stack.isEmpty()) {
+            return stack;
+        }
+
+        ItemStack remaining = stack.copy();
+        for (Direction direction : Direction.values()) {
+            IItemHandler target = level.getCapability(Capabilities.ItemHandler.BLOCK, worldPosition.relative(direction), direction.getOpposite());
+            if (target == null) {
+                target = level.getCapability(Capabilities.ItemHandler.BLOCK, worldPosition.relative(direction), null);
+            }
+            if (target == null) {
+                continue;
+            }
+            remaining = ItemHandlerHelper.insertItem(target, remaining, simulate);
+            if (remaining.isEmpty()) {
+                break;
+            }
+        }
+        if (!simulate && remaining.getCount() != stack.getCount()) {
+            setChangedAndSync(false);
+        }
+        return remaining;
     }
 
     private static ItemStack remainder(ItemStack stack, int extracted) {
@@ -426,4 +477,5 @@ public class DeepNullDockBlockEntity extends BlockEntity {
             inventory.setStackInSlot(slot, stack);
         }
     }
+
 }

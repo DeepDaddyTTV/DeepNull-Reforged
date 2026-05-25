@@ -27,6 +27,8 @@ import net.minecraft.world.item.crafting.SmeltingRecipe;
 import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.fml.ModList;
@@ -59,6 +61,9 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String TAG_MATCHING_TAG = "TagMatching";
     private static final String LOCKED_TAG = "Locked";
     private static final String UPGRADES_TAG = "Upgrades";
+    private static final String RESERVED_ITEMS_TAG = "ReservedItems";
+    private static final String RESERVED_FLUIDS_TAG = "ReservedFluids";
+    private static final String RESERVED_CHEMICALS_TAG = "ReservedChemicals";
     private static final String FILTER_ITEMS_TAG = "FilterItems";
     private static final String FILTER_MODE_TAG = "FilterMode";
     private static final String AUTO_SMELT_FILTER_ITEMS_TAG = "AutoSmeltFilterItems";
@@ -81,6 +86,14 @@ public class DeepNullInventory extends ItemStackHandler {
     private static final String STONEWORKS_AMOUNT_TAG = "StoneworksAmount";
     private static final String STONEWORKS_MONITOR_TAG = "StoneworksMonitor";
     private static final String STONEWORKS_CURSOR_TAG = "StoneworksCursor";
+    private static final String FARM_ENABLED_TAG = "FarmEnabled";
+    private static final String FARM_SUBSTRATE_TAG = "FarmSubstrate";
+    private static final String FARM_LAST_TICK_TAG = "FarmLastTick";
+    private static final String DIVNULL_SLOTS_TAG = "DivNullSlots";
+    private static final String DIVNULL_FAMILY_TAG = "Family";
+    private static final String DIVNULL_LAYER_TAG = "Layer";
+    private static final String DIVNULL_LAYER_OPTIONS_TAG = "LayerOptions";
+    private static final String DIVNULL_CANONICAL_COUNT_TAG = "CanonicalCount";
     private static final String FRAME_COLOR_TAG = "FrameColor";
     private static final String GLASS_COLOR_TAG = "GlassColor";
     private static final String STYLE_VARIANT_TAG = "StyleVariant";
@@ -120,10 +133,15 @@ public class DeepNullInventory extends ItemStackHandler {
     private final ItemPlacementMode[] placementModes;
     private final boolean[] tagMatchingModes;
     private final UpgradeItemHandler upgradeHandler;
+    private final NonNullList<ItemStack> reservedStacks;
+    private final NonNullList<FluidStack> reservedFluidStacks;
+    private final NonNullList<StoredChemical> reservedChemicalStacks;
     private final NonNullList<ItemStack> filterStacks;
     private final NonNullList<ItemStack> autoSmeltFilterStacks;
     private final NonNullList<FluidStack> fluidStacks;
     private final NonNullList<StoredChemical> chemicalStacks;
+    private final DivNullSlotState[] divNullStates;
+    private final List<ResourceLocation>[] divNullLayerOptions;
 
     private int selectedSlot = -1;
     private boolean locked;
@@ -139,6 +157,9 @@ public class DeepNullInventory extends ItemStackHandler {
     private boolean autoFeedingEnabled = DeepNullConfig.defaultAutoFeedingEnabled();
     private boolean autoSmeltingEnabled = DeepNullConfig.defaultAutoSmeltingEnabled();
     private boolean spongeEnabled = true;
+    private boolean farmEnabled = true;
+    private ItemStack farmSubstrate = ItemStack.EMPTY;
+    private long lastFarmTick;
     private int stoneworksTargetStacks = DeepNullConfig.defaultStoneworksAmount();
     private final boolean[] stoneworksMonitoring = new boolean[StoneworksMaterial.values().length];
     private int stoneworksCursor;
@@ -157,12 +178,22 @@ public class DeepNullInventory extends ItemStackHandler {
             Supplier<HolderLookup.Provider> registriesSupplier,
             @Nullable Runnable changeListener
     ) {
+        this(tier, backingStack, registriesSupplier, changeListener, null);
+    }
+
+    private DeepNullInventory(
+            DeepNullTier tier,
+            ItemStack backingStack,
+            Supplier<HolderLookup.Provider> registriesSupplier,
+            @Nullable Runnable changeListener,
+            @Nullable Boolean fluidOnlyOverride
+    ) {
         super(tier.slotCount());
         this.tier = tier;
         this.backingStack = backingStack;
         this.registriesSupplier = registriesSupplier;
         this.changeListener = changeListener;
-        this.fluidOnly = backingStack.getItem() instanceof DampNullItem;
+        this.fluidOnly = fluidOnlyOverride == null ? backingStack.getItem() instanceof DampNullItem : fluidOnlyOverride;
         this.frameColor = defaultFrameColor();
         this.glassColor = defaultGlassColor();
         this.styleVariant = StyleGlassVariant.DEFAULT;
@@ -171,10 +202,17 @@ public class DeepNullInventory extends ItemStackHandler {
         this.placementModes = new ItemPlacementMode[getSlots()];
         this.tagMatchingModes = new boolean[getSlots()];
         this.upgradeHandler = new UpgradeItemHandler();
+        this.reservedStacks = NonNullList.withSize(getSlots(), ItemStack.EMPTY);
+        this.reservedFluidStacks = NonNullList.withSize(initialFluidSlotCount(), FluidStack.EMPTY);
+        this.reservedChemicalStacks = NonNullList.withSize(initialFluidSlotCount(), StoredChemical.EMPTY);
         this.filterStacks = NonNullList.withSize(FILTER_SLOT_COUNT, ItemStack.EMPTY);
         this.autoSmeltFilterStacks = NonNullList.withSize(FILTER_SLOT_COUNT, ItemStack.EMPTY);
         this.fluidStacks = NonNullList.withSize(initialFluidSlotCount(), FluidStack.EMPTY);
         this.chemicalStacks = NonNullList.withSize(initialFluidSlotCount(), StoredChemical.EMPTY);
+        this.divNullStates = new DivNullSlotState[getSlots()];
+        @SuppressWarnings("unchecked")
+        List<ResourceLocation>[] layerOptions = new List[getSlots()];
+        this.divNullLayerOptions = layerOptions;
         Arrays.fill(this.extractionModes, ItemExtractionMode.KEEP_1);
         Arrays.fill(this.placementModes, ItemPlacementMode.KEEP_1);
         Arrays.fill(this.stoneworksMonitoring, true);
@@ -186,7 +224,11 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     public static DeepNullInventory client(DeepNullTier tier) {
-        return new DeepNullInventory(tier, ItemStack.EMPTY, () -> null, null);
+        return client(tier, false);
+    }
+
+    public static DeepNullInventory client(DeepNullTier tier, boolean fluidOnly) {
+        return new DeepNullInventory(tier, ItemStack.EMPTY, () -> null, null, fluidOnly);
     }
 
     private static TransferOutputMode defaultTransferOutputMode() {
@@ -370,6 +412,120 @@ public class DeepNullInventory extends ItemStackHandler {
         save();
     }
 
+    public ItemStack getReservedStack(int slot) {
+        validateSlotIndex(slot);
+        return reservedStacks.get(slot);
+    }
+
+    public void setReservedStack(int slot, ItemStack stack) {
+        validateSlotIndex(slot);
+        if (fluidOnly || stack.isEmpty() || stack.getItem() instanceof DeepNullItem) {
+            reservedStacks.set(slot, ItemStack.EMPTY);
+        } else {
+            reservedStacks.set(slot, stack.copyWithCount(1));
+        }
+        save();
+    }
+
+    public void clearReservedStack(int slot) {
+        validateSlotIndex(slot);
+        if (reservedStacks.get(slot).isEmpty()) {
+            return;
+        }
+        reservedStacks.set(slot, ItemStack.EMPTY);
+        save();
+    }
+
+    public void clearReservedStacks() {
+        clearReservedStacks(true);
+    }
+
+    public boolean isReservedSlot(int slot) {
+        validateSlotIndex(slot);
+        return !reservedStacks.get(slot).isEmpty();
+    }
+
+    public ItemStack getEffectiveTemplateStack(int slot) {
+        validateSlotIndex(slot);
+        ItemStack stored = getStackInSlot(slot);
+        return stored.isEmpty() ? reservedStacks.get(slot) : stored;
+    }
+
+    public int getReservedSlotCount() {
+        int count = 0;
+        for (ItemStack reservedStack : reservedStacks) {
+            if (!reservedStack.isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public FluidStack getReservedFluidTemplate(int slot) {
+        validateSlotIndex(slot);
+        return reservedFluidStacks.get(slot).isEmpty() ? FluidStack.EMPTY : reservedFluidStacks.get(slot).copy();
+    }
+
+    public StoredChemical getReservedChemicalTemplate(int slot) {
+        validateSlotIndex(slot);
+        return reservedChemicalStacks.get(slot).copy();
+    }
+
+    public boolean setReservedFluidTemplate(int slot, FluidStack stack) {
+        validateSlotIndex(slot);
+        if (!acceptsNormalFluids() || stack == null || stack.isEmpty()) {
+            return clearReservedTankTemplate(slot);
+        }
+        if (!chemicalStacks.get(slot).isEmpty() || !fluidStacks.get(slot).isEmpty() && !FluidStack.isSameFluidSameComponents(fluidStacks.get(slot), stack)) {
+            return false;
+        }
+        FluidStack template = stack.copyWithAmount(Math.max(1, Math.min(stack.getAmount(), getFluidCapacity())));
+        reservedFluidStacks.set(slot, template);
+        reservedChemicalStacks.set(slot, StoredChemical.EMPTY);
+        save();
+        return true;
+    }
+
+    public boolean setReservedChemicalTemplate(int slot, StoredChemical chemical) {
+        validateSlotIndex(slot);
+        if (!supportsChemicalStorage() || chemical == null || chemical.isEmpty()) {
+            return clearReservedTankTemplate(slot);
+        }
+        if (!fluidStacks.get(slot).isEmpty() || !chemicalStacks.get(slot).isEmpty() && !chemicalStacks.get(slot).isSameChemical(chemical)) {
+            return false;
+        }
+        long amount = Math.max(1L, Math.min(chemical.amount(), getFluidCapacity()));
+        reservedChemicalStacks.set(slot, chemical.copyWithAmount(amount));
+        reservedFluidStacks.set(slot, FluidStack.EMPTY);
+        save();
+        return true;
+    }
+
+    public boolean clearReservedTankTemplate(int slot) {
+        validateSlotIndex(slot);
+        if (reservedFluidStacks.get(slot).isEmpty() && reservedChemicalStacks.get(slot).isEmpty()) {
+            return false;
+        }
+        reservedFluidStacks.set(slot, FluidStack.EMPTY);
+        reservedChemicalStacks.set(slot, StoredChemical.EMPTY);
+        save();
+        return true;
+    }
+
+    public void clearReservedTankTemplates() {
+        clearReservedTankTemplates(true);
+    }
+
+    public int getReservedTankTemplateCount() {
+        int count = 0;
+        for (int slot = 0; slot < reservedFluidStacks.size(); slot++) {
+            if (!reservedFluidStacks.get(slot).isEmpty() || !reservedChemicalStacks.get(slot).isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public FluidStack getStoredFluid() {
         return getSelectedFluid();
     }
@@ -403,9 +559,36 @@ public class DeepNullInventory extends ItemStackHandler {
         return displayedFluid(fluidStacks.get(slot));
     }
 
+    public List<FluidStack> copyFluidStacks() {
+        List<FluidStack> copy = new ArrayList<>(fluidStacks.size());
+        for (FluidStack fluidStack : fluidStacks) {
+            copy.add(fluidStack.isEmpty() ? FluidStack.EMPTY : fluidStack.copy());
+        }
+        return List.copyOf(copy);
+    }
+
     public StoredChemical getChemicalInSlot(int slot) {
         validateSlotIndex(slot);
         return displayedChemical(chemicalStacks.get(slot));
+    }
+
+    public List<StoredChemical> copyChemicalStacks() {
+        List<StoredChemical> copy = new ArrayList<>(chemicalStacks.size());
+        for (StoredChemical chemicalStack : chemicalStacks) {
+            copy.add(chemicalStack.copy());
+        }
+        return List.copyOf(copy);
+    }
+
+    public void replaceFluidContents(List<FluidStack> fluids, List<StoredChemical> chemicals) {
+        int fluidCount = fluids == null ? 0 : fluids.size();
+        int chemicalCount = chemicals == null ? 0 : chemicals.size();
+        for (int slot = 0; slot < fluidStacks.size(); slot++) {
+            FluidStack fluidStack = slot < fluidCount ? fluids.get(slot) : FluidStack.EMPTY;
+            StoredChemical chemicalStack = slot < chemicalCount ? chemicals.get(slot) : StoredChemical.EMPTY;
+            fluidStacks.set(slot, fluidStack == null || fluidStack.isEmpty() ? FluidStack.EMPTY : fluidStack.copy());
+            chemicalStacks.set(slot, chemicalStack == null ? StoredChemical.EMPTY : chemicalStack.copy());
+        }
     }
 
     public boolean hasChemicalInSlot(int slot) {
@@ -507,9 +690,34 @@ public class DeepNullInventory extends ItemStackHandler {
             return matchingSlot;
         }
         if (selectedSlot >= 0 && selectedSlot < chemicalStacks.size() && isTankEmpty(selectedSlot)) {
-            return selectedSlot;
+            FluidStack reservedFluid = reservedFluidStacks.get(selectedSlot);
+            StoredChemical reservedChemical = reservedChemicalStacks.get(selectedSlot);
+            if (reservedFluid.isEmpty() && (reservedChemical.isEmpty() || reservedChemical.isSameChemical(stack))) {
+                return selectedSlot;
+            }
+            return -1;
         }
-        return findFirstEmptyChemicalSlot();
+        int reservedSlot = findReservedChemicalTemplateSlot(stack);
+        if (reservedSlot >= 0) {
+            return reservedSlot;
+        }
+        return findFirstUnreservedEmptyFluidSlot();
+    }
+
+    private int findReservedChemicalTemplateSlot(StoredChemical stack) {
+        if (!supportsChemicalStorage() || stack.isEmpty()) {
+            return -1;
+        }
+        for (int slot = 0; slot < reservedChemicalStacks.size(); slot++) {
+            if (!isTankEmpty(slot) || !reservedFluidStacks.get(slot).isEmpty()) {
+                continue;
+            }
+            StoredChemical reserved = reservedChemicalStacks.get(slot);
+            if (!reserved.isEmpty() && reserved.isSameChemical(stack)) {
+                return slot;
+            }
+        }
+        return -1;
     }
 
     public int findFluidPickupSlot(FluidStack stack) {
@@ -518,6 +726,14 @@ public class DeepNullInventory extends ItemStackHandler {
             return matchingSlot;
         }
         if (selectedSlot >= 0 && selectedSlot < fluidStacks.size() && isTankEmpty(selectedSlot)) {
+            FluidStack reserved = reservedFluidStacks.get(selectedSlot);
+            StoredChemical reservedChemical = reservedChemicalStacks.get(selectedSlot);
+            if (!reservedChemical.isEmpty()) {
+                return -1;
+            }
+            if (!reserved.isEmpty() && !FluidStack.isSameFluidSameComponents(reserved, stack)) {
+                return -1;
+            }
             return selectedSlot;
         }
         return -1;
@@ -531,7 +747,39 @@ public class DeepNullInventory extends ItemStackHandler {
         if (pickupSlot >= 0) {
             return pickupSlot;
         }
-        return findFirstEmptyFluidSlot();
+        int reservedSlot = findReservedFluidTemplateSlot(stack);
+        if (reservedSlot >= 0) {
+            return reservedSlot;
+        }
+        return findFirstUnreservedEmptyFluidSlot();
+    }
+
+    private int findReservedFluidTemplateSlot(FluidStack stack) {
+        if (!acceptsNormalFluids() || stack.isEmpty()) {
+            return -1;
+        }
+        for (int slot = 0; slot < reservedFluidStacks.size(); slot++) {
+            if (!isTankEmpty(slot) || !reservedChemicalStacks.get(slot).isEmpty()) {
+                continue;
+            }
+            FluidStack reserved = reservedFluidStacks.get(slot);
+            if (!reserved.isEmpty() && FluidStack.isSameFluidSameComponents(reserved, stack)) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    private int findFirstUnreservedEmptyFluidSlot() {
+        if (!supportsFluidStorage()) {
+            return -1;
+        }
+        for (int slot = 0; slot < fluidStacks.size(); slot++) {
+            if (isTankEmpty(slot) && reservedFluidStacks.get(slot).isEmpty() && reservedChemicalStacks.get(slot).isEmpty()) {
+                return slot;
+            }
+        }
+        return -1;
     }
 
     public int fillFluid(FluidStack resource, boolean simulate) {
@@ -552,7 +800,23 @@ public class DeepNullInventory extends ItemStackHandler {
         }
 
         for (int slot = 0; slot < getFluidSlotCount() && remaining > 0; slot++) {
+            FluidStack reserved = reservedFluidStacks.get(slot);
+            if (reserved.isEmpty() || !chemicalStacks.get(slot).isEmpty() || !reservedChemicalStacks.get(slot).isEmpty()) {
+                continue;
+            }
+            if (!FluidStack.isSameFluidSameComponents(reserved, resource)) {
+                continue;
+            }
+            int slotFilled = fillFluid(slot, resource.copyWithAmount(remaining), simulate);
+            remaining -= slotFilled;
+            filled += slotFilled;
+        }
+
+        for (int slot = 0; slot < getFluidSlotCount() && remaining > 0; slot++) {
             if (!isTankEmpty(slot)) {
+                continue;
+            }
+            if (!reservedFluidStacks.get(slot).isEmpty() || !reservedChemicalStacks.get(slot).isEmpty()) {
                 continue;
             }
             int slotFilled = fillFluid(slot, resource.copyWithAmount(remaining), simulate);
@@ -596,6 +860,16 @@ public class DeepNullInventory extends ItemStackHandler {
         }
         if (!existing.isEmpty() && !FluidStack.isSameFluidSameComponents(existing, resource)) {
             return 0;
+        }
+        if (existing.isEmpty()) {
+            StoredChemical reservedChemical = reservedChemicalStacks.get(slot);
+            FluidStack reservedFluid = reservedFluidStacks.get(slot);
+            if (!reservedChemical.isEmpty()) {
+                return 0;
+            }
+            if (!reservedFluid.isEmpty() && !FluidStack.isSameFluidSameComponents(reservedFluid, resource)) {
+                return 0;
+            }
         }
 
         if (tier.creative()) {
@@ -718,6 +992,103 @@ public class DeepNullInventory extends ItemStackHandler {
         return true;
     }
 
+    public boolean moveTankSlot(int fromSlot, int toSlot) {
+        validateSlotIndex(fromSlot);
+        validateSlotIndex(toSlot);
+        if (!supportsFluidStorage() || fromSlot == toSlot) {
+            return false;
+        }
+
+        FluidStack fromFluid = fluidStacks.get(fromSlot);
+        FluidStack toFluid = fluidStacks.get(toSlot);
+        StoredChemical fromChemical = chemicalStacks.get(fromSlot);
+        StoredChemical toChemical = chemicalStacks.get(toSlot);
+        FluidStack fromReservedFluid = reservedFluidStacks.get(fromSlot);
+        FluidStack toReservedFluid = reservedFluidStacks.get(toSlot);
+        StoredChemical fromReservedChemical = reservedChemicalStacks.get(fromSlot);
+        StoredChemical toReservedChemical = reservedChemicalStacks.get(toSlot);
+        if (fromFluid.isEmpty() && toFluid.isEmpty()
+                && fromChemical.isEmpty() && toChemical.isEmpty()
+                && fromReservedFluid.isEmpty() && toReservedFluid.isEmpty()
+                && fromReservedChemical.isEmpty() && toReservedChemical.isEmpty()) {
+            return false;
+        }
+
+        fluidStacks.set(fromSlot, toFluid);
+        fluidStacks.set(toSlot, fromFluid);
+        chemicalStacks.set(fromSlot, toChemical);
+        chemicalStacks.set(toSlot, fromChemical);
+        reservedFluidStacks.set(fromSlot, toReservedFluid);
+        reservedFluidStacks.set(toSlot, fromReservedFluid);
+        reservedChemicalStacks.set(fromSlot, toReservedChemical);
+        reservedChemicalStacks.set(toSlot, fromReservedChemical);
+
+        if (selectedSlot == fromSlot) {
+            selectedSlot = toSlot;
+        } else if (selectedSlot == toSlot) {
+            selectedSlot = fromSlot;
+        }
+
+        save();
+        return true;
+    }
+
+    public boolean mergeTankSlot(int fromSlot, int toSlot) {
+        validateSlotIndex(fromSlot);
+        validateSlotIndex(toSlot);
+        if (!supportsFluidStorage() || fromSlot == toSlot || getFluidCapacity() <= 0) {
+            return false;
+        }
+
+        FluidStack fromFluid = fluidStacks.get(fromSlot);
+        FluidStack toFluid = fluidStacks.get(toSlot);
+        if (!fromFluid.isEmpty() || !toFluid.isEmpty()) {
+            if (fromFluid.isEmpty()
+                    || toFluid.isEmpty()
+                    || !chemicalStacks.get(fromSlot).isEmpty()
+                    || !chemicalStacks.get(toSlot).isEmpty()
+                    || !FluidStack.isSameFluidSameComponents(fromFluid, toFluid)) {
+                return false;
+            }
+            int room = Math.max(0, getFluidCapacity() - toFluid.getAmount());
+            int moved = Math.min(room, fromFluid.getAmount());
+            if (moved <= 0 && !tier.creative()) {
+                return false;
+            }
+            if (!tier.creative()) {
+                fromFluid.shrink(moved);
+                toFluid.grow(moved);
+                if (fromFluid.isEmpty()) {
+                    fluidStacks.set(fromSlot, FluidStack.EMPTY);
+                }
+            }
+            selectedSlot = toSlot;
+            save();
+            return true;
+        }
+
+        StoredChemical fromChemical = chemicalStacks.get(fromSlot);
+        StoredChemical toChemical = chemicalStacks.get(toSlot);
+        if (fromChemical.isEmpty() || toChemical.isEmpty() || !fromChemical.isSameChemical(toChemical)) {
+            return false;
+        }
+        long room = Math.max(0L, (long) getFluidCapacity() - toChemical.amount());
+        long moved = Math.min(room, fromChemical.amount());
+        if (moved <= 0L && !tier.creative()) {
+            return false;
+        }
+        if (!tier.creative()) {
+            chemicalStacks.set(fromSlot, fromChemical.copyWithAmount(fromChemical.amount() - moved));
+            if (chemicalStacks.get(fromSlot).isEmpty()) {
+                chemicalStacks.set(fromSlot, StoredChemical.EMPTY);
+            }
+            chemicalStacks.set(toSlot, toChemical.copyWithAmount(toChemical.amount() + moved));
+        }
+        selectedSlot = toSlot;
+        save();
+        return true;
+    }
+
     public boolean setChemicalInSlot(int slot, StoredChemical chemical) {
         validateSlotIndex(slot);
         if (!supportsChemicalStorage()) {
@@ -779,6 +1150,16 @@ public class DeepNullInventory extends ItemStackHandler {
         StoredChemical existing = chemicalStacks.get(slot);
         if (!existing.isEmpty() && !existing.isSameChemical(resource)) {
             return 0;
+        }
+        if (existing.isEmpty()) {
+            FluidStack reservedFluid = reservedFluidStacks.get(slot);
+            StoredChemical reservedChemical = reservedChemicalStacks.get(slot);
+            if (!reservedFluid.isEmpty()) {
+                return 0;
+            }
+            if (!reservedChemical.isEmpty() && !reservedChemical.isSameChemical(resource)) {
+                return 0;
+            }
         }
 
         if (tier.creative()) {
@@ -929,8 +1310,53 @@ public class DeepNullInventory extends ItemStackHandler {
         return hasUpgrade(DeepNullUpgradeType.ADVANCED_COMPRESSION);
     }
 
+    public boolean hasDivNullUpgrade() {
+        return !fluidOnly && hasUpgrade(DeepNullUpgradeType.DIVNULL);
+    }
+
     public boolean hasStoneworksUpgrade() {
         return hasUpgrade(DeepNullUpgradeType.STONEWORKS);
+    }
+
+    public boolean hasBalloonUpgrade() {
+        return fluidOnly && hasUpgrade(DeepNullUpgradeType.BALLOON);
+    }
+
+    public boolean hasFarmUpgrade() {
+        return !fluidOnly && hasUpgrade(DeepNullUpgradeType.FARM);
+    }
+
+    public boolean isFarmEnabled() {
+        return hasFarmUpgrade() && farmEnabled;
+    }
+
+    public void setFarmEnabled(boolean farmEnabled) {
+        if (this.farmEnabled == farmEnabled) {
+            return;
+        }
+        this.farmEnabled = farmEnabled;
+        save();
+    }
+
+    public ItemStack getFarmSubstrate() {
+        return farmSubstrate.copy();
+    }
+
+    public String getFarmSubstrateStatusKey() {
+        if (farmSubstrate.isEmpty()) {
+            return "dn.farm_substrate.empty.desc";
+        }
+        FarmSubstrateCategory category = FarmSubstrateCategory.forStack(farmSubstrate);
+        return category == null ? "dn.farm_substrate.invalid.desc" : category.translationKey();
+    }
+
+    public void setFarmSubstrate(ItemStack farmSubstrate) {
+        ItemStack next = isValidFarmSubstrate(farmSubstrate) ? farmSubstrate.copyWithCount(1) : ItemStack.EMPTY;
+        if (ItemStack.isSameItemSameComponents(this.farmSubstrate, next)) {
+            return;
+        }
+        this.farmSubstrate = next;
+        save();
     }
 
     public boolean isAutoPickupEnabled() {
@@ -1055,6 +1481,11 @@ public class DeepNullInventory extends ItemStackHandler {
 
         clearFilterStacks();
         clearAutoSmeltFilterStacks();
+        clearReservedStacks(false);
+        clearReservedTankTemplates(false);
+        readItemList(registries, configuration.getList(RESERVED_ITEMS_TAG, Tag.TAG_COMPOUND), reservedStacks);
+        readFluidList(registries, configuration.getList(RESERVED_FLUIDS_TAG, Tag.TAG_COMPOUND), reservedFluidStacks);
+        readChemicalList(configuration.getList(RESERVED_CHEMICALS_TAG, Tag.TAG_COMPOUND), reservedChemicalStacks);
         readItemList(registries, configuration.getList(FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), filterStacks);
         readItemList(registries, configuration.getList(AUTO_SMELT_FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), autoSmeltFilterStacks);
         selectedSlot = configuration.getInt(SELECTED_TAG);
@@ -1156,6 +1587,37 @@ public class DeepNullInventory extends ItemStackHandler {
             case CLAY -> new ItemStack(Items.CLAY);
             case GLASS -> resolveGlassOutput();
         };
+    }
+
+    public boolean runFarmCycle(long gameTime) {
+        if (!isFarmEnabled()) {
+            return false;
+        }
+        if (gameTime - lastFarmTick < DeepNullConfig.getDeepFarmIntervalTicks()) {
+            return false;
+        }
+
+        int remaining = DeepNullConfig.getDeepFarmMaxHarvestsPerCycle();
+        boolean changed = false;
+        for (int slot = 0; slot < getSlots() && remaining > 0; slot++) {
+            ItemStack plantable = getStackInSlot(slot);
+            FarmRecipe recipe = FarmRecipe.forStack(plantable);
+            if (recipe == null || !canUseFarmSubstrate(recipe)) {
+                continue;
+            }
+            if (!canRunFarmRecipe(slot, recipe)) {
+                continue;
+            }
+            extractItemIgnoreExtractionMode(slot, 1, false);
+            for (ItemStack output : recipe.outputs()) {
+                insertIntoFirstAvailableSlot(output, false);
+            }
+            changed = true;
+            remaining--;
+        }
+        lastFarmTick = gameTime;
+        save();
+        return changed;
     }
 
     public boolean runStoneworksCycle(boolean hasWaterSupport) {
@@ -1579,12 +2041,16 @@ public class DeepNullInventory extends ItemStackHandler {
 
         ItemStack fromStack = stacks.get(fromSlot);
         ItemStack toStack = stacks.get(toSlot);
-        if (fromStack.isEmpty() && toStack.isEmpty()) {
+        ItemStack fromReserved = reservedStacks.get(fromSlot);
+        ItemStack toReserved = reservedStacks.get(toSlot);
+        if (fromStack.isEmpty() && toStack.isEmpty() && fromReserved.isEmpty() && toReserved.isEmpty()) {
             return false;
         }
 
         stacks.set(fromSlot, toStack);
         stacks.set(toSlot, fromStack);
+        reservedStacks.set(fromSlot, toReserved);
+        reservedStacks.set(toSlot, fromReserved);
 
         ItemExtractionMode extractionMode = extractionModes[fromSlot];
         extractionModes[fromSlot] = extractionModes[toSlot];
@@ -1601,6 +2067,13 @@ public class DeepNullInventory extends ItemStackHandler {
         boolean tagMatching = tagMatchingModes[fromSlot];
         tagMatchingModes[fromSlot] = tagMatchingModes[toSlot];
         tagMatchingModes[toSlot] = tagMatching;
+
+        DivNullSlotState divNullState = divNullStates[fromSlot];
+        divNullStates[fromSlot] = divNullStates[toSlot];
+        divNullStates[toSlot] = divNullState;
+        List<ResourceLocation> divNullOptions = divNullLayerOptions[fromSlot];
+        divNullLayerOptions[fromSlot] = divNullLayerOptions[toSlot];
+        divNullLayerOptions[toSlot] = divNullOptions;
 
         if (selectedSlot == fromSlot) {
             selectedSlot = toSlot;
@@ -1677,7 +2150,8 @@ public class DeepNullInventory extends ItemStackHandler {
         }
 
         for (int slot = 0; slot < getSlots(); slot++) {
-            if (matchesIncoming(slot, stack)) {
+            ItemStack template = getEffectiveTemplateStack(slot);
+            if (!template.isEmpty() && matchesIncoming(slot, stack)) {
                 return slot;
             }
         }
@@ -1698,7 +2172,7 @@ public class DeepNullInventory extends ItemStackHandler {
                 continue;
             }
 
-            ItemStack stored = getStackInSlot(slot);
+            ItemStack stored = getEffectiveTemplateStack(slot);
             if (ItemStack.isSameItemSameComponents(stored, stack) || ItemStack.isSameItem(stored, stack)) {
                 return true;
             }
@@ -1726,11 +2200,74 @@ public class DeepNullInventory extends ItemStackHandler {
         return false;
     }
 
+    public boolean isDivNullManagedSlot(int slot) {
+        validateSlotIndex(slot);
+        return divNullStates[slot] != null;
+    }
+
+    public long getDivNullCanonicalCount(int slot) {
+        validateSlotIndex(slot);
+        DivNullSlotState state = divNullStates[slot];
+        return state == null ? 0L : state.canonicalUnits();
+    }
+
+    public List<ItemStack> getDivNullLayerOptions(int slot) {
+        validateSlotIndex(slot);
+        DivNullSlotState state = divNullStates[slot];
+        if (state == null) {
+            return List.of();
+        }
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        if (graph.isEmpty()) {
+            List<ResourceLocation> optionIds = divNullLayerOptions[slot];
+            if (optionIds == null || optionIds.isEmpty()) {
+                ItemStack current = getStackInSlot(slot);
+                return current.isEmpty() ? List.of() : List.of(current.copyWithCount(1));
+            }
+            return optionIds.stream()
+                    .map(id -> new ItemStack(BuiltInRegistries.ITEM.get(id)))
+                    .filter(option -> !option.isEmpty() && !option.is(Items.AIR))
+                    .toList();
+        }
+        DivNullRecipeGraph.Family family = graph.familyById(state.familyId()).orElse(null);
+        if (family == null) {
+            return List.of();
+        }
+        return family.layers().stream().map(layer -> layer.stack(1)).toList();
+    }
+
+    public boolean setDivNullLayer(int slot, ResourceLocation layerId) {
+        validateSlotIndex(slot);
+        DivNullSlotState state = divNullStates[slot];
+        if (state == null || layerId == null) {
+            return false;
+        }
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        DivNullRecipeGraph.Family family = graph.familyById(state.familyId()).orElse(null);
+        if (family == null) {
+            return false;
+        }
+        DivNullRecipeGraph.Layer layer = family.layerById(layerId);
+        if (layer == null) {
+            return false;
+        }
+        DivNullSlotState next = new DivNullSlotState(state.familyId(), layer.id(), state.canonicalUnits());
+        if (next.equals(state)) {
+            return false;
+        }
+        setDivNullStateAndDisplay(slot, next, family, layer);
+        save();
+        return true;
+    }
+
     public boolean matchesIncoming(int slot, ItemStack incomingStack) {
         validateSlotIndex(slot);
-        ItemStack storedStack = getStackInSlot(slot);
+        ItemStack storedStack = getEffectiveTemplateStack(slot);
         if (storedStack.isEmpty() || incomingStack.isEmpty()) {
             return false;
+        }
+        if (matchesDivNullFamily(slot, incomingStack)) {
+            return true;
         }
         if (ItemStack.isSameItemSameComponents(storedStack, incomingStack)) {
             return true;
@@ -1762,7 +2299,7 @@ public class DeepNullInventory extends ItemStackHandler {
         ItemStack remaining = insertReturnedIntoMatchingSlots(stack, simulate, true);
         remaining = insertReturnedIntoMatchingSlots(remaining, simulate, false);
         for (int slot = 0; slot < getSlots() && !remaining.isEmpty(); slot++) {
-            if (getStackInSlot(slot).isEmpty()) {
+            if (getStackInSlot(slot).isEmpty() && !isReservedSlot(slot)) {
                 remaining = insertReturnedItem(slot, remaining, simulate);
             }
         }
@@ -1908,7 +2445,7 @@ public class DeepNullInventory extends ItemStackHandler {
         ItemStack remaining = insertIntoMatchingSlotsPrepared(stack, simulate, true);
         remaining = insertIntoMatchingSlotsPrepared(remaining, simulate, false);
         for (int slot = 0; slot < getSlots() && !remaining.isEmpty(); slot++) {
-            if (getStackInSlot(slot).isEmpty()) {
+            if (getStackInSlot(slot).isEmpty() && !isReservedSlot(slot)) {
                 remaining = insertItem(slot, remaining, simulate);
             }
         }
@@ -1918,7 +2455,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private ItemStack insertReturnedIntoMatchingSlots(ItemStack stack, boolean simulate, boolean exactMatchOnly) {
         ItemStack remaining = stack;
         for (int slot = 0; slot < getSlots() && !remaining.isEmpty(); slot++) {
-            ItemStack existing = getStackInSlot(slot);
+            ItemStack existing = getEffectiveTemplateStack(slot);
             if (existing.isEmpty()) {
                 continue;
             }
@@ -1936,6 +2473,14 @@ public class DeepNullInventory extends ItemStackHandler {
 
     @Override
     public int getSlotLimit(int slot) {
+        validateSlotIndex(slot);
+        DivNullSlotState state = divNullStates[slot];
+        if (state != null) {
+            int divNullLimit = divNullVisibleSlotLimit(state);
+            if (divNullLimit > 0) {
+                return divNullLimit;
+            }
+        }
         return tier.perSlotCapacity();
     }
 
@@ -1955,22 +2500,47 @@ public class DeepNullInventory extends ItemStackHandler {
             return false;
         }
         ItemStack existing = getStackInSlot(slot);
-        return existing.isEmpty() || matchesIncoming(slot, stack);
+        if (!existing.isEmpty()) {
+            return matchesIncoming(slot, stack);
+        }
+        ItemStack reserved = getReservedStack(slot);
+        return reserved.isEmpty() || matchesIncoming(slot, stack);
     }
 
     @Override
     public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
         validateSlotIndex(slot);
+        ItemStack divNullRemainder = tryInsertDivNullItem(slot, stack, simulate);
+        if (divNullRemainder != null) {
+            return divNullRemainder;
+        }
         if (!isItemValid(slot, stack)) {
             return stack;
         }
 
         ItemStack existing = getStackInSlot(slot);
+        if (existing.isEmpty() && getReservedStack(slot).isEmpty()) {
+            int reservedSlot = findEmptyReservedMatchingSlot(stack);
+            if (reservedSlot >= 0 && reservedSlot != slot) {
+                ItemStack remainder = insertItem(reservedSlot, stack, simulate);
+                if (remainder.isEmpty()) {
+                    return ItemStack.EMPTY;
+                }
+                if (remainder.getCount() != stack.getCount()) {
+                    stack = remainder;
+                }
+            }
+        }
+
         int limit = getSlotLimit(slot);
         if (existing.isEmpty()) {
+            ItemStack normalizedInsert = normalizeForInsert(slot, stack);
+            if (normalizedInsert.isEmpty()) {
+                return stack;
+            }
             int inserted = Math.min(stack.getCount(), limit);
             if (!simulate) {
-                setStackInSlot(slot, stack.copyWithCount(inserted));
+                setStackInSlot(slot, normalizedInsert.copyWithCount(inserted));
             }
             return remainder(stack, inserted);
         }
@@ -1993,8 +2563,27 @@ public class DeepNullInventory extends ItemStackHandler {
         return remainder(stack, inserted);
     }
 
+    private int findEmptyReservedMatchingSlot(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return -1;
+        }
+        for (int slot = 0; slot < getSlots(); slot++) {
+            if (!getStackInSlot(slot).isEmpty() || getReservedStack(slot).isEmpty()) {
+                continue;
+            }
+            if (matchesIncoming(slot, stack)) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
     private ItemStack insertReturnedItem(int slot, ItemStack stack, boolean simulate) {
         validateSlotIndex(slot);
+        ItemStack divNullRemainder = tryInsertDivNullItem(slot, stack, simulate);
+        if (divNullRemainder != null) {
+            return divNullRemainder;
+        }
         if (stack.isEmpty() || stack.getCount() <= 0 || stack.getItem() instanceof DeepNullItem) {
             return stack;
         }
@@ -2002,9 +2591,13 @@ public class DeepNullInventory extends ItemStackHandler {
         ItemStack existing = getStackInSlot(slot);
         int limit = getSlotLimit(slot);
         if (existing.isEmpty()) {
+            ItemStack normalizedInsert = normalizeForInsert(slot, stack);
+            if (normalizedInsert.isEmpty()) {
+                return stack;
+            }
             int inserted = Math.min(stack.getCount(), limit);
             if (!simulate) {
-                setStackInSlot(slot, stack.copyWithCount(inserted));
+                setStackInSlot(slot, normalizedInsert.copyWithCount(inserted));
             }
             return remainder(stack, inserted);
         }
@@ -2040,8 +2633,12 @@ public class DeepNullInventory extends ItemStackHandler {
     protected void onContentsChanged(int slot) {
         super.onContentsChanged(slot);
         if (getStackInSlot(slot).isEmpty()) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
             extractionModes[slot] = ItemExtractionMode.KEEP_1;
             customExtractionAmounts[slot] = 0;
+        } else {
+            syncDivNullStateFromVisibleStack(slot);
         }
         if (!fluidOnly && contentMode == DeepNullContentMode.ITEMS) {
             if (selectedSlot >= 0 && getStackInSlot(selectedSlot).isEmpty()) {
@@ -2062,7 +2659,7 @@ public class DeepNullInventory extends ItemStackHandler {
     private ItemStack insertIntoMatchingSlotsPrepared(ItemStack stack, boolean simulate, boolean exactMatchOnly) {
         ItemStack remaining = stack;
         for (int slot = 0; slot < getSlots() && !remaining.isEmpty(); slot++) {
-            ItemStack existing = getStackInSlot(slot);
+            ItemStack existing = getEffectiveTemplateStack(slot);
             if (existing.isEmpty()) {
                 continue;
             }
@@ -2073,7 +2670,7 @@ public class DeepNullInventory extends ItemStackHandler {
             if (!exactMatchOnly && !matchesIncoming(slot, remaining)) {
                 continue;
             }
-            if (exactMatchOnly || isTagMatchingEnabled(slot)) {
+            if (exactMatchOnly || isTagMatchingEnabled(slot) || matchesDivNullFamily(slot, remaining)) {
                 remaining = insertItem(slot, remaining, simulate);
             }
         }
@@ -2153,6 +2750,9 @@ public class DeepNullInventory extends ItemStackHandler {
         ItemStack existing = getStackInSlot(slot);
         if (existing.isEmpty()) {
             return ItemStack.EMPTY;
+        }
+        if (divNullStates[slot] != null) {
+            return extractDivNullItem(slot, amount, simulate, ignoreExtractionMode);
         }
 
         int maxAvailable = ignoreExtractionMode ? existing.getCount() : getExtractableAmount(slot);
@@ -2358,7 +2958,17 @@ public class DeepNullInventory extends ItemStackHandler {
     private ItemStack normalizeForInsert(int slot, ItemStack incomingStack) {
         ItemStack existing = getStackInSlot(slot);
         if (existing.isEmpty()) {
-            return incomingStack;
+            ItemStack reserved = getReservedStack(slot);
+            if (reserved.isEmpty()) {
+                return incomingStack;
+            }
+            if (ItemStack.isSameItemSameComponents(reserved, incomingStack)) {
+                return incomingStack;
+            }
+            if (isTagMatchingEnabled(slot) && DeepNullTagDictionary.canMatch(reserved, incomingStack)) {
+                return reserved.copyWithCount(incomingStack.getCount());
+            }
+            return ItemStack.EMPTY;
         }
         if (ItemStack.isSameItemSameComponents(existing, incomingStack)) {
             return incomingStack;
@@ -2367,6 +2977,229 @@ public class DeepNullInventory extends ItemStackHandler {
             return existing.copyWithCount(incomingStack.getCount());
         }
         return ItemStack.EMPTY;
+    }
+
+    private @Nullable ItemStack tryInsertDivNullItem(int slot, ItemStack stack, boolean simulate) {
+        if (!hasDivNullUpgrade()
+                || stack.isEmpty()
+                || stack.getCount() <= 0
+                || stack.getItem() instanceof DeepNullItem
+                || !passesFilter(stack)
+                || supportsLocking() && locked) {
+            return null;
+        }
+
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        DivNullRecipeGraph.Layer incomingLayer = graph.findLayer(stack);
+        if (incomingLayer == null) {
+            return null;
+        }
+        DivNullRecipeGraph.Family family = graph.findFamily(stack).orElse(null);
+        if (family == null) {
+            return null;
+        }
+
+        DivNullSlotState state = divNullStates[slot];
+        ItemStack existing = getStackInSlot(slot);
+        if (state == null && !existing.isEmpty()) {
+            syncDivNullStateFromVisibleStack(slot);
+            state = divNullStates[slot];
+        }
+        if (state == null && existing.isEmpty()) {
+            ItemStack reserved = getReservedStack(slot);
+            if (!reserved.isEmpty() && !divNullFamilyMatches(family, reserved)) {
+                return null;
+            }
+        }
+        if (state != null && !state.familyId().equals(family.id())) {
+            return null;
+        }
+        if (state == null && !existing.isEmpty()) {
+            return null;
+        }
+
+        long currentUnits = state == null ? 0L : state.canonicalUnits();
+        long capacityUnits = divNullCanonicalCapacity(family);
+        long remainingUnits = Math.max(0L, capacityUnits - currentUnits);
+        int accepted = (int) Math.min(stack.getCount(), remainingUnits / incomingLayer.unit());
+        if (accepted <= 0) {
+            return stack;
+        }
+
+        if (!simulate) {
+            ResourceLocation selectedLayer = state == null ? incomingLayer.id() : state.layerId();
+            DivNullRecipeGraph.Layer displayLayer = family.layerById(selectedLayer);
+            if (displayLayer == null) {
+                displayLayer = incomingLayer;
+            }
+            long insertedUnits = multiplySaturating(accepted, incomingLayer.unit());
+            setDivNullStateAndDisplay(
+                    slot,
+                    new DivNullSlotState(family.id(), displayLayer.id(), Math.min(capacityUnits, currentUnits + insertedUnits)),
+                    family,
+                    displayLayer
+            );
+            save();
+        }
+        return remainder(stack, accepted);
+    }
+
+    private ItemStack extractDivNullItem(int slot, int amount, boolean simulate, boolean ignoreExtractionMode) {
+        DivNullSlotState state = divNullStates[slot];
+        if (state == null) {
+            return ItemStack.EMPTY;
+        }
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        DivNullRecipeGraph.Family family = graph.familyById(state.familyId()).orElse(null);
+        if (family == null) {
+            return ItemStack.EMPTY;
+        }
+        DivNullRecipeGraph.Layer layer = family.layerById(state.layerId());
+        if (layer == null) {
+            layer = family.bestLayerFor(state.canonicalUnits());
+        }
+        int visibleCount = visibleCountFor(state.canonicalUnits(), layer);
+        int maxAvailable = ignoreExtractionMode ? visibleCount : getExtractableAmount(slot);
+        int extracted = Math.min(amount, layer.stack(1).getMaxStackSize());
+        extracted = Math.min(extracted, maxAvailable);
+        if (extracted <= 0) {
+            return ItemStack.EMPTY;
+        }
+
+        ItemStack result = layer.stack(extracted);
+        if (!simulate && !(supportsLocking() && locked)) {
+            long remainingUnits = Math.max(0L, state.canonicalUnits() - multiplySaturating(extracted, layer.unit()));
+            if (remainingUnits <= 0L) {
+                divNullStates[slot] = null;
+                stacks.set(slot, ItemStack.EMPTY);
+                onContentsChanged(slot);
+            } else {
+                DivNullSlotState next = new DivNullSlotState(state.familyId(), layer.id(), remainingUnits);
+                setDivNullStateAndDisplay(slot, next, family, layer);
+                save();
+            }
+        }
+        return result;
+    }
+
+    private boolean matchesDivNullFamily(int slot, ItemStack incomingStack) {
+        DivNullSlotState state = divNullStates[slot];
+        if (state == null || incomingStack.isEmpty()) {
+            return false;
+        }
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        DivNullRecipeGraph.Family storedFamily = graph.familyById(state.familyId()).orElse(null);
+        return storedFamily != null && divNullFamilyMatches(storedFamily, incomingStack);
+    }
+
+    private boolean divNullFamilyMatches(DivNullRecipeGraph.Family family, ItemStack stack) {
+        return family.layerFor(stack.getItem()) != null;
+    }
+
+    private void syncDivNullStateFromVisibleStack(int slot) {
+        if (!hasDivNullUpgrade()) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
+            return;
+        }
+        ItemStack visibleStack = getStackInSlot(slot);
+        if (visibleStack.isEmpty()) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
+            return;
+        }
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        DivNullRecipeGraph.Family family = graph.findFamily(visibleStack).orElse(null);
+        DivNullRecipeGraph.Layer layer = graph.findLayer(visibleStack);
+        if (family == null || layer == null) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
+            return;
+        }
+        DivNullSlotState state = divNullStates[slot];
+        long visibleUnits = multiplySaturating(visibleStack.getCount(), layer.unit());
+        if (state == null || !state.familyId().equals(family.id())) {
+            divNullStates[slot] = new DivNullSlotState(family.id(), layer.id(), visibleUnits);
+        } else if (!state.layerId().equals(layer.id())) {
+            divNullStates[slot] = new DivNullSlotState(family.id(), layer.id(), Math.max(state.canonicalUnits(), visibleUnits));
+        }
+        divNullLayerOptions[slot] = family.layers().stream().map(DivNullRecipeGraph.Layer::id).toList();
+    }
+
+    private void sanitizeDivNullSlot(int slot) {
+        if (fluidOnly || !hasDivNullUpgrade()) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
+            return;
+        }
+        ItemStack visibleStack = getStackInSlot(slot);
+        if (visibleStack.isEmpty()) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
+            return;
+        }
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        if (graph.isEmpty()) {
+            return;
+        }
+        DivNullSlotState state = divNullStates[slot];
+        if (state == null) {
+            syncDivNullStateFromVisibleStack(slot);
+            return;
+        }
+        DivNullRecipeGraph.Family family = graph.familyById(state.familyId()).orElse(null);
+        if (family == null) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
+            return;
+        }
+        DivNullRecipeGraph.Layer layer = family.layerById(state.layerId());
+        if (layer == null) {
+            layer = family.bestLayerFor(state.canonicalUnits());
+        }
+        long capacity = divNullCanonicalCapacity(family);
+        long canonical = Math.max(0L, Math.min(state.canonicalUnits(), capacity));
+        if (canonical <= 0L) {
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
+            stacks.set(slot, ItemStack.EMPTY);
+            return;
+        }
+        setDivNullStateAndDisplay(slot, new DivNullSlotState(family.id(), layer.id(), canonical), family, layer);
+    }
+
+    private void setDivNullStateAndDisplay(int slot, DivNullSlotState state, DivNullRecipeGraph.Family family, DivNullRecipeGraph.Layer preferredLayer) {
+        DivNullRecipeGraph.Layer layer = state.canonicalUnits() >= preferredLayer.unit() ? preferredLayer : family.bestLayerFor(state.canonicalUnits());
+        int visibleCount = visibleCountFor(state.canonicalUnits(), layer);
+        divNullStates[slot] = new DivNullSlotState(state.familyId(), layer.id(), state.canonicalUnits());
+        divNullLayerOptions[slot] = family.layers().stream().map(DivNullRecipeGraph.Layer::id).toList();
+        stacks.set(slot, visibleCount <= 0 ? ItemStack.EMPTY : layer.stack(visibleCount));
+    }
+
+    private int divNullVisibleSlotLimit(DivNullSlotState state) {
+        DivNullRecipeGraph graph = DivNullRecipeGraph.current();
+        DivNullRecipeGraph.Family family = graph.familyById(state.familyId()).orElse(null);
+        if (family == null) {
+            return tier.perSlotCapacity();
+        }
+        DivNullRecipeGraph.Layer layer = family.layerById(state.layerId());
+        if (layer == null) {
+            layer = family.smallestLayer();
+        }
+        long capacityUnits = divNullCanonicalCapacity(family);
+        return (int) Math.max(1L, Math.min(Integer.MAX_VALUE, capacityUnits / Math.max(1L, layer.unit())));
+    }
+
+    private long divNullCanonicalCapacity(DivNullRecipeGraph.Family family) {
+        if (tier.creative()) {
+            return Long.MAX_VALUE / 4L;
+        }
+        return multiplySaturating(tier.perSlotCapacity(), family.largestLayer().unit());
+    }
+
+    private int visibleCountFor(long canonicalUnits, DivNullRecipeGraph.Layer layer) {
+        long visible = canonicalUnits / Math.max(1L, layer.unit());
+        return (int) Math.max(0L, Math.min(Integer.MAX_VALUE, visible));
     }
 
     private void load() {
@@ -2380,10 +3213,14 @@ public class DeepNullInventory extends ItemStackHandler {
         }
         CompoundTag root = tag.getCompound(ROOT_TAG);
         readPrimaryStorageFromRoot(registries, root);
+        readDivNullStates(root.getList(DIVNULL_SLOTS_TAG, Tag.TAG_COMPOUND));
         if (root.contains(UPGRADES_TAG, Tag.TAG_COMPOUND)) {
             upgradeHandler.deserializeNBT(registries, root.getCompound(UPGRADES_TAG));
             upgradeHandler.ensureSlotCount();
         }
+        readItemList(registries, root.getList(RESERVED_ITEMS_TAG, Tag.TAG_COMPOUND), reservedStacks);
+        readFluidList(registries, root.getList(RESERVED_FLUIDS_TAG, Tag.TAG_COMPOUND), reservedFluidStacks);
+        readChemicalList(root.getList(RESERVED_CHEMICALS_TAG, Tag.TAG_COMPOUND), reservedChemicalStacks);
         readItemList(registries, root.getList(FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), filterStacks);
         readItemList(registries, root.getList(AUTO_SMELT_FILTER_ITEMS_TAG, Tag.TAG_COMPOUND), autoSmeltFilterStacks);
         selectedSlot = root.getInt(SELECTED_TAG);
@@ -2414,6 +3251,13 @@ public class DeepNullInventory extends ItemStackHandler {
         spongeEnabled = root.contains(SPONGE_ENABLED_TAG, Tag.TAG_BYTE)
                 ? root.getBoolean(SPONGE_ENABLED_TAG)
                 : true;
+        farmEnabled = root.contains(FARM_ENABLED_TAG, Tag.TAG_BYTE)
+                ? root.getBoolean(FARM_ENABLED_TAG)
+                : true;
+        farmSubstrate = root.contains(FARM_SUBSTRATE_TAG, Tag.TAG_COMPOUND)
+                ? ItemStack.parseOptional(registries, root.getCompound(FARM_SUBSTRATE_TAG))
+                : ItemStack.EMPTY;
+        lastFarmTick = root.getLong(FARM_LAST_TICK_TAG);
         stoneworksTargetStacks = root.contains(STONEWORKS_AMOUNT_TAG, Tag.TAG_ANY_NUMERIC)
                 ? root.getInt(STONEWORKS_AMOUNT_TAG)
                 : DeepNullConfig.defaultStoneworksAmount();
@@ -2543,6 +3387,9 @@ public class DeepNullInventory extends ItemStackHandler {
 
     private void writeLocalStateToRoot(CompoundTag root, HolderLookup.Provider registries) {
         root.put(UPGRADES_TAG, upgradeHandler.serializeNBT(registries));
+        root.put(RESERVED_ITEMS_TAG, writeItemList(registries, reservedStacks));
+        root.put(RESERVED_FLUIDS_TAG, writeFluidList(registries, reservedFluidStacks));
+        root.put(RESERVED_CHEMICALS_TAG, writeChemicalList(reservedChemicalStacks));
         root.put(FILTER_ITEMS_TAG, writeItemList(registries, filterStacks));
         root.put(AUTO_SMELT_FILTER_ITEMS_TAG, writeItemList(registries, autoSmeltFilterStacks));
         root.putInt(SELECTED_TAG, selectedSlot);
@@ -2608,6 +3455,7 @@ public class DeepNullInventory extends ItemStackHandler {
         root.putBoolean(AUTO_PICKUP_TAG, autoPickupEnabled);
         root.putBoolean(AUTO_FEEDING_TAG, autoFeedingEnabled);
         root.putBoolean(AUTO_SMELTING_TAG, autoSmeltingEnabled);
+        putOrRemoveList(root, DIVNULL_SLOTS_TAG, writeDivNullStates());
 
         if (stoneGeneratorVariant != StoneGeneratorVariant.COBBLESTONE) {
             root.putInt(STONE_GENERATOR_VARIANT_TAG, stoneGeneratorVariant.ordinal());
@@ -2619,6 +3467,22 @@ public class DeepNullInventory extends ItemStackHandler {
             root.putBoolean(SPONGE_ENABLED_TAG, false);
         } else {
             root.remove(SPONGE_ENABLED_TAG);
+        }
+
+        if (!farmEnabled) {
+            root.putBoolean(FARM_ENABLED_TAG, false);
+        } else {
+            root.remove(FARM_ENABLED_TAG);
+        }
+        if (!farmSubstrate.isEmpty()) {
+            root.put(FARM_SUBSTRATE_TAG, farmSubstrate.saveOptional(registries));
+        } else {
+            root.remove(FARM_SUBSTRATE_TAG);
+        }
+        if (lastFarmTick != 0L) {
+            root.putLong(FARM_LAST_TICK_TAG, lastFarmTick);
+        } else {
+            root.remove(FARM_LAST_TICK_TAG);
         }
 
         if (stoneworksTargetStacks != DeepNullConfig.defaultStoneworksAmount()) {
@@ -2720,6 +3584,8 @@ public class DeepNullInventory extends ItemStackHandler {
     private void clearStorageContents() {
         for (int slot = 0; slot < stacks.size(); slot++) {
             stacks.set(slot, ItemStack.EMPTY);
+            divNullStates[slot] = null;
+            divNullLayerOptions[slot] = null;
         }
         for (int slot = 0; slot < fluidStacks.size(); slot++) {
             fluidStacks.set(slot, FluidStack.EMPTY);
@@ -2806,6 +3672,7 @@ public class DeepNullInventory extends ItemStackHandler {
             if (!supportsTagMatching(slot)) {
                 tagMatchingModes[slot] = false;
             }
+            sanitizeDivNullSlot(slot);
         }
         for (int slot = 0; slot < upgradeHandler.getSlots(); slot++) {
             ItemStack upgradeStack = upgradeHandler.getStackInSlot(slot);
@@ -2824,9 +3691,18 @@ public class DeepNullInventory extends ItemStackHandler {
         } else {
             autoSmeltFilterMode = normalizeAutoSmeltFilterMode(autoSmeltFilterMode);
         }
+        for (int slot = 0; slot < reservedStacks.size(); slot++) {
+            ItemStack reservedStack = reservedStacks.get(slot);
+            if (fluidOnly || reservedStack.getItem() instanceof DeepNullItem) {
+                reservedStacks.set(slot, ItemStack.EMPTY);
+            } else if (!reservedStack.isEmpty() && reservedStack.getCount() != 1) {
+                reservedStacks.set(slot, reservedStack.copyWithCount(1));
+            }
+        }
         if (!supportsFluidStorage()) {
             clearFluidStacks();
             clearChemicalStacks();
+            clearReservedTankTemplates(false);
         } else {
             for (int slot = 0; slot < fluidStacks.size(); slot++) {
                 FluidStack fluidStack = fluidStacks.get(slot);
@@ -2841,6 +3717,33 @@ public class DeepNullInventory extends ItemStackHandler {
                 if (!fluidStacks.get(slot).isEmpty() && !chemicalStacks.get(slot).isEmpty()) {
                     chemicalStacks.set(slot, StoredChemical.EMPTY);
                 }
+                FluidStack reservedFluid = reservedFluidStacks.get(slot);
+                StoredChemical reservedChemical = reservedChemicalStacks.get(slot);
+                if (!acceptsNormalFluids() || (!reservedFluid.isEmpty() && !chemicalStacks.get(slot).isEmpty())) {
+                    reservedFluidStacks.set(slot, FluidStack.EMPTY);
+                } else if (!reservedFluid.isEmpty()) {
+                    int amount = Math.max(1, Math.min(reservedFluid.getAmount(), getFluidCapacity()));
+                    reservedFluidStacks.set(slot, reservedFluid.copyWithAmount(amount));
+                }
+                if (!supportsChemicalStorage() || (!reservedChemical.isEmpty() && !fluidStacks.get(slot).isEmpty())) {
+                    reservedChemicalStacks.set(slot, StoredChemical.EMPTY);
+                } else if (!reservedChemical.isEmpty()) {
+                    long amount = Math.max(1L, Math.min(reservedChemical.amount(), getFluidCapacity()));
+                    reservedChemicalStacks.set(slot, reservedChemical.copyWithAmount(amount));
+                }
+                if (!reservedFluidStacks.get(slot).isEmpty() && !reservedChemicalStacks.get(slot).isEmpty()) {
+                    reservedChemicalStacks.set(slot, StoredChemical.EMPTY);
+                }
+                if (!fluidStacks.get(slot).isEmpty()
+                        && !reservedFluidStacks.get(slot).isEmpty()
+                        && !FluidStack.isSameFluidSameComponents(fluidStacks.get(slot), reservedFluidStacks.get(slot))) {
+                    reservedFluidStacks.set(slot, FluidStack.EMPTY);
+                }
+                if (!chemicalStacks.get(slot).isEmpty()
+                        && !reservedChemicalStacks.get(slot).isEmpty()
+                        && !chemicalStacks.get(slot).isSameChemical(reservedChemicalStacks.get(slot))) {
+                    reservedChemicalStacks.set(slot, StoredChemical.EMPTY);
+                }
             }
         }
         stoneworksTargetStacks = Math.max(0, Math.min(MAX_STONEWORKS_AMOUNT, stoneworksTargetStacks));
@@ -2853,6 +3756,11 @@ public class DeepNullInventory extends ItemStackHandler {
         autoPickupEnabled = autoPickupEnabled && DeepNullConfig.isAutoPickupEnabled();
         autoFeedingEnabled = autoFeedingEnabled && hasAutoFeedingUpgrade() && DeepNullConfig.isAutoFeedingEnabled();
         autoSmeltingEnabled = autoSmeltingEnabled && hasAutoSmeltingUpgrade() && DeepNullConfig.isAutoSmeltingEnabled();
+        if (!isValidFarmSubstrate(farmSubstrate)) {
+            farmSubstrate = ItemStack.EMPTY;
+        } else if (!farmSubstrate.isEmpty()) {
+            farmSubstrate = farmSubstrate.copyWithCount(1);
+        }
         contentMode = fluidOnly ? DeepNullContentMode.FLUIDS : DeepNullContentMode.ITEMS;
         if (!hasEnergyUpgrade()) {
             storedEnergy = 0;
@@ -3102,7 +4010,7 @@ public class DeepNullInventory extends ItemStackHandler {
 
     private boolean containsSmeltSeed(ItemStack input, ItemStack output) {
         for (int slot = 0; slot < getSlots(); slot++) {
-            ItemStack stored = getStackInSlot(slot);
+            ItemStack stored = getEffectiveTemplateStack(slot);
             if (stored.isEmpty()) {
                 continue;
             }
@@ -3118,7 +4026,7 @@ public class DeepNullInventory extends ItemStackHandler {
 
     private boolean containsCompressionSeed(ItemStack output) {
         for (int slot = 0; slot < getSlots(); slot++) {
-            ItemStack stored = getStackInSlot(slot);
+            ItemStack stored = getEffectiveTemplateStack(slot);
             if (stored.isEmpty()) {
                 continue;
             }
@@ -3197,6 +4105,30 @@ public class DeepNullInventory extends ItemStackHandler {
             case CLAY -> new StoneworksMaterial[]{StoneworksMaterial.DIRT, StoneworksMaterial.CLAY};
             case GLASS -> new StoneworksMaterial[]{StoneworksMaterial.DIRT, StoneworksMaterial.GRAVEL, StoneworksMaterial.SAND, StoneworksMaterial.GLASS};
         };
+    }
+
+    private boolean canUseFarmSubstrate(FarmRecipe recipe) {
+        if (farmSubstrate.isEmpty()) {
+            return false;
+        }
+        return isValidFarmSubstrate(farmSubstrate) && recipe.acceptsSubstrate(farmSubstrate);
+    }
+
+    private static boolean isValidFarmSubstrate(ItemStack stack) {
+        return stack == null || stack.isEmpty() || stack.getItem() instanceof BlockItem;
+    }
+
+    private boolean canRunFarmRecipe(int slot, FarmRecipe recipe) {
+        DeepNullInventory simulationInventory = new DeepNullInventory(tier, backingStack.copy(), registriesSupplier, null);
+        if (simulationInventory.extractItemIgnoreExtractionMode(slot, 1, false).getCount() < 1) {
+            return false;
+        }
+        for (ItemStack output : recipe.outputs()) {
+            if (!simulationInventory.insertIntoFirstAvailableSlot(output, false).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private ItemStack stoneworksInput(StoneworksMaterial stage) {
@@ -3368,6 +4300,36 @@ public class DeepNullInventory extends ItemStackHandler {
     private void clearAutoSmeltFilterStacks() {
         for (int slot = 0; slot < autoSmeltFilterStacks.size(); slot++) {
             autoSmeltFilterStacks.set(slot, ItemStack.EMPTY);
+        }
+    }
+
+    private void clearReservedStacks(boolean save) {
+        boolean changed = false;
+        for (int slot = 0; slot < reservedStacks.size(); slot++) {
+            if (!reservedStacks.get(slot).isEmpty()) {
+                reservedStacks.set(slot, ItemStack.EMPTY);
+                changed = true;
+            }
+        }
+        if (changed && save) {
+            save();
+        }
+    }
+
+    private void clearReservedTankTemplates(boolean save) {
+        boolean changed = false;
+        for (int slot = 0; slot < reservedFluidStacks.size(); slot++) {
+            if (!reservedFluidStacks.get(slot).isEmpty()) {
+                reservedFluidStacks.set(slot, FluidStack.EMPTY);
+                changed = true;
+            }
+            if (!reservedChemicalStacks.get(slot).isEmpty()) {
+                reservedChemicalStacks.set(slot, StoredChemical.EMPTY);
+                changed = true;
+            }
+        }
+        if (changed && save) {
+            save();
         }
     }
 
@@ -3575,6 +4537,69 @@ public class DeepNullInventory extends ItemStackHandler {
         return list;
     }
 
+    private void readDivNullStates(Tag storedList) {
+        Arrays.fill(divNullStates, null);
+        Arrays.fill(divNullLayerOptions, null);
+        if (!(storedList instanceof net.minecraft.nbt.ListTag listTag)) {
+            return;
+        }
+        for (int index = 0; index < listTag.size(); index++) {
+            CompoundTag entry = listTag.getCompound(index);
+            int slot = entry.getInt(SLOT_TAG);
+            if (slot < 0 || slot >= divNullStates.length || !entry.contains(DIVNULL_CANONICAL_COUNT_TAG, Tag.TAG_ANY_NUMERIC)) {
+                continue;
+            }
+            ResourceLocation familyId = ResourceLocation.tryParse(entry.getString(DIVNULL_FAMILY_TAG));
+            ResourceLocation layerId = ResourceLocation.tryParse(entry.getString(DIVNULL_LAYER_TAG));
+            long canonicalCount = entry.getLong(DIVNULL_CANONICAL_COUNT_TAG);
+            if (familyId == null || layerId == null || canonicalCount <= 0L) {
+                continue;
+            }
+            divNullStates[slot] = new DivNullSlotState(familyId, layerId, canonicalCount);
+            if (entry.contains(DIVNULL_LAYER_OPTIONS_TAG, Tag.TAG_LIST)) {
+                net.minecraft.nbt.ListTag optionsTag = entry.getList(DIVNULL_LAYER_OPTIONS_TAG, Tag.TAG_STRING);
+                List<ResourceLocation> options = new ArrayList<>();
+                for (int optionIndex = 0; optionIndex < optionsTag.size(); optionIndex++) {
+                    ResourceLocation optionId = ResourceLocation.tryParse(optionsTag.getString(optionIndex));
+                    if (optionId != null) {
+                        options.add(optionId);
+                    }
+                }
+                if (!options.isEmpty()) {
+                    divNullLayerOptions[slot] = List.copyOf(options);
+                }
+            }
+        }
+    }
+
+    private net.minecraft.nbt.ListTag writeDivNullStates() {
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        if (!hasDivNullUpgrade()) {
+            return list;
+        }
+        for (int slot = 0; slot < divNullStates.length; slot++) {
+            DivNullSlotState state = divNullStates[slot];
+            if (state == null || state.canonicalUnits() <= 0L || getStackInSlot(slot).isEmpty()) {
+                continue;
+            }
+            CompoundTag entry = new CompoundTag();
+            entry.putInt(SLOT_TAG, slot);
+            entry.putString(DIVNULL_FAMILY_TAG, state.familyId().toString());
+            entry.putString(DIVNULL_LAYER_TAG, state.layerId().toString());
+            entry.putLong(DIVNULL_CANONICAL_COUNT_TAG, state.canonicalUnits());
+            List<ResourceLocation> options = divNullLayerOptions[slot];
+            if (options != null && !options.isEmpty()) {
+                net.minecraft.nbt.ListTag optionTags = new net.minecraft.nbt.ListTag();
+                for (ResourceLocation optionId : options) {
+                    optionTags.add(net.minecraft.nbt.StringTag.valueOf(optionId.toString()));
+                }
+                entry.put(DIVNULL_LAYER_OPTIONS_TAG, optionTags);
+            }
+            list.add(entry);
+        }
+        return list;
+    }
+
     private static void readFluidList(HolderLookup.Provider registries, Tag storedList, NonNullList<FluidStack> targetStacks) {
         for (int i = 0; i < targetStacks.size(); i++) {
             targetStacks.set(i, FluidStack.EMPTY);
@@ -3664,12 +4689,138 @@ public class DeepNullInventory extends ItemStackHandler {
         return original.copyWithCount(original.getCount() - inserted);
     }
 
+    private static long multiplySaturating(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        if (left > Long.MAX_VALUE / right) {
+            return Long.MAX_VALUE;
+        }
+        return left * right;
+    }
+
     private static List<ItemStack> repeatedCraftingInputs(ItemStack stack, int count) {
         List<ItemStack> inputs = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             inputs.add(stack.copyWithCount(1));
         }
         return inputs;
+    }
+
+    private record FarmRecipe(ItemStack replacement, List<ItemStack> harvestOutputs, FarmSubstrateCategory substrateCategory) {
+        private static FarmRecipe forStack(ItemStack stack) {
+            if (stack.isEmpty()) {
+                return null;
+            }
+            if (stack.is(Items.WHEAT_SEEDS)) {
+                return dirt(stack, new ItemStack(Items.WHEAT));
+            }
+            if (stack.is(Items.BEETROOT_SEEDS)) {
+                return dirt(stack, new ItemStack(Items.BEETROOT));
+            }
+            if (stack.is(Items.MELON_SEEDS)) {
+                return dirt(stack, new ItemStack(Items.MELON_SLICE, 3));
+            }
+            if (stack.is(Items.PUMPKIN_SEEDS)) {
+                return dirt(stack, new ItemStack(Items.PUMPKIN));
+            }
+            if (stack.is(Items.CARROT)) {
+                return dirt(stack, new ItemStack(Items.CARROT, 3));
+            }
+            if (stack.is(Items.POTATO)) {
+                return dirt(stack, new ItemStack(Items.POTATO, 3));
+            }
+            if (stack.is(Items.CACTUS)) {
+                return sand(stack, new ItemStack(Items.CACTUS));
+            }
+            if (stack.is(Items.SUGAR_CANE)) {
+                return sand(stack, new ItemStack(Items.SUGAR_CANE));
+            }
+            if (stack.is(Items.NETHER_WART)) {
+                return soulSand(stack, new ItemStack(Items.NETHER_WART, 3));
+            }
+            return null;
+        }
+
+        private static FarmRecipe dirt(ItemStack replacement, ItemStack output) {
+            return new FarmRecipe(replacement.copyWithCount(1), List.of(output), FarmSubstrateCategory.DIRT_LIKE);
+        }
+
+        private static FarmRecipe sand(ItemStack replacement, ItemStack output) {
+            return new FarmRecipe(replacement.copyWithCount(1), List.of(output), FarmSubstrateCategory.SAND_LIKE);
+        }
+
+        private static FarmRecipe soulSand(ItemStack replacement, ItemStack output) {
+            return new FarmRecipe(replacement.copyWithCount(1), List.of(output), FarmSubstrateCategory.SOUL_SAND_LIKE);
+        }
+
+        private List<ItemStack> outputs() {
+            List<ItemStack> outputs = new ArrayList<>(1 + harvestOutputs.size());
+            outputs.add(replacement.copy());
+            for (ItemStack output : harvestOutputs) {
+                if (!output.isEmpty()) {
+                    outputs.add(output.copy());
+                }
+            }
+            return outputs;
+        }
+
+        private boolean acceptsSubstrate(ItemStack substrate) {
+            return substrateCategory.matches(substrate);
+        }
+    }
+
+    private enum FarmSubstrateCategory {
+        DIRT_LIKE("dn.farm_substrate.dirt_like.desc"),
+        SAND_LIKE("dn.farm_substrate.sand_like.desc"),
+        SOUL_SAND_LIKE("dn.farm_substrate.soul_sand_like.desc");
+
+        private final String translationKey;
+
+        FarmSubstrateCategory(String translationKey) {
+            this.translationKey = translationKey;
+        }
+
+        private String translationKey() {
+            return translationKey;
+        }
+
+        private boolean matches(ItemStack substrate) {
+            return this == forStack(substrate);
+        }
+
+        private static FarmSubstrateCategory forStack(ItemStack substrate) {
+            if (!(substrate.getItem() instanceof BlockItem blockItem)) {
+                return null;
+            }
+            Block block = blockItem.getBlock();
+            if (block == Blocks.SOUL_SAND || block == Blocks.SOUL_SOIL) {
+                return SOUL_SAND_LIKE;
+            }
+            if (block == Blocks.SAND || block == Blocks.RED_SAND || idContains(block, "sand") || idContains(block, "snad")) {
+                return SAND_LIKE;
+            }
+            if (block == Blocks.DIRT
+                    || block == Blocks.COARSE_DIRT
+                    || block == Blocks.ROOTED_DIRT
+                    || block == Blocks.GRASS_BLOCK
+                    || block == Blocks.PODZOL
+                    || block == Blocks.MYCELIUM
+                    || block == Blocks.FARMLAND
+                    || block == Blocks.MOSS_BLOCK
+                    || block == Blocks.MUD
+                    || idContains(block, "dirt")
+                    || idContains(block, "soil")
+                    || idContains(block, "farmland")) {
+                return DIRT_LIKE;
+            }
+            return null;
+        }
+
+        private static boolean idContains(Block block, String needle) {
+            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+            return id != null && id.getPath().contains(needle);
+        }
     }
 
     private final class UpgradeItemHandler extends ItemStackHandler {
@@ -3755,5 +4906,8 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     private record LinkedDockSource(DeepNullDockBlockEntity dock) {
+    }
+
+    private record DivNullSlotState(ResourceLocation familyId, ResourceLocation layerId, long canonicalUnits) {
     }
 }

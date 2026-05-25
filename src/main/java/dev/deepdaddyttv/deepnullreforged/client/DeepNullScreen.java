@@ -870,12 +870,15 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             case AUTO_SMELTING -> new ItemStack(ModItems.AUTO_SMELTING_UPGRADE.get());
             case BASIC_COMPRESSION -> new ItemStack(ModItems.BASIC_COMPRESSION_UPGRADE.get());
             case ADVANCED_COMPRESSION -> new ItemStack(ModItems.ADVANCED_COMPRESSION_UPGRADE.get());
+            case DIVNULL -> new ItemStack(ModItems.UPGRADE_CORE.get());
             case STONEWORKS -> new ItemStack(ModItems.STONEWORKS_UPGRADE.get());
             case STONE_GENERATOR -> new ItemStack(ModItems.STONE_GENERATOR_UPGRADE.get());
             case OBSIDIAN_GENERATOR -> new ItemStack(ModItems.OBSIDIAN_GENERATOR_UPGRADE.get());
             case SPONGE -> new ItemStack(ModItems.SPONGE_UPGRADE.get());
+            case BALLOON -> new ItemStack(ModItems.BALLOON_UPGRADE.get());
             case GAS -> new ItemStack(ModItems.GAS_UPGRADE.get());
             case ENDER -> new ItemStack(ModItems.ENDER_UPGRADE.get());
+            case FARM -> new ItemStack(ModItems.UPGRADE_CORE.get());
         };
     }
 

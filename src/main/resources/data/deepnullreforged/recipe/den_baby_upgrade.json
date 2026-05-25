@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "EGE",
+    "MUM",
+    "EGE"
+  ],
+  "key": {
+    "E": {
+      "item": "minecraft:egg"
+    },
+    "G": {
+      "item": "minecraft:golden_carrot"
+    },
+    "M": {
+      "item": "minecraft:milk_bucket"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:den_baby_upgrade",
+    "count": 1
+  }
+}

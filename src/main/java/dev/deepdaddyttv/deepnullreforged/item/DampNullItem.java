@@ -16,6 +16,11 @@ public class DampNullItem extends DeepNullItem {
     }
 
     @Override
+    public NullKind nullKind(ItemStack stack) {
+        return NullKind.DAMP;
+    }
+
+    @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
         DeepNullInventory inventory = new DeepNullInventory(tier(), stack, context.registries(), null);
         tooltipComponents.add(Component.translatable("dn.number_of_tanks.desc")

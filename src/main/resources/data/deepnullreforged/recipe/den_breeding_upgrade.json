@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WCW",
+    "SUS",
+    "HAH"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:apple"
+    },
+    "C": {
+      "item": "minecraft:carrot"
+    },
+    "H": {
+      "item": "minecraft:hay_block"
+    },
+    "S": {
+      "item": "minecraft:wheat_seeds"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    },
+    "W": {
+      "item": "minecraft:wheat"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:den_breeding_upgrade",
+    "count": 1
+  }
+}

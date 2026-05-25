@@ -5,32 +5,39 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
+import dev.deepdaddyttv.deepnullreforged.inventory.DampNullFluidContainerTransfer;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
+import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullSlotDomain;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
-import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
+import dev.deepdaddyttv.deepnullreforged.hubnull.HubNullData;
+import dev.deepdaddyttv.deepnullreforged.hubnull.HubNullSnapshot;
+import dev.deepdaddyttv.deepnullreforged.hubnull.HubNullStationRef;
+import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DumpNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.HubNullItem;
+import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.material.Fluids;
 import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.neoforged.neoforge.items.SlotItemHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +51,8 @@ public class DeepNullMenu extends AbstractContainerMenu {
 
     public enum SourceType {
         ITEM,
-        DOCK
+        DOCK,
+        REMOTE_DOCK
     }
 
     public enum ViewMode {
@@ -52,7 +60,8 @@ public class DeepNullMenu extends AbstractContainerMenu {
         UPGRADES,
         FILTER,
         AUTO_SMELT_FILTER,
-        FLUID
+        FLUID,
+        FARM
     }
 
     private final SourceType sourceType;
@@ -61,6 +70,9 @@ public class DeepNullMenu extends AbstractContainerMenu {
     private final DeepNullInventory dankInventory;
     private final int inventorySlot;
     private final @Nullable BlockPos dockPos;
+    private final @Nullable ResourceLocation remoteDimension;
+    private final int hubInventorySlot;
+    private final boolean clientFluidOnly;
     private final int storageSlotCount;
     private final int upgradeSlotStartIndex;
     private final int upgradeSlotCount;
@@ -70,6 +82,11 @@ public class DeepNullMenu extends AbstractContainerMenu {
     private int syncedUpgradeMask;
     private int syncedEnergyStored;
     private boolean syncedChargingEnabled;
+    private final @Nullable ServerPlayer serverPlayer;
+    private List<FluidStack> lastSyncedFluids = List.of();
+    private List<StoredChemical> lastSyncedChemicals = List.of();
+    private boolean lastSyncedFarmEnabled;
+    private ItemStack lastSyncedFarmSubstrate = ItemStack.EMPTY;
 
     public static DeepNullMenu forItem(int containerId, Inventory playerInventory, int inventorySlot, DeepNullTier tier) {
         return forItem(containerId, playerInventory, inventorySlot, tier, ViewMode.MAIN);
@@ -89,7 +106,10 @@ public class DeepNullMenu extends AbstractContainerMenu {
                 null,
                 upgradeMask(inventory),
                 inventory.getEnergyStored(),
-                inventory.isChargingEnabled()
+                inventory.isChargingEnabled(),
+                null,
+                -1,
+                inventory.isFluidOnly()
         );
     }
 
@@ -105,12 +125,35 @@ public class DeepNullMenu extends AbstractContainerMenu {
                 SourceType.DOCK,
                 viewMode,
                 dock.getTier(),
-                inventory == null ? DeepNullInventory.client(dock.getTier()) : inventory,
+                inventory == null ? DeepNullInventory.client(dock.getTier(), viewMode == ViewMode.FLUID) : inventory,
                 -1,
                 dock.getBlockPos(),
                 inventory == null ? 0 : upgradeMask(inventory),
                 inventory == null ? 0 : inventory.getEnergyStored(),
-                inventory != null && inventory.isChargingEnabled()
+                inventory != null && inventory.isChargingEnabled(),
+                null,
+                -1,
+                inventory == null ? viewMode == ViewMode.FLUID : inventory.isFluidOnly()
+        );
+    }
+
+    public static DeepNullMenu forRemoteDock(int containerId, Inventory playerInventory, DeepNullDockBlockEntity dock, ResourceLocation dimension, int hubInventorySlot, ViewMode viewMode) {
+        DeepNullInventory inventory = dock.createInventory();
+        return new DeepNullMenu(
+                containerId,
+                playerInventory,
+                SourceType.REMOTE_DOCK,
+                viewMode,
+                dock.getTier(),
+                inventory == null ? DeepNullInventory.client(dock.getTier(), viewMode == ViewMode.FLUID) : inventory,
+                -1,
+                dock.getBlockPos(),
+                inventory == null ? 0 : upgradeMask(inventory),
+                inventory == null ? 0 : inventory.getEnergyStored(),
+                inventory != null && inventory.isChargingEnabled(),
+                dimension,
+                hubInventorySlot,
+                inventory == null ? viewMode == ViewMode.FLUID : inventory.isFluidOnly()
         );
     }
 
@@ -125,6 +168,9 @@ public class DeepNullMenu extends AbstractContainerMenu {
                 buffer.readVarInt(),
                 buffer.readBlockPos(),
                 buffer.readVarInt(),
+                buffer.readVarInt(),
+                buffer.readBoolean(),
+                buffer.readResourceLocation(),
                 buffer.readVarInt(),
                 buffer.readBoolean()
         );
@@ -141,7 +187,10 @@ public class DeepNullMenu extends AbstractContainerMenu {
             @Nullable BlockPos dockPos,
             int syncedUpgradeMask,
             int syncedEnergyStored,
-            boolean syncedChargingEnabled
+            boolean syncedChargingEnabled,
+            @Nullable ResourceLocation remoteDimension,
+            int hubInventorySlot,
+            boolean clientFluidOnly
     ) {
         super(ModMenus.DEEP_NULL_MENU.get(), containerId);
         this.sourceType = sourceType;
@@ -149,14 +198,18 @@ public class DeepNullMenu extends AbstractContainerMenu {
         this.tier = tier;
         this.inventorySlot = inventorySlot;
         this.dockPos = dockPos;
+        this.remoteDimension = remoteDimension;
+        this.hubInventorySlot = hubInventorySlot;
+        this.clientFluidOnly = clientFluidOnly;
         this.dankInventory = inventory == null
-                ? resolveClientInventory(playerInventory, sourceType, tier, inventorySlot, dockPos)
+                ? resolveClientInventory(playerInventory, sourceType, tier, inventorySlot, dockPos, clientFluidOnly)
                 : inventory;
         this.visibleUpgradeTypes = resolveVisibleUpgradeTypes();
         this.fluidSlotContainer = new SimpleContainer(tier.slotCount());
         this.syncedUpgradeMask = syncedUpgradeMask;
         this.syncedEnergyStored = syncedEnergyStored;
         this.syncedChargingEnabled = syncedChargingEnabled;
+        this.serverPlayer = playerInventory.player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
 
         this.storageSlotCount = addDeepNullSlots();
         this.upgradeSlotStartIndex = slots.size();
@@ -232,6 +285,14 @@ public class DeepNullMenu extends AbstractContainerMenu {
 
     public @Nullable BlockPos getDockPos() {
         return dockPos;
+    }
+
+    public @Nullable ResourceLocation getRemoteDimension() {
+        return remoteDimension;
+    }
+
+    public int getHubInventorySlot() {
+        return hubInventorySlot;
     }
 
     public int getStorageSlotCount() {
@@ -378,11 +439,79 @@ public class DeepNullMenu extends AbstractContainerMenu {
         return dankInventory.moveSlot(fromSlot, toSlot);
     }
 
+    public boolean moveStorageSlot(NullSlotDomain domain, int fromSlot, int toSlot) {
+        if (!isStorageSlot(fromSlot) || !isStorageSlot(toSlot)) {
+            return false;
+        }
+        return switch (domain) {
+            case ITEM_STORAGE -> !isFluidStorageView() && dankInventory.moveSlot(fromSlot, toSlot);
+            case FLUID_STORAGE -> isFluidStorageView() && dankInventory.moveTankSlot(fromSlot, toSlot);
+        };
+    }
+
+    public boolean mergeTankSlot(int fromSlot, int toSlot) {
+        if (!isStorageSlot(fromSlot) || !isStorageSlot(toSlot) || !isFluidStorageView()) {
+            return false;
+        }
+        return dankInventory.mergeTankSlot(fromSlot, toSlot);
+    }
+
+    public boolean setDivNullLayer(int slot, ResourceLocation layerId) {
+        if (!isStorageSlot(slot) || isFluidStorageView()) {
+            return false;
+        }
+        return dankInventory.setDivNullLayer(slot, layerId);
+    }
+
     public boolean clearFluidSlot(int slot) {
         if (slot < 0 || slot >= dankInventory.getFluidSlotCount()) {
             return false;
         }
         return dankInventory.clearFluidSlot(slot);
+    }
+
+    public boolean setFarmEnabled(boolean enabled) {
+        if (!canConfigureFarm()) {
+            return false;
+        }
+        boolean before = dankInventory.isFarmEnabled();
+        dankInventory.setFarmEnabled(enabled);
+        return before != dankInventory.isFarmEnabled();
+    }
+
+    public boolean setFarmSubstrate(ItemStack substrate) {
+        if (!canConfigureFarm()) {
+            return false;
+        }
+        ItemStack before = dankInventory.getFarmSubstrate();
+        dankInventory.setFarmSubstrate(substrate);
+        return !ItemStack.isSameItemSameComponents(before, dankInventory.getFarmSubstrate());
+    }
+
+    public boolean clearStorageSlotToPlayer(int slot, ServerPlayer player) {
+        if (!canClearItemStorageSlot(slot)) {
+            return false;
+        }
+
+        ItemStack stored = dankInventory.getStackInSlot(slot).copy();
+        if (stored.isEmpty()) {
+            return false;
+        }
+
+        dankInventory.setStackInSlot(slot, ItemStack.EMPTY);
+        int remainingCount = stored.getCount();
+        while (remainingCount > 0) {
+            int chunkSize = Math.min(stored.getMaxStackSize(), remainingCount);
+            ItemStack chunk = stored.copyWithCount(chunkSize);
+            player.getInventory().add(chunk);
+            if (!chunk.isEmpty()) {
+                player.drop(chunk, false);
+            }
+            remainingCount -= chunkSize;
+        }
+        player.getInventory().setChanged();
+        broadcastChanges();
+        return true;
     }
 
     public boolean setLocked(boolean locked) {
@@ -484,6 +613,93 @@ public class DeepNullMenu extends AbstractContainerMenu {
     public void broadcastChanges() {
         dankInventory.reloadFromBacking();
         super.broadcastChanges();
+        syncFluidContentsToClient(false);
+        syncFarmConfigToClient(false);
+    }
+
+    public void syncFluidContentsToClient(boolean force) {
+        if (serverPlayer == null || !isFluidStorageView()) {
+            return;
+        }
+        List<FluidStack> fluids = dankInventory.copyFluidStacks();
+        List<StoredChemical> chemicals = dankInventory.copyChemicalStacks();
+        if (!force && sameFluidContents(lastSyncedFluids, fluids) && sameChemicalContents(lastSyncedChemicals, chemicals)) {
+            return;
+        }
+        lastSyncedFluids = fluids;
+        lastSyncedChemicals = chemicals;
+        DeepNullPayloads.sendFluidContents(serverPlayer, containerId, fluids, chemicals);
+    }
+
+    public void acceptFluidContents(List<FluidStack> fluids, List<StoredChemical> chemicals) {
+        dankInventory.replaceFluidContents(fluids, chemicals);
+    }
+
+    public void syncFarmConfigToClient(boolean force) {
+        if (serverPlayer == null || viewMode != ViewMode.FARM || !dankInventory.hasFarmUpgrade()) {
+            return;
+        }
+        boolean enabled = dankInventory.isFarmEnabled();
+        ItemStack substrate = dankInventory.getFarmSubstrate();
+        if (!force
+                && lastSyncedFarmEnabled == enabled
+                && ItemStack.isSameItemSameComponents(lastSyncedFarmSubstrate, substrate)) {
+            return;
+        }
+        lastSyncedFarmEnabled = enabled;
+        lastSyncedFarmSubstrate = substrate.copy();
+        DeepNullPayloads.sendFarmConfig(serverPlayer, containerId, enabled, substrate);
+    }
+
+    public void acceptFarmConfig(boolean enabled, ItemStack substrate) {
+        dankInventory.setFarmEnabled(enabled);
+        dankInventory.setFarmSubstrate(substrate);
+    }
+
+    private static boolean sameFluidContents(List<FluidStack> left, List<FluidStack> right) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            FluidStack leftStack = left.get(index);
+            FluidStack rightStack = right.get(index);
+            if (leftStack.isEmpty() || rightStack.isEmpty()) {
+                if (leftStack.isEmpty() != rightStack.isEmpty()) {
+                    return false;
+                }
+                continue;
+            }
+            if (leftStack.getAmount() != rightStack.getAmount()
+                    || !FluidStack.isSameFluidSameComponents(leftStack, rightStack)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean sameChemicalContents(List<StoredChemical> left, List<StoredChemical> right) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            StoredChemical leftStack = left.get(index);
+            StoredChemical rightStack = right.get(index);
+            if (leftStack.isEmpty() || rightStack.isEmpty()) {
+                if (leftStack.isEmpty() != rightStack.isEmpty()) {
+                    return false;
+                }
+                continue;
+            }
+            if (!leftStack.chemicalId().equals(rightStack.chemicalId())
+                    || leftStack.amount() != rightStack.amount()
+                    || !leftStack.iconPath().equals(rightStack.iconPath())
+                    || leftStack.tint() != rightStack.tint()
+                    || !leftStack.translationKey().equals(rightStack.translationKey())
+                    || leftStack.gaseous() != rightStack.gaseous()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public int addGhostFilterStack(ItemStack stack) {
@@ -523,6 +739,10 @@ public class DeepNullMenu extends AbstractContainerMenu {
             return player.getInventory().getItem(inventorySlot).getItem() instanceof DeepNullItem;
         }
 
+        if (sourceType == SourceType.REMOTE_DOCK) {
+            return stillValidRemote(player);
+        }
+
         if (dockPos == null) {
             return false;
         }
@@ -532,6 +752,23 @@ public class DeepNullMenu extends AbstractContainerMenu {
         }
 
         return player.distanceToSqr(dockPos.getCenter()) <= 64.0D && dock.hasStoredDeepNull();
+    }
+
+    private boolean stillValidRemote(Player player) {
+        if (dockPos == null || remoteDimension == null || hubInventorySlot < 0 || hubInventorySlot >= player.getInventory().getContainerSize()) {
+            return false;
+        }
+        ItemStack hubStack = player.getInventory().getItem(hubInventorySlot);
+        if (!(hubStack.getItem() instanceof HubNullItem)) {
+            return false;
+        }
+        MinecraftServer server = player.level().getServer();
+        if (server == null) {
+            return true;
+        }
+        HubNullData data = HubNullData.get(hubStack);
+        HubNullStationRef ref = new HubNullStationRef(remoteDimension, dockPos, "");
+        return HubNullSnapshot.resolveOnlineDock(server, data, ref) != null;
     }
 
     @Override
@@ -656,9 +893,9 @@ public class DeepNullMenu extends AbstractContainerMenu {
         if (isFluidStorageView() && clickType == ClickType.PICKUP && slotId >= 0 && slotId < storageSlotCount) {
             ItemStack carried = getCarried();
             if (!carried.isEmpty()) {
-                ItemStack updated = tryStoreFluidFromContainer(carried, slotId, false);
-                if (!ItemStack.matches(updated, carried)) {
-                    setCarried(updated);
+                DampNullFluidContainerTransfer.CarriedTransfer transfer = DampNullFluidContainerTransfer.transferCarriedContainer(player, dankInventory, carried, slotId);
+                if (transfer != null) {
+                    setCarried(transfer.carriedStack());
                     broadcastChanges();
                     return;
                 }
@@ -680,7 +917,7 @@ public class DeepNullMenu extends AbstractContainerMenu {
             if (isFluidStorageView()) {
                 addSlot(new FluidStorageSlot(fluidSlotContainer, slotIndex, leftPadding + column * SLOT_SPACING, topPadding + row * SLOT_SPACING));
             } else {
-                addSlot(sourceType == SourceType.DOCK
+                addSlot(sourceType != SourceType.ITEM
                         ? new DockStorageSlot(dankInventory, slotIndex, leftPadding + column * SLOT_SPACING, topPadding + row * SLOT_SPACING)
                         : new StorageSlot(dankInventory, slotIndex, leftPadding + column * SLOT_SPACING, topPadding + row * SLOT_SPACING));
             }
@@ -717,7 +954,8 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     private Slot createPlayerSlot(Inventory inventory, int slotIndex, int x, int y) {
-        if (sourceType == SourceType.ITEM && slotIndex == inventorySlot) {
+        if ((sourceType == SourceType.ITEM && slotIndex == inventorySlot)
+                || (sourceType == SourceType.REMOTE_DOCK && slotIndex == hubInventorySlot)) {
             return new LockedPlayerSlot(inventory, slotIndex, x, y);
         }
         return new Slot(inventory, slotIndex, x, y);
@@ -733,6 +971,17 @@ public class DeepNullMenu extends AbstractContainerMenu {
 
     private boolean isFluidStorageView() {
         return viewMode == ViewMode.FLUID && dankInventory.supportsFluidStorage();
+    }
+
+    private boolean canConfigureFarm() {
+        return viewMode == ViewMode.FARM && !dankInventory.isFluidOnly() && dankInventory.hasFarmUpgrade();
+    }
+
+    private boolean canClearItemStorageSlot(int slot) {
+        return viewMode == ViewMode.MAIN
+                && !dankInventory.isFluidOnly()
+                && isStorageSlot(slot)
+                && !dankInventory.getStackInSlot(slot).isEmpty();
     }
 
     private boolean usesIntegratedEnergyLayout() {
@@ -804,81 +1053,21 @@ public class DeepNullMenu extends AbstractContainerMenu {
     }
 
     private ItemStack tryStoreFluidFromContainer(ItemStack stack, int preferredSlot, boolean allowFirstEmptyFallback) {
-        if (!dankInventory.supportsFluidStorage() || stack.isEmpty()) {
+        if (!dankInventory.supportsFluidStorage()
+                || stack.isEmpty()
+                || stack.getCount() != 1
+                || !DampNullFluidContainerTransfer.containsTransferableFluid(stack)) {
             return stack;
         }
 
-        ItemStack working = stack.copyWithCount(1);
-        IFluidHandlerItem itemHandler = FluidUtil.getFluidHandler(working).orElse(null);
-        FluidStack contained = itemHandler == null
-                ? FluidStack.EMPTY
-                : FluidUtil.getFluidContained(working).orElseGet(() -> firstFluidIn(itemHandler));
-        boolean rawBucket = false;
-        if (contained.isEmpty() && working.getItem() instanceof BucketItem bucketItem && bucketItem.content != Fluids.EMPTY) {
-            contained = new FluidStack(bucketItem.content, FluidType.BUCKET_VOLUME);
-            rawBucket = true;
-        }
-        if (contained.isEmpty()) {
-            return stack;
-        }
-
-        int targetSlot = resolveFluidTargetSlot(contained, preferredSlot, allowFirstEmptyFallback);
-        if (targetSlot < 0) {
-            return stack;
-        }
-
-        if (rawBucket) {
-            if (dankInventory.fillFluid(targetSlot, contained, false) != contained.getAmount()) {
-                return stack;
-            }
-        } else {
-            DeepNullFluidHandler targetHandler = new DeepNullFluidHandler(dankInventory, ItemStack.EMPTY, targetSlot);
-            FluidStack transferred = FluidUtil.tryFluidTransfer(targetHandler, itemHandler, contained.getAmount(), true);
-            if (transferred.isEmpty()) {
-                return stack;
-            }
-        }
-
-        if (dankInventory.getSelectedSlot() != targetSlot) {
-            dankInventory.setSelectedSlot(targetSlot);
-        }
-        if (rawBucket) {
-            return stack.getCount() == 1 ? new ItemStack(Items.BUCKET) : stack;
-        }
-        if (stack.getCount() == 1) {
-            return itemHandler.getContainer();
-        }
-        return stack;
-    }
-
-    private int resolveFluidTargetSlot(FluidStack contained, int preferredSlot, boolean allowFirstEmptyFallback) {
-        if (preferredSlot >= 0 && preferredSlot < dankInventory.getFluidSlotCount()) {
-            FluidStack existing = dankInventory.getFluidInSlot(preferredSlot);
-            if (!dankInventory.hasChemicalInSlot(preferredSlot) && (existing.isEmpty() || FluidStack.isSameFluidSameComponents(existing, contained))) {
-                return preferredSlot;
-            }
-        }
-
-        int matchingSlot = dankInventory.findMatchingFluidSlot(contained);
-        if (matchingSlot >= 0) {
-            return matchingSlot;
-        }
-
-        if (!allowFirstEmptyFallback) {
-            return -1;
-        }
-
-        return dankInventory.findFirstEmptyFluidSlot();
-    }
-
-    private static FluidStack firstFluidIn(IFluidHandlerItem itemHandler) {
-        for (int tank = 0; tank < itemHandler.getTanks(); tank++) {
-            FluidStack fluidInTank = itemHandler.getFluidInTank(tank);
-            if (!fluidInTank.isEmpty()) {
-                return fluidInTank;
-            }
-        }
-        return FluidStack.EMPTY;
+        ItemStack updated = DampNullFluidContainerTransfer.transferSingleContainer(
+                dankInventory,
+                stack,
+                preferredSlot,
+                allowFirstEmptyFallback,
+                false
+        );
+        return updated == null ? stack : updated;
     }
 
     private int viewModeRows() {
@@ -887,6 +1076,7 @@ public class DeepNullMenu extends AbstractContainerMenu {
             case UPGRADES -> 1;
             case FILTER, AUTO_SMELT_FILTER -> 3;
             case FLUID -> tier.rows();
+            case FARM -> 3;
         };
     }
 
@@ -895,7 +1085,8 @@ public class DeepNullMenu extends AbstractContainerMenu {
             SourceType sourceType,
             DeepNullTier tier,
             int inventorySlot,
-            @Nullable BlockPos dockPos
+            @Nullable BlockPos dockPos,
+            boolean clientFluidOnly
     ) {
         if (sourceType == SourceType.ITEM) {
             if (inventorySlot >= 0 && inventorySlot < playerInventory.getContainerSize()) {
@@ -904,16 +1095,16 @@ public class DeepNullMenu extends AbstractContainerMenu {
                     return new DeepNullInventory(deepNullItem.tier(), stack, playerInventory.player.level().registryAccess(), null);
                 }
             }
-            return DeepNullInventory.client(tier);
+            return DeepNullInventory.client(tier, clientFluidOnly);
         }
 
-        if (dockPos != null && playerInventory.player.level().getBlockEntity(dockPos) instanceof DeepNullDockBlockEntity dock) {
+        if (sourceType == SourceType.DOCK && dockPos != null && playerInventory.player.level().getBlockEntity(dockPos) instanceof DeepNullDockBlockEntity dock) {
             DeepNullInventory inventory = dock.createInventory();
             if (inventory != null) {
                 return inventory;
             }
         }
-        return DeepNullInventory.client(tier);
+        return DeepNullInventory.client(tier, clientFluidOnly);
     }
 
     private static final class LockedPlayerSlot extends Slot {

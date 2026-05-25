@@ -2,13 +2,17 @@ package dev.deepdaddyttv.deepnullreforged.registry;
 
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullEnergyStorage;
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
+import dev.deepdaddyttv.deepnullreforged.capability.DumpNullEnergyStorage;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchBlock;
 import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchPart;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.dumpnull.DumpNullData;
+import dev.deepdaddyttv.deepnullreforged.dumpnull.DumpNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DumpNullItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -164,6 +168,10 @@ public final class ModCapabilities {
     }
 
     private static @Nullable IEnergyStorage createDockEntityEnergyStorage(DeepNullDockBlockEntity dock, @Nullable Direction side) {
+        if (dock.getStoredDeepNull().getItem() instanceof DumpNullItem) {
+            DumpNullData data = DumpNullData.get(dock.getStoredDeepNull());
+            return data.hasUpgrade(DumpNullUpgradeType.POWER) ? new DumpNullEnergyStorage(dock) : null;
+        }
         DeepNullInventory inventory = dock.createInventory();
         if (inventory == null || !inventory.hasEnergyUpgrade()) {
             return null;

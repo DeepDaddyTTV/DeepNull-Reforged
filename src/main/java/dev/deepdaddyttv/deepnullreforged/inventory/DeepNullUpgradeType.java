@@ -14,7 +14,10 @@ public enum DeepNullUpgradeType {
     SPONGE(10, "sponge_upgrade"),
     GAS(11, "gas_upgrade"),
     STONEWORKS(12, "stoneworks_upgrade"),
-    ENDER(13, "ender_upgrade");
+    ENDER(13, "ender_upgrade"),
+    FARM(14, "farm_upgrade"),
+    DIVNULL(15, "divnull_upgrade"),
+    BALLOON(16, "balloon_upgrade");
 
     private final int slot;
     private final String itemId;
@@ -54,6 +57,7 @@ public enum DeepNullUpgradeType {
                 case SPONGE -> tier.supportsSpongeUpgrade();
                 case GAS -> tier.supportsGasUpgrade();
                 case ENDER -> true;
+                case BALLOON -> true;
                 default -> false;
             };
         }
@@ -69,10 +73,13 @@ public enum DeepNullUpgradeType {
             case ADVANCED_COMPRESSION -> tier.supportsAdvancedCompressionUpgrade();
             case STONEWORKS -> tier.supportsStoneworksUpgrade();
             case ENDER -> true;
+            case FARM -> true;
+            case DIVNULL -> true;
             case STONE_GENERATOR -> false;
             case OBSIDIAN_GENERATOR -> false;
             case SPONGE -> false;
             case GAS -> false;
+            case BALLOON -> false;
         };
     }
 

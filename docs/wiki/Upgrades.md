@@ -2,7 +2,7 @@
 
 ![Upgrade Screens](images/upgrades.png)
 
-Upgrades add the specialized behavior that turns DeepNulls and DampNulls from storage tools into automation and gameplay tools.
+Upgrades add the specialized behavior that turns Nulls from storage tools into automation and gameplay tools.
 
 ## DeepNull Upgrades
 
@@ -22,12 +22,24 @@ Upgrades add the specialized behavior that turns DeepNulls and DampNulls from st
 - [Stone Generator](Stone-Generator)
 - [Obsidian Generator](Obsidian-Generator)
 - [Sponge Upgrade](Sponge-Upgrade)
+- [Balloon Upgrade](Balloon-Upgrade)
 - [Chemical Upgrade](Chemical-Upgrade)
 - [Ender Upgrade](Ender-Upgrade)
+
+## DenNull Upgrades
+
+- [DenNull Upgrades](DenNull-Upgrades)
+
+## DripNull Upgrades
+
+- [DripNull Mend Upgrade](DripNull)
 
 ## Shared Notes
 
 - Energy and Deep Energy share one slot.
 - Stone Generator and Obsidian Generator share one DampNull slot.
+- Balloon changes DampNull right-click fluid behavior to a projectile while installed.
 - Ender Upgrade works on both DeepNulls and DampNulls.
+- DenNull upgrades are stored in DenNull data, not DeepNullInventory.
+- DripNull Mend Upgrade is stored in DripNull data and repairs damaged stored vault/recovery items from XP pickup.
 - Some upgrade behavior can be disabled or rebalanced through [Config and Settings](Config-and-Settings).

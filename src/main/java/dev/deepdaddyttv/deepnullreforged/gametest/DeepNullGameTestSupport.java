@@ -53,6 +53,30 @@ final class DeepNullGameTestSupport {
         });
     }
 
+    static ItemStack denNullStack(DeepNullTier tier) {
+        return new ItemStack(switch (tier) {
+            case REDSTONE -> ModItems.REDSTONE_DEN_NULL.get();
+            case LAPIS -> ModItems.LAPIS_DEN_NULL.get();
+            case IRON -> ModItems.IRON_DEN_NULL.get();
+            case GOLD -> ModItems.GOLD_DEN_NULL.get();
+            case DIAMOND -> ModItems.DIAMOND_DEN_NULL.get();
+            case EMERALD -> ModItems.EMERALD_DEN_NULL.get();
+            case CREATIVE -> ModItems.CREATIVE_DEN_NULL.get();
+        });
+    }
+
+    static ItemStack dripNullStack(DeepNullTier tier) {
+        return new ItemStack(switch (tier) {
+            case REDSTONE -> ModItems.REDSTONE_DRIP_NULL.get();
+            case LAPIS -> ModItems.LAPIS_DRIP_NULL.get();
+            case IRON -> ModItems.IRON_DRIP_NULL.get();
+            case GOLD -> ModItems.GOLD_DRIP_NULL.get();
+            case DIAMOND -> ModItems.DIAMOND_DRIP_NULL.get();
+            case EMERALD -> ModItems.EMERALD_DRIP_NULL.get();
+            case CREATIVE -> ModItems.CREATIVE_DRIP_NULL.get();
+        });
+    }
+
     static ItemStack panelStack(DeepNullTier tier, int count) {
         ItemStack stack = new ItemStack(switch (tier) {
             case REDSTONE -> ModItems.REDSTONE_PANEL.get();
@@ -77,12 +101,15 @@ final class DeepNullGameTestSupport {
             case AUTO_SMELTING -> ModItems.AUTO_SMELTING_UPGRADE.get();
             case BASIC_COMPRESSION -> ModItems.BASIC_COMPRESSION_UPGRADE.get();
             case ADVANCED_COMPRESSION -> ModItems.ADVANCED_COMPRESSION_UPGRADE.get();
+            case DIVNULL -> throw new IllegalArgumentException("DivNull upgrade is deferred in this intake");
             case STONE_GENERATOR -> ModItems.STONE_GENERATOR_UPGRADE.get();
             case OBSIDIAN_GENERATOR -> ModItems.OBSIDIAN_GENERATOR_UPGRADE.get();
             case SPONGE -> ModItems.SPONGE_UPGRADE.get();
+            case BALLOON -> ModItems.BALLOON_UPGRADE.get();
             case GAS -> ModItems.GAS_UPGRADE.get();
             case STONEWORKS -> ModItems.STONEWORKS_UPGRADE.get();
             case ENDER -> ModItems.ENDER_UPGRADE.get();
+            case FARM -> throw new IllegalArgumentException("Farm upgrade is deferred in this intake");
         });
     }
 

@@ -35,6 +35,7 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
     private final boolean integratedEnergyGui;
     private final ResourceLocation backgroundTexture;
     private Button modeButton;
+    private Button wipButton;
 
     public DeepNullFilterScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -59,9 +60,16 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
                 .build());
 
         modeButton = Button.builder(filterModeLabel(), button -> cycleFilterMode())
-                .bounds(leftPos + 55, topPos - 20, 146, 18)
+                .bounds(leftPos + 55, topPos - 20, showWipButton() ? 112 : 146, 18)
                 .build();
         addRenderableWidget(modeButton);
+        if (showWipButton()) {
+            wipButton = Button.builder(Component.literal("WIP"), button ->
+                            Minecraft.getInstance().setScreen(new DeepNullFilterWipScreen(menu, playerInventory, title)))
+                    .bounds(leftPos + 171, topPos - 20, 30, 18)
+                    .build();
+            addRenderableWidget(wipButton);
+        }
     }
 
     @Override
@@ -108,6 +116,10 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (modeButton != null) {
             modeButton.setMessage(filterModeLabel());
+        }
+        if (wipButton != null) {
+            wipButton.visible = showWipButton();
+            wipButton.active = showWipButton();
         }
         renderBackground(guiGraphics, mouseX, mouseY, partialTick);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -246,6 +258,10 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
                 mouseX,
                 mouseY
         );
+    }
+
+    private boolean showWipButton() {
+        return !isAutoSmeltView() && DeepNullDevModeClientState.isEnabled();
     }
 
 }

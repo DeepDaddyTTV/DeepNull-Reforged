@@ -8,9 +8,15 @@ import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
+import dev.deepdaddyttv.deepnullreforged.network.DenNullPayloads;
+import dev.deepdaddyttv.deepnullreforged.network.DripNullPayloads;
+import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DripNullItem;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
@@ -23,6 +29,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.glfw.GLFW;
 
 @EventBusSubscriber(modid = DeepNullReforged.MODID, value = Dist.CLIENT)
 public final class ClientGameEvents {
@@ -88,6 +95,14 @@ public final class ClientGameEvents {
 
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
         if (held == null) {
+            ClientDripNullAccess.HeldDripNull heldDripNull = ClientDripNullAccess.findHeldDripNull(player);
+            if (heldDripNull != null) {
+                handleHeldDripNullCycle(heldDripNull);
+            }
+            ClientDenNullAccess.HeldDenNull heldDenNull = ClientDenNullAccess.findHeldDenNull(player);
+            if (heldDenNull != null) {
+                handleHeldDenNullCycle(heldDenNull);
+            }
             return;
         }
 
@@ -118,6 +133,32 @@ public final class ClientGameEvents {
         }
     }
 
+    private static void handleHeldDenNullCycle(ClientDenNullAccess.HeldDenNull heldDenNull) {
+        if (heldDenNull.data().entries().isEmpty()) {
+            return;
+        }
+        if (ClientModEvents.NEXT_ITEM.consumeClick()) {
+            ClientDenNullAccess.cycleSelected(heldDenNull, true);
+            PacketDistributor.sendToServer(new DenNullPayloads.CycleHeldPayload(heldDenNull.inventorySlot(), true));
+        }
+        if (ClientModEvents.PREVIOUS_ITEM.consumeClick()) {
+            ClientDenNullAccess.cycleSelected(heldDenNull, false);
+            PacketDistributor.sendToServer(new DenNullPayloads.CycleHeldPayload(heldDenNull.inventorySlot(), false));
+        }
+    }
+
+    private static void handleHeldDripNullCycle(ClientDripNullAccess.HeldDripNull heldDripNull) {
+        if (heldDripNull.data().profiles().isEmpty()) {
+            return;
+        }
+        if (ClientModEvents.NEXT_ITEM.consumeClick()) {
+            PacketDistributor.sendToServer(new DripNullPayloads.CycleHeldProfilePayload(heldDripNull.inventorySlot(), true));
+        }
+        if (ClientModEvents.PREVIOUS_ITEM.consumeClick()) {
+            PacketDistributor.sendToServer(new DripNullPayloads.CycleHeldProfilePayload(heldDripNull.inventorySlot(), false));
+        }
+    }
+
     @SubscribeEvent
     public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -132,12 +173,43 @@ public final class ClientGameEvents {
 
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
         if (held == null) {
+            ClientDripNullAccess.HeldDripNull heldDripNull = ClientDripNullAccess.findHeldDripNull(player);
+            if (heldDripNull != null && !heldDripNull.data().profiles().isEmpty()) {
+                boolean forward = event.getScrollDeltaY() < 0.0D;
+                PacketDistributor.sendToServer(new DripNullPayloads.CycleHeldProfilePayload(heldDripNull.inventorySlot(), forward));
+                event.setCanceled(true);
+                return;
+            }
+            ClientDenNullAccess.HeldDenNull heldDenNull = ClientDenNullAccess.findHeldDenNull(player);
+            if (heldDenNull == null || heldDenNull.data().entries().isEmpty()) {
+                return;
+            }
+            boolean forward = event.getScrollDeltaY() < 0.0D;
+            ClientDenNullAccess.cycleSelected(heldDenNull, forward);
+            PacketDistributor.sendToServer(new DenNullPayloads.CycleHeldPayload(heldDenNull.inventorySlot(), forward));
+            event.setCanceled(true);
             return;
         }
 
         int selectedSlot = ClientInteractionLogic.cycleSelected(held.inventory(), event.getScrollDeltaY() < 0.0D);
         PacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), selectedSlot));
         event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void onKey(InputEvent.Key event) {
+        if (event.getKey() != GLFW.GLFW_KEY_ESCAPE || event.getAction() != GLFW.GLFW_PRESS) {
+            return;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        Player player = minecraft.player;
+        if (player == null || !player.isUsingItem() || !(player.getUseItem().getItem() instanceof DripNullItem)) {
+            return;
+        }
+        int slot = DeepNullItem.getInventorySlot(player, player.getUsedItemHand());
+        if (slot >= 0) {
+            PacketDistributor.sendToServer(new DripNullPayloads.CancelChargePayload(slot));
+        }
     }
 
     @SubscribeEvent

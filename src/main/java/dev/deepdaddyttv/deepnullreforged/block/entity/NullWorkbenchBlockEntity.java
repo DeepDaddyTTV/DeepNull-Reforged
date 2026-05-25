@@ -4,7 +4,13 @@ import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchPart;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DenNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DockableNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.DumpNullItem;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedEntry;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedKind;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedPlan;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
@@ -16,6 +22,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -24,6 +31,8 @@ import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class NullWorkbenchBlockEntity extends BlockEntity {
     public static final int INPUT_SLOT_START = 0;
@@ -74,7 +83,7 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
                 return false;
             }
             if (slot == NULL_SLOT) {
-                return stack.getItem() instanceof DeepNullItem;
+                return stack.getItem() instanceof DockableNullItem;
             }
             if (slot == SYNCHRONIZER_SLOT) {
                 return stack.is(ModItems.SYNCHRONIZER.get());
@@ -185,7 +194,7 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
 
     public boolean applyStyleColors(int frameColor, int glassColor) {
         ItemStack input = items.getStackInSlot(NULL_SLOT);
-        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || level == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
+        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || input.getItem() instanceof DumpNullItem || level == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
             return false;
         }
         ItemStack modifier = items.getStackInSlot(STYLE_MODIFIER_SLOT);
@@ -211,7 +220,7 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
 
     public boolean resetStyleColors() {
         ItemStack input = items.getStackInSlot(NULL_SLOT);
-        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || level == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
+        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || input.getItem() instanceof DumpNullItem || level == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
             return false;
         }
         ItemStack styled = input.copy();
@@ -225,13 +234,113 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
 
     public @Nullable DeepNullInventory createNullInventory() {
         ItemStack stack = items.getStackInSlot(NULL_SLOT);
-        if (!(stack.getItem() instanceof DeepNullItem deepNullItem) || level == null) {
+        if (!(stack.getItem() instanceof DeepNullItem deepNullItem) || stack.getItem() instanceof DumpNullItem || level == null) {
             return null;
         }
         return new DeepNullInventory(deepNullItem.tier(), stack, level.registryAccess(), () -> {
             items.setStackInSlot(NULL_SLOT, stack);
             setChangedAndSync();
         });
+    }
+
+    public boolean canSeedNull() {
+        return seedKind() != null;
+    }
+
+    public @Nullable NullSeedKind seedKind() {
+        ItemStack stack = items.getStackInSlot(NULL_SLOT);
+        if (!(stack.getItem() instanceof DockableNullItem)) {
+            return null;
+        }
+        if (stack.getItem() instanceof DenNullItem) {
+            return NullSeedKind.ENTITY;
+        }
+        if (stack.getItem() instanceof DumpNullItem) {
+            return NullSeedKind.DUMP_RULE;
+        }
+        if (stack.getItem() instanceof DampNullItem) {
+            return NullSeedKind.FLUID;
+        }
+        return NullSeedKind.ITEM;
+    }
+
+    public NullSeedPlan planSeedConfig(List<ResourceLocation> itemIds) {
+        DeepNullInventory inventory = createNullInventory();
+        return NullSeedPlan.plan(inventory, itemIds);
+    }
+
+    public NullSeedPlan applySeedConfig(List<ResourceLocation> itemIds, boolean replaceReservations) {
+        return applySeedEntries(NullSeedEntry.itemEntries(itemIds), replaceReservations);
+    }
+
+    public NullSeedPlan planSeedEntries(List<NullSeedEntry> entries) {
+        NullSeedKind kind = seedKind();
+        if (kind == NullSeedKind.ENTITY && items.getStackInSlot(NULL_SLOT).getItem() instanceof DenNullItem denNullItem) {
+            return NullSeedPlan.planEntities(items.getStackInSlot(NULL_SLOT), denNullItem.tier(), entries);
+        }
+        if (kind == NullSeedKind.DUMP_RULE) {
+            return NullSeedPlan.planDump(items.getStackInSlot(NULL_SLOT), entries);
+        }
+        DeepNullInventory inventory = createNullInventory();
+        if (kind == NullSeedKind.FLUID) {
+            return NullSeedPlan.planFluids(inventory, entries);
+        }
+        return NullSeedPlan.planItems(inventory, entries);
+    }
+
+    public NullSeedPlan applySeedEntries(List<NullSeedEntry> entries, boolean replaceReservations) {
+        NullSeedKind kind = seedKind();
+        if (kind == NullSeedKind.ENTITY && items.getStackInSlot(NULL_SLOT).getItem() instanceof DenNullItem denNullItem) {
+            NullSeedPlan result = NullSeedPlan.applyEntities(items.getStackInSlot(NULL_SLOT), denNullItem.tier(), entries, replaceReservations);
+            setChangedAndSync();
+            return result;
+        }
+        if (kind == NullSeedKind.DUMP_RULE) {
+            NullSeedPlan result = NullSeedPlan.applyDump(items.getStackInSlot(NULL_SLOT), entries);
+            setChangedAndSync();
+            return result;
+        }
+        DeepNullInventory inventory = createNullInventory();
+        if (kind == NullSeedKind.FLUID) {
+            NullSeedPlan result = NullSeedPlan.applyFluids(inventory, entries);
+            setChangedAndSync();
+            return result;
+        }
+        NullSeedPlan result = NullSeedPlan.applyItems(inventory, entries, replaceReservations);
+        setChangedAndSync();
+        return result;
+    }
+
+    public boolean clearSeedReservations() {
+        if (items.getStackInSlot(NULL_SLOT).getItem() instanceof DenNullItem) {
+            dev.deepdaddyttv.deepnullreforged.dennull.DenNullData data = dev.deepdaddyttv.deepnullreforged.dennull.DenNullData.get(items.getStackInSlot(NULL_SLOT));
+            if (data.templates().isEmpty()) {
+                return false;
+            }
+            dev.deepdaddyttv.deepnullreforged.dennull.DenNullData.set(items.getStackInSlot(NULL_SLOT), data.withTemplates(List.of()));
+            setChangedAndSync();
+            return true;
+        }
+        DeepNullInventory inventory = createNullInventory();
+        if (inventory == null) {
+            return false;
+        }
+        if (inventory.isFluidOnly()) {
+            int before = inventory.getReservedTankTemplateCount();
+            inventory.clearReservedTankTemplates();
+            if (before <= 0) {
+                return false;
+            }
+            setChangedAndSync();
+            return true;
+        }
+        int before = inventory.getReservedSlotCount();
+        inventory.clearReservedStacks();
+        if (before <= 0) {
+            return false;
+        }
+        setChangedAndSync();
+        return true;
     }
 
     public void setChangedAndSync() {
@@ -357,7 +466,7 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
     private void performRestore() {
         ItemStack synchronizer = items.getStackInSlot(SYNCHRONIZER_SLOT);
         ItemStack inputNull = items.getStackInSlot(NULL_SLOT);
-        if (!(inputNull.getItem() instanceof DeepNullItem deepNullItem) || synchronizer.isEmpty() || level == null) {
+        if (!(inputNull.getItem() instanceof DeepNullItem deepNullItem) || inputNull.getItem() instanceof DumpNullItem || synchronizer.isEmpty() || level == null) {
             return;
         }
         CompoundTag configuration = SynchronizerItem.getConfiguration(synchronizer);

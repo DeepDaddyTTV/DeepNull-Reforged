@@ -1,16 +1,20 @@
 package dev.deepdaddyttv.deepnullreforged.event;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.devmode.DeepNullDevModeCommands;
+import dev.deepdaddyttv.deepnullreforged.devmode.DeepNullDevModeSupport;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransferSupport;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSession;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.TriState;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -126,5 +130,17 @@ public final class CommonEvents {
     @SubscribeEvent
     public void onPlayerClone(PlayerEvent.Clone event) {
         DeepNullPlayerState.copyForClone(event.getOriginal(), event.getEntity());
+    }
+
+    @SubscribeEvent
+    public void onCommandsRegister(RegisterCommandsEvent event) {
+        DeepNullDevModeCommands.register(event.getDispatcher());
+    }
+
+    @SubscribeEvent
+    public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            DeepNullDevModeSupport.syncToPlayer(player);
+        }
     }
 }
