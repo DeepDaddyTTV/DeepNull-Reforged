@@ -1,6 +1,8 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.client.theme.DeepNullUiPalette;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
@@ -81,6 +83,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+        DeepNullUiPalette palette = DeepNullUiPalette.of(DeepNullConfig.uiTheme());
         guiGraphics.blit(backgroundTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
         renderEnergyFill(guiGraphics);
         boolean fluidOnly = menu.getDankInventory().isFluidOnly();
@@ -88,22 +91,22 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
             DeepNullUpgradeType type = menu.getUpgradeTypeAt(slot);
             if (menu.supportsUpgrade(type)) {
                 Slot upgradeSlot = menu.slots.get(menu.getUpgradeSlotStartIndex() + slot);
-                renderUpgradePreview(guiGraphics, type, upgradeSlot);
+                renderUpgradePreview(guiGraphics, type, upgradeSlot, palette);
                 continue;
             }
             if (fluidOnly) {
                 continue;
             }
             Slot upgradeSlot = menu.slots.get(menu.getUpgradeSlotStartIndex() + slot);
-            renderUpgradePreview(guiGraphics, type, upgradeSlot);
-            guiGraphics.fill(leftPos + upgradeSlot.x, topPos + upgradeSlot.y, leftPos + upgradeSlot.x + 16, topPos + upgradeSlot.y + 16, 0x88441111);
+            renderUpgradePreview(guiGraphics, type, upgradeSlot, palette);
+            guiGraphics.fill(leftPos + upgradeSlot.x, topPos + upgradeSlot.y, leftPos + upgradeSlot.x + 16, topPos + upgradeSlot.y + 16, palette.slotUnavailableOverlayColor());
         }
     }
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         Component screenTitle = ClientUiText.upgradeScreenTitle(menu.getDankInventory().isFluidOnly());
-        guiGraphics.drawString(font, screenTitle, titleLabelX, titleLabelY, 0xFFFFFFFF, false);
+        guiGraphics.drawString(font, screenTitle, titleLabelX, titleLabelY, DeepNullUiPalette.of(DeepNullConfig.uiTheme()).screenTitleTextColor(), false);
     }
 
     @Override
@@ -123,7 +126,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private void renderUpgradePreview(GuiGraphics guiGraphics, DeepNullUpgradeType type, Slot slot) {
+    private void renderUpgradePreview(GuiGraphics guiGraphics, DeepNullUpgradeType type, Slot slot, DeepNullUiPalette palette) {
         if (slot.hasItem()) {
             return;
         }
@@ -134,7 +137,7 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
                 topPos + slot.y,
                 leftPos + slot.x + 16,
                 topPos + slot.y + 16,
-                menu.supportsUpgrade(type) ? 0x88000000 : 0xAA220000
+                menu.supportsUpgrade(type) ? palette.slotPreviewOverlayColor() : palette.slotUnavailableOverlayColor()
         );
     }
 

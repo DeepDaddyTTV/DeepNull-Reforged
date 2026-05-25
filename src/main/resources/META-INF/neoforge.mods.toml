@@ -89,6 +89,13 @@ DeepNull Reforged ports the classic DeepNull storage tool to NeoForge for Minecr
     side="BOTH"
 
 [[dependencies.${mod_id}]]
+    modId="ldlib2"
+    type="required"
+    versionRange="${ldlib2_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="mekanism"
     type="optional"
     versionRange="${mekanism_version_range}"

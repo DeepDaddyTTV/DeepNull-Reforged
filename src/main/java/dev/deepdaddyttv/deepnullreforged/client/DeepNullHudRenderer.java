@@ -1,6 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.client.theme.DeepNullUiPalette;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullHudState;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullContentMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
@@ -75,14 +76,15 @@ public final class DeepNullHudRenderer {
         int panelHeight = HEADER_HEIGHT + PADDING + Math.max(16, lineCount * LINE_HEIGHT) + PADDING;
         int x = Math.max(8, guiGraphics.guiWidth() - PANEL_WIDTH - 8 + DeepNullConfig.getHudOffsetX());
         int y = Math.max(8, guiGraphics.guiHeight() - panelHeight - 8 + DeepNullConfig.getHudOffsetY());
-        int bodyColor = withOpacity(0xFF121720, DeepNullConfig.getHudBackgroundOpacity());
-        int outlineColor = withOpacity(0xFF697487, Math.min(1.0F, DeepNullConfig.getHudBackgroundOpacity() + 0.18F));
-        int headerColor = withOpacity(0xFF1A2230, Math.min(1.0F, DeepNullConfig.getHudBackgroundOpacity() + 0.05F));
+        DeepNullUiPalette palette = DeepNullUiPalette.of(DeepNullConfig.uiTheme());
+        int bodyColor = palette.panelBody(DeepNullConfig.getHudBackgroundOpacity());
+        int outlineColor = palette.panelOutline(Math.min(1.0F, DeepNullConfig.getHudBackgroundOpacity() + 0.18F));
+        int headerColor = palette.panelHeader(Math.min(1.0F, DeepNullConfig.getHudBackgroundOpacity() + 0.05F));
 
         guiGraphics.fill(x, y, x + PANEL_WIDTH, y + panelHeight, bodyColor);
         guiGraphics.renderOutline(x, y, PANEL_WIDTH, panelHeight, outlineColor);
         guiGraphics.fill(x + 1, y + 1, x + PANEL_WIDTH - 1, y + HEADER_HEIGHT - 1, headerColor);
-        guiGraphics.drawString(font, held.stack().getHoverName(), x + PADDING, y + 4, 0xFFFFFFFF, false);
+        guiGraphics.drawString(font, held.stack().getHoverName(), x + PADDING, y + 4, palette.panelTitleTextColor(), false);
 
         if (!fluidMode) {
             guiGraphics.renderItem(selectedStack.copyWithCount(1), x + PADDING, y + HEADER_HEIGHT + PADDING);
@@ -92,11 +94,11 @@ public final class DeepNullHudRenderer {
         int textX = x + 28;
         int textY = y + HEADER_HEIGHT + PADDING;
         for (FormattedCharSequence line : nameLines) {
-            guiGraphics.drawString(font, line, textX, textY, 0xFFFFFFFF, false);
+            guiGraphics.drawString(font, line, textX, textY, palette.panelTitleTextColor(), false);
             textY += LINE_HEIGHT;
         }
         for (FormattedCharSequence line : detailLines) {
-            guiGraphics.drawString(font, line, textX, textY, 0xFFE8EDF5, false);
+            guiGraphics.drawString(font, line, textX, textY, palette.panelBodyTextColor(), false);
             textY += LINE_HEIGHT;
         }
     }
@@ -140,10 +142,4 @@ public final class DeepNullHudRenderer {
                 ? Component.translatable("dn.infinite.desc").getString()
                 : (!selectedFluid.isEmpty() ? selectedFluid.getAmount() : selectedChemical.amount()) + " mB";
     }
-
-    private static int withOpacity(int rgb, float opacity) {
-        int alpha = Math.max(0, Math.min(255, Math.round(opacity * 255.0F)));
-        return (alpha << 24) | (rgb & 0x00FFFFFF);
-    }
-
 }

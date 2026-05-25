@@ -1,5 +1,6 @@
 package dev.deepdaddyttv.deepnullreforged;
 
+import dev.deepdaddyttv.deepnullreforged.client.theme.DeepNullUiTheme;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.dennull.DenNullUpgradeData;
 import net.minecraft.resources.ResourceLocation;
@@ -93,6 +94,7 @@ public final class DeepNullConfig {
     private static final ModConfigSpec.BooleanValue CLIENT_INVERT_DAMPNULL_INTERACTION;
     private static final ModConfigSpec.BooleanValue CLIENT_ANIMATE_DOCKED_NULLS;
     private static final ModConfigSpec.BooleanValue CLIENT_SHOW_FULL_DEEPNULL_COUNTS;
+    private static final ModConfigSpec.EnumValue<DeepNullUiTheme> CLIENT_UI_THEME;
 
     private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_TRANSFER_LOCKED;
     private static final ModConfigSpec.BooleanValue COMMON_DEFAULT_AUTO_PICKUP_ENABLED;
@@ -168,6 +170,7 @@ public final class DeepNullConfig {
     private static volatile boolean clientInvertDampNullInteraction;
     private static volatile boolean clientAnimateDockedNulls = true;
     private static volatile boolean clientShowFullDeepNullCounts;
+    private static volatile DeepNullUiTheme clientUiTheme = DeepNullUiTheme.VANILLA;
 
     private static volatile boolean defaultTransferLocked;
     private static volatile boolean defaultAutoPickupEnabled = true;
@@ -265,6 +268,8 @@ public final class DeepNullConfig {
                 .define("animateDockedNulls", true);
         CLIENT_SHOW_FULL_DEEPNULL_COUNTS = CLIENT_BUILDER.comment("Show full item counts in DeepNull screens instead of compact 1.5K / 2M style numbers.")
                 .define("showFullDeepNullCounts", false);
+        CLIENT_UI_THEME = CLIENT_BUILDER.comment("Choose the active DeepNull UI theme: VANILLA, MINECRAFT_DARK, or LEGACY.")
+                .defineEnum("uiTheme", DeepNullUiTheme.VANILLA);
         CLIENT_BUILDER.pop();
         CLIENT_SPEC = CLIENT_BUILDER.build();
 
@@ -477,6 +482,10 @@ public final class DeepNullConfig {
 
     public static boolean showFullDeepNullCounts() {
         return clientShowFullDeepNullCounts;
+    }
+
+    public static DeepNullUiTheme uiTheme() {
+        return clientUiTheme;
     }
 
     public static boolean defaultTransferLocked() {
@@ -749,6 +758,7 @@ public final class DeepNullConfig {
         clientInvertDampNullInteraction = CLIENT_INVERT_DAMPNULL_INTERACTION.getAsBoolean();
         clientAnimateDockedNulls = CLIENT_ANIMATE_DOCKED_NULLS.getAsBoolean();
         clientShowFullDeepNullCounts = CLIENT_SHOW_FULL_DEEPNULL_COUNTS.getAsBoolean();
+        clientUiTheme = CLIENT_UI_THEME.get();
     }
 
     private static void bakeCommon() {

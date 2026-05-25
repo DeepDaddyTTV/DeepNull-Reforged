@@ -1,7 +1,9 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.client.theme.DeepNullUiPalette;
 import dev.deepdaddyttv.deepnullreforged.dennull.DenNullData;
 import dev.deepdaddyttv.deepnullreforged.dennull.DenNullEntry;
 import dev.deepdaddyttv.deepnullreforged.dennull.DenNullTemplate;
@@ -191,16 +193,12 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
         frameColorBox.setMaxLength(7);
         frameColorBox.setFilter(value -> value.isEmpty() || value.matches("#?[0-9a-fA-F]{0,6}"));
         frameColorBox.setBordered(false);
-        frameColorBox.setTextColor(0xFFFFFFFF);
-        frameColorBox.setTextColorUneditable(0xFFFFFFFF);
         addRenderableWidget(frameColorBox);
 
         glassColorBox = new EditBox(font, leftPos + STYLE_GLASS_BOX_X + 1, topPos + STYLE_GLASS_BOX_Y + 1, STYLE_BOX_WIDTH, STYLE_BOX_HEIGHT, Component.translatable("container.deepnullreforged.null_workbench.glass_color"));
         glassColorBox.setMaxLength(7);
         glassColorBox.setFilter(value -> value.isEmpty() || value.matches("#?[0-9a-fA-F]{0,6}"));
         glassColorBox.setBordered(false);
-        glassColorBox.setTextColor(0xFFFFFFFF);
-        glassColorBox.setTextColorUneditable(0xFFFFFFFF);
         addRenderableWidget(glassColorBox);
 
         backupButton = addRenderableWidget(Button.builder(Component.translatable("container.deepnullreforged.null_workbench.backup"), button -> {
@@ -252,6 +250,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
         seedDeleteButton.setTooltipDelay(TOOLTIP_DELAY);
         addRenderableWidget(seedDeleteButton);
 
+        applyThemeColors();
         refreshStyleFields();
         updateStyleControlPositions();
         updateWidgetVisibility();
@@ -262,6 +261,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
     public void containerTick() {
         super.containerTick();
         boolean styleFieldsWereVisible = frameColorBox.visible;
+        applyThemeColors();
         updateStyleControlPositions();
         updateWidgetVisibility();
         updateMachineSlotLayout();
@@ -427,7 +427,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, title, titleLabelX, titleLabelY, 0xFFFFFF, false);
+        graphics.drawString(font, title, titleLabelX, titleLabelY, DeepNullUiPalette.of(DeepNullConfig.uiTheme()).screenTitleTextColor(), false);
     }
 
     private void renderTabs(GuiGraphics graphics) {
@@ -486,28 +486,30 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
     }
 
     private void renderStyleSelection(GuiGraphics graphics) {
+        DeepNullUiPalette palette = DeepNullUiPalette.of(DeepNullConfig.uiTheme());
         float[] hsv = getActiveHsv();
         int pickerX = leftPos + STYLE_PICKER_X + Math.round(hsv[1] * (STYLE_PICKER_SIZE - 1));
         int pickerY = topPos + STYLE_PICKER_Y + Math.round((1.0F - hsv[2]) * (STYLE_PICKER_SIZE - 1));
-        graphics.renderOutline(pickerX - 2, pickerY - 2, 5, 5, 0xFFFFFFFF);
+        graphics.renderOutline(pickerX - 2, pickerY - 2, 5, 5, palette.hoverOutlineColor());
 
         int hueY = topPos + STYLE_HUE_Y + Math.round((hsv[0] / 360.0F) * (STYLE_HUE_HEIGHT - 1));
-        graphics.fill(leftPos + STYLE_HUE_X - 1, hueY, leftPos + STYLE_HUE_X + STYLE_HUE_WIDTH + 1, hueY + 2, 0xFFFFFFFF);
+        graphics.fill(leftPos + STYLE_HUE_X - 1, hueY, leftPos + STYLE_HUE_X + STYLE_HUE_WIDTH + 1, hueY + 2, palette.hoverOutlineColor());
     }
 
     private void renderLargeSlotHover(GuiGraphics graphics, int mouseX, int mouseY, int x, int y) {
         int hoverX = x + LARGE_SLOT_HITBOX_X_OFFSET;
         int hoverY = y + LARGE_SLOT_HITBOX_Y_OFFSET;
         if (insideAbsolute(mouseX, mouseY, hoverX, hoverY, SLOT_SIZE, SLOT_SIZE)) {
-            graphics.fill(hoverX + 1, hoverY + 1, hoverX + SLOT_SIZE - 1, hoverY + SLOT_SIZE - 1, 0x22FFFFFF);
-            graphics.renderOutline(hoverX, hoverY, SLOT_SIZE, SLOT_SIZE, 0xFFFFFFFF);
+            DeepNullUiPalette palette = DeepNullUiPalette.of(DeepNullConfig.uiTheme());
+            graphics.fill(hoverX + 1, hoverY + 1, hoverX + SLOT_SIZE - 1, hoverY + SLOT_SIZE - 1, palette.hoverFillColor());
+            graphics.renderOutline(hoverX, hoverY, SLOT_SIZE, SLOT_SIZE, palette.hoverOutlineColor());
         }
     }
 
     private void renderLargeSlotFrame(GuiGraphics graphics, int x, int y) {
         int frameX = x + LARGE_SLOT_HITBOX_X_OFFSET;
         int frameY = y + LARGE_SLOT_HITBOX_Y_OFFSET;
-        graphics.renderOutline(frameX, frameY, SLOT_SIZE, SLOT_SIZE, 0xFF8C8C8C);
+        graphics.renderOutline(frameX, frameY, SLOT_SIZE, SLOT_SIZE, DeepNullUiPalette.of(DeepNullConfig.uiTheme()).slotFrameColor());
     }
 
     private boolean handleLargeSlotClick(double mouseX, double mouseY, int button, int x, int y, int slotIndex) {
@@ -1468,6 +1470,14 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
         seedSaveButton.active = canApplySeed;
         seedDeleteButton.visible = seed;
         seedDeleteButton.active = seed && menu.canSeedNull() && seedPresetSource == NullSeedPresetSource.USER && !seedPresetId.isBlank();
+    }
+
+    private void applyThemeColors() {
+        int textColor = DeepNullUiPalette.of(DeepNullConfig.uiTheme()).screenBodyTextColor();
+        frameColorBox.setTextColor(textColor);
+        frameColorBox.setTextColorUneditable(textColor);
+        glassColorBox.setTextColor(textColor);
+        glassColorBox.setTextColorUneditable(textColor);
     }
 
     private void refreshStyleFields() {

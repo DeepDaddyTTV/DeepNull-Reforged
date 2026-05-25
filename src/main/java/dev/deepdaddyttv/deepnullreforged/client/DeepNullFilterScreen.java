@@ -1,6 +1,8 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
+import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
+import dev.deepdaddyttv.deepnullreforged.client.theme.DeepNullUiPalette;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
@@ -87,6 +89,7 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+        DeepNullUiPalette palette = DeepNullUiPalette.of(DeepNullConfig.uiTheme());
         guiGraphics.blit(backgroundTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
         renderEnergyFill(guiGraphics);
 
@@ -97,19 +100,20 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
             ItemStack filterStack = displayedFilterStack(slot);
             if (!filterStack.isEmpty()) {
                 guiGraphics.renderItem(filterStack, x, y);
-                guiGraphics.fill(x, y, x + 16, y + 16, 0x55000000);
+                guiGraphics.fill(x, y, x + 16, y + 16, palette.ghostSlotOverlayColor());
             }
             if (slot == hovered) {
-                guiGraphics.renderOutline(x - 1, y - 1, 18, 18, 0xFFD8DCE5);
+                guiGraphics.renderOutline(x - 1, y - 1, 18, 18, palette.hoverOutlineColor());
             }
         }
     }
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_filter_screen.desc" : "dn.filter_screen.desc"), titleLabelX, titleLabelY, 0xFFFFFFFF, false);
-        guiGraphics.drawString(font, playerInventory.getDisplayName(), inventoryLabelX, inventoryLabelY, 0xFFFFFFFF, false);
-        guiGraphics.drawString(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_mode_label.desc" : "dn.filter_mode_label.desc"), 118, 6, 0xFFE8EDF5, false);
+        DeepNullUiPalette palette = DeepNullUiPalette.of(DeepNullConfig.uiTheme());
+        guiGraphics.drawString(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_filter_screen.desc" : "dn.filter_screen.desc"), titleLabelX, titleLabelY, palette.screenTitleTextColor(), false);
+        guiGraphics.drawString(font, playerInventory.getDisplayName(), inventoryLabelX, inventoryLabelY, palette.screenBodyTextColor(), false);
+        guiGraphics.drawString(font, Component.translatable(isAutoSmeltView() ? "dn.auto_smelt_mode_label.desc" : "dn.filter_mode_label.desc"), 118, 6, palette.screenAccentTextColor(), false);
     }
 
     @Override

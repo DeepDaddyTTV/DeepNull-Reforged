@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960" role="img" aria-labelledby="title desc">
+  <title id="title">DeepNull UI style board</title>
+  <desc id="desc">Development preview board comparing Vanilla Minecraft, Minecraft Dark Mode, and Legacy DeepNull style directions.</desc>
+  <rect width="1600" height="960" fill="#0d1016"/>
+  <text x="80" y="90" fill="#f5f7fb" font-size="42" font-family="Helvetica, Arial, sans-serif" font-weight="700">DeepNull UI Style Board</text>
+  <text x="80" y="128" fill="#9da7b8" font-size="20" font-family="Helvetica, Arial, sans-serif">Development previews for the LDLib2 redesign foundation</text>
+
+  <g transform="translate(70,170)">
+    <rect x="0" y="0" width="460" height="720" rx="30" fill="#19140d" stroke="#5d492d" stroke-width="4"/>
+    <text x="34" y="54" fill="#f7f2d8" font-size="30" font-family="Helvetica, Arial, sans-serif" font-weight="700">Vanilla Minecraft</text>
+    <text x="34" y="84" fill="#d5c393" font-size="18" font-family="Helvetica, Arial, sans-serif">Warm parchment panels, brass accents, familiar inventory tone</text>
+    <rect x="34" y="120" width="392" height="250" rx="20" fill="#3e3120" stroke="#9f8b5b" stroke-width="3"/>
+    <rect x="56" y="146" width="86" height="24" rx="12" fill="#8f7448"/>
+    <rect x="150" y="146" width="86" height="24" rx="12" fill="#5d492d"/>
+    <rect x="244" y="146" width="86" height="24" rx="12" fill="#5d492d"/>
+    <text x="67" y="163" fill="#20150a" font-size="12" font-family="Helvetica, Arial, sans-serif" font-weight="700">ITEMS</text>
+    <text x="162" y="163" fill="#f7f2d8" font-size="12" font-family="Helvetica, Arial, sans-serif">UPGRADES</text>
+    <text x="254" y="163" fill="#f7f2d8" font-size="12" font-family="Helvetica, Arial, sans-serif">FILTER</text>
+    <text x="58" y="204" fill="#f7f2d8" font-size="20" font-family="Helvetica, Arial, sans-serif" font-weight="700">DeepNull Inventory</text>
+    <g transform="translate(58,226)">
+      <rect width="210" height="118" rx="16" fill="#c4b88e"/>
+      <rect x="0" y="0" width="210" height="28" rx="16" fill="#8f7448"/>
+      <text x="12" y="19" fill="#20150a" font-size="13" font-family="Helvetica, Arial, sans-serif" font-weight="700">Selected Slot</text>
+      <g fill="#58462d">
+        <rect x="14" y="42" width="26" height="26" rx="6"/>
+        <rect x="46" y="42" width="26" height="26" rx="6"/>
+        <rect x="78" y="42" width="26" height="26" rx="6"/>
+        <rect x="110" y="42" width="26" height="26" rx="6"/>
+        <rect x="142" y="42" width="26" height="26" rx="6"/>
+        <rect x="174" y="42" width="26" height="26" rx="6"/>
+        <rect x="14" y="76" width="26" height="26" rx="6"/>
+        <rect x="46" y="76" width="26" height="26" rx="6"/>
+        <rect x="78" y="76" width="26" height="26" rx="6" fill="#9f8b5b"/>
+      </g>
+      <text x="120" y="94" fill="#2d2113" font-size="14" font-family="Helvetica, Arial, sans-serif">Readable counts</text>
+    </g>
+    <rect x="286" y="226" width="118" height="118" rx="16" fill="#c4b88e"/>
+    <rect x="286" y="226" width="118" height="28" rx="16" fill="#8f7448"/>
+    <text x="300" y="245" fill="#20150a" font-size="13" font-family="Helvetica, Arial, sans-serif" font-weight="700">Info Panel</text>
+    <text x="301" y="273" fill="#2d2113" font-size="12" font-family="Helvetica, Arial, sans-serif">Mode chips</text>
+    <text x="301" y="294" fill="#2d2113" font-size="12" font-family="Helvetica, Arial, sans-serif">Tier summary</text>
+    <text x="301" y="315" fill="#2d2113" font-size="12" font-family="Helvetica, Arial, sans-serif">Quick hints</text>
+    <rect x="34" y="394" width="392" height="118" rx="20" fill="#c4b88e" stroke="#9f8b5b" stroke-width="3"/>
+    <text x="56" y="424" fill="#20150a" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">Null Workbench Style Tab</text>
+    <rect x="58" y="444" width="120" height="42" rx="14" fill="#8f7448"/>
+    <rect x="190" y="444" width="120" height="42" rx="14" fill="#5d492d"/>
+    <rect x="322" y="444" width="82" height="42" rx="14" fill="#9f8b5b"/>
+    <text x="85" y="470" fill="#20150a" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="700">FRAME</text>
+    <text x="219" y="470" fill="#f7f2d8" font-size="15" font-family="Helvetica, Arial, sans-serif">GLASS</text>
+    <text x="344" y="470" fill="#20150a" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="700">APPLY</text>
+    <g transform="translate(34,556)">
+      <rect width="392" height="110" rx="20" fill="#2a2115" stroke="#5d492d" stroke-width="3"/>
+      <text x="22" y="32" fill="#f7f2d8" font-size="21" font-family="Helvetica, Arial, sans-serif" font-weight="700">Palette</text>
+      <rect x="22" y="50" width="58" height="38" rx="10" fill="#c4b88e"/>
+      <rect x="92" y="50" width="58" height="38" rx="10" fill="#8f7448"/>
+      <rect x="162" y="50" width="58" height="38" rx="10" fill="#5d492d"/>
+      <rect x="232" y="50" width="58" height="38" rx="10" fill="#f7f2d8"/>
+      <rect x="302" y="50" width="58" height="38" rx="10" fill="#9f8b5b"/>
+    </g>
+  </g>
+
+  <g transform="translate(570,170)">
+    <rect x="0" y="0" width="460" height="720" rx="30" fill="#10151d" stroke="#697487" stroke-width="4"/>
+    <text x="34" y="54" fill="#ffffff" font-size="30" font-family="Helvetica, Arial, sans-serif" font-weight="700">Minecraft Dark Mode</text>
+    <text x="34" y="84" fill="#9db4d8" font-size="18" font-family="Helvetica, Arial, sans-serif">Slate panels, cool chrome, high-contrast utility focus</text>
+    <rect x="34" y="120" width="392" height="250" rx="20" fill="#121720" stroke="#697487" stroke-width="3"/>
+    <rect x="56" y="146" width="86" height="24" rx="12" fill="#1a2230"/>
+    <rect x="150" y="146" width="86" height="24" rx="12" fill="#273245"/>
+    <rect x="244" y="146" width="86" height="24" rx="12" fill="#273245"/>
+    <text x="67" y="163" fill="#ffffff" font-size="12" font-family="Helvetica, Arial, sans-serif" font-weight="700">ITEMS</text>
+    <text x="161" y="163" fill="#d8dce5" font-size="12" font-family="Helvetica, Arial, sans-serif">UPGRADES</text>
+    <text x="255" y="163" fill="#d8dce5" font-size="12" font-family="Helvetica, Arial, sans-serif">FILTER</text>
+    <text x="58" y="204" fill="#ffffff" font-size="20" font-family="Helvetica, Arial, sans-serif" font-weight="700">DeepNull Inventory</text>
+    <g transform="translate(58,226)">
+      <rect width="210" height="118" rx="16" fill="#1a2230"/>
+      <rect x="0" y="0" width="210" height="28" rx="16" fill="#273245"/>
+      <text x="12" y="19" fill="#ffffff" font-size="13" font-family="Helvetica, Arial, sans-serif" font-weight="700">Selected Slot</text>
+      <g fill="#3a465d">
+        <rect x="14" y="42" width="26" height="26" rx="6"/>
+        <rect x="46" y="42" width="26" height="26" rx="6"/>
+        <rect x="78" y="42" width="26" height="26" rx="6"/>
+        <rect x="110" y="42" width="26" height="26" rx="6"/>
+        <rect x="142" y="42" width="26" height="26" rx="6"/>
+        <rect x="174" y="42" width="26" height="26" rx="6"/>
+        <rect x="14" y="76" width="26" height="26" rx="6"/>
+        <rect x="46" y="76" width="26" height="26" rx="6"/>
+        <rect x="78" y="76" width="26" height="26" rx="6" fill="#9db4d8"/>
+      </g>
+      <text x="118" y="94" fill="#e8edf5" font-size="14" font-family="Helvetica, Arial, sans-serif">Dense but clean</text>
+    </g>
+    <rect x="286" y="226" width="118" height="118" rx="16" fill="#1a2230"/>
+    <rect x="286" y="226" width="118" height="28" rx="16" fill="#273245"/>
+    <text x="300" y="245" fill="#ffffff" font-size="13" font-family="Helvetica, Arial, sans-serif" font-weight="700">Info Panel</text>
+    <text x="301" y="273" fill="#e8edf5" font-size="12" font-family="Helvetica, Arial, sans-serif">Status chips</text>
+    <text x="301" y="294" fill="#e8edf5" font-size="12" font-family="Helvetica, Arial, sans-serif">Transfer mode</text>
+    <text x="301" y="315" fill="#e8edf5" font-size="12" font-family="Helvetica, Arial, sans-serif">Energy state</text>
+    <rect x="34" y="394" width="392" height="118" rx="20" fill="#1a2230" stroke="#697487" stroke-width="3"/>
+    <text x="56" y="424" fill="#ffffff" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">Null Workbench Style Tab</text>
+    <rect x="58" y="444" width="120" height="42" rx="14" fill="#273245"/>
+    <rect x="190" y="444" width="120" height="42" rx="14" fill="#121720"/>
+    <rect x="322" y="444" width="82" height="42" rx="14" fill="#9db4d8"/>
+    <text x="85" y="470" fill="#ffffff" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="700">FRAME</text>
+    <text x="219" y="470" fill="#d8dce5" font-size="15" font-family="Helvetica, Arial, sans-serif">GLASS</text>
+    <text x="343" y="470" fill="#10151d" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="700">APPLY</text>
+    <g transform="translate(34,556)">
+      <rect width="392" height="110" rx="20" fill="#121720" stroke="#697487" stroke-width="3"/>
+      <text x="22" y="32" fill="#ffffff" font-size="21" font-family="Helvetica, Arial, sans-serif" font-weight="700">Palette</text>
+      <rect x="22" y="50" width="58" height="38" rx="10" fill="#121720"/>
+      <rect x="92" y="50" width="58" height="38" rx="10" fill="#1a2230"/>
+      <rect x="162" y="50" width="58" height="38" rx="10" fill="#697487"/>
+      <rect x="232" y="50" width="58" height="38" rx="10" fill="#e8edf5"/>
+      <rect x="302" y="50" width="58" height="38" rx="10" fill="#9db4d8"/>
+    </g>
+  </g>
+
+  <g transform="translate(1070,170)">
+    <rect x="0" y="0" width="460" height="720" rx="30" fill="#121722" stroke="#66aac8" stroke-width="4"/>
+    <text x="34" y="54" fill="#f4fbff" font-size="30" font-family="Helvetica, Arial, sans-serif" font-weight="700">Legacy DeepNull</text>
+    <text x="34" y="84" fill="#88d8f2" font-size="18" font-family="Helvetica, Arial, sans-serif">Blue utility chrome with callbacks to the older mod feel</text>
+    <rect x="34" y="120" width="392" height="250" rx="20" fill="#1a2231" stroke="#66aac8" stroke-width="3"/>
+    <rect x="56" y="146" width="86" height="24" rx="12" fill="#2a3a54"/>
+    <rect x="150" y="146" width="86" height="24" rx="12" fill="#1d2a40"/>
+    <rect x="244" y="146" width="86" height="24" rx="12" fill="#1d2a40"/>
+    <text x="67" y="163" fill="#f4fbff" font-size="12" font-family="Helvetica, Arial, sans-serif" font-weight="700">ITEMS</text>
+    <text x="161" y="163" fill="#ddf0ff" font-size="12" font-family="Helvetica, Arial, sans-serif">UPGRADES</text>
+    <text x="255" y="163" fill="#ddf0ff" font-size="12" font-family="Helvetica, Arial, sans-serif">FILTER</text>
+    <text x="58" y="204" fill="#f4fbff" font-size="20" font-family="Helvetica, Arial, sans-serif" font-weight="700">DeepNull Inventory</text>
+    <g transform="translate(58,226)">
+      <rect width="210" height="118" rx="16" fill="#2a3a54"/>
+      <rect x="0" y="0" width="210" height="28" rx="16" fill="#66aac8"/>
+      <text x="12" y="19" fill="#0f1825" font-size="13" font-family="Helvetica, Arial, sans-serif" font-weight="700">Selected Slot</text>
+      <g fill="#3b4f70">
+        <rect x="14" y="42" width="26" height="26" rx="6"/>
+        <rect x="46" y="42" width="26" height="26" rx="6"/>
+        <rect x="78" y="42" width="26" height="26" rx="6"/>
+        <rect x="110" y="42" width="26" height="26" rx="6"/>
+        <rect x="142" y="42" width="26" height="26" rx="6"/>
+        <rect x="174" y="42" width="26" height="26" rx="6"/>
+        <rect x="14" y="76" width="26" height="26" rx="6"/>
+        <rect x="46" y="76" width="26" height="26" rx="6"/>
+        <rect x="78" y="76" width="26" height="26" rx="6" fill="#88d8f2"/>
+      </g>
+      <text x="113" y="94" fill="#ddf0ff" font-size="14" font-family="Helvetica, Arial, sans-serif">Utility-first HUD</text>
+    </g>
+    <rect x="286" y="226" width="118" height="118" rx="16" fill="#2a3a54"/>
+    <rect x="286" y="226" width="118" height="28" rx="16" fill="#66aac8"/>
+    <text x="300" y="245" fill="#0f1825" font-size="13" font-family="Helvetica, Arial, sans-serif" font-weight="700">Info Panel</text>
+    <text x="301" y="273" fill="#ddf0ff" font-size="12" font-family="Helvetica, Arial, sans-serif">Mode labels</text>
+    <text x="301" y="294" fill="#ddf0ff" font-size="12" font-family="Helvetica, Arial, sans-serif">Legacy glow</text>
+    <text x="301" y="315" fill="#ddf0ff" font-size="12" font-family="Helvetica, Arial, sans-serif">Bright hover states</text>
+    <rect x="34" y="394" width="392" height="118" rx="20" fill="#2a3a54" stroke="#66aac8" stroke-width="3"/>
+    <text x="56" y="424" fill="#f4fbff" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">Null Workbench Style Tab</text>
+    <rect x="58" y="444" width="120" height="42" rx="14" fill="#66aac8"/>
+    <rect x="190" y="444" width="120" height="42" rx="14" fill="#1d2a40"/>
+    <rect x="322" y="444" width="82" height="42" rx="14" fill="#88d8f2"/>
+    <text x="85" y="470" fill="#0f1825" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="700">FRAME</text>
+    <text x="219" y="470" fill="#ddf0ff" font-size="15" font-family="Helvetica, Arial, sans-serif">GLASS</text>
+    <text x="343" y="470" fill="#0f1825" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="700">APPLY</text>
+    <g transform="translate(34,556)">
+      <rect width="392" height="110" rx="20" fill="#1a2231" stroke="#66aac8" stroke-width="3"/>
+      <text x="22" y="32" fill="#f4fbff" font-size="21" font-family="Helvetica, Arial, sans-serif" font-weight="700">Palette</text>
+      <rect x="22" y="50" width="58" height="38" rx="10" fill="#1a2231"/>
+      <rect x="92" y="50" width="58" height="38" rx="10" fill="#2a3a54"/>
+      <rect x="162" y="50" width="58" height="38" rx="10" fill="#66aac8"/>
+      <rect x="232" y="50" width="58" height="38" rx="10" fill="#ddf0ff"/>
+      <rect x="302" y="50" width="58" height="38" rx="10" fill="#88d8f2"/>
+    </g>
+  </g>
+</svg>
