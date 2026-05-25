@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ESE",
+    "RDR",
+    "EHE"
+  ],
+  "key": {
+    "D": {
+      "item": "deepnullreforged:deepnull_dock"
+    },
+    "E": {
+      "item": "minecraft:ender_pearl"
+    },
+    "H": {
+      "item": "minecraft:hopper"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "S": {
+      "item": "deepnullreforged:synchronizer"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:hub_null",
+    "count": 1
+  }
+}

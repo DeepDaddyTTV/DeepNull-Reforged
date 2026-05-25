@@ -34,10 +34,10 @@ jei.deepnull_dock.desc=-Right-click with DeepNull in-hand to place DeepNull in d
 
 //KeyBindings
 key.categories.deepnullreforged=DeepNull
-key.next_item.desc=Cycle to next item in DeepNull
-key.previous_item.desc=Cycle to previous item in DeepNull
+key.next_item.desc=Cycle to next selected Null content
+key.previous_item.desc=Cycle to previous selected Null content
 key.open_deepnull.desc=Open nearest DeepNull
-key.togglehud.desc=Toggle HUD visibility
+key.togglehud.desc=Toggle Null HUD visibility
 
 //Misc
 dn.selected_item.desc=Selected Item

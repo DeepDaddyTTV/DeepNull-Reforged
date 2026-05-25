@@ -1,21 +1,38 @@
 package dev.deepdaddyttv.deepnullreforged.gametest;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
+import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.dennull.DenNullData;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.NullWorkbenchTransferSupport;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
+import dev.deepdaddyttv.deepnullreforged.nullseed.ItemSetPresetCatalog;
+import dev.deepdaddyttv.deepnullreforged.nullseed.ItemSetPresetEntry;
+import dev.deepdaddyttv.deepnullreforged.nullseed.ItemSetPresetOption;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedEntry;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedKind;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedPlan;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedPreset;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedPresetCatalog;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedPresetSavedData;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullSeedPresetSource;
 import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
+import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -148,6 +165,164 @@ public final class NullWorkbenchRegressionGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void workbench_seeder_applies_reservations_without_overwriting_real_items(GameTestHelper helper) {
+        NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
+        ItemStack sourceNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory sourceInventory = new DeepNullInventory(DeepNullTier.REDSTONE, sourceNull, helper.getLevel().registryAccess(), null);
+        sourceInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 12));
+
+        workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT, sourceNull);
+        NullSeedPlan plan = workbench.applySeedConfig(List.of(
+                id(Items.COBBLESTONE),
+                id(Items.IRON_INGOT),
+                id(Items.DIAMOND),
+                id(Items.EMERALD),
+                id(Items.REDSTONE),
+                id(Items.COAL),
+                id(Items.GOLD_INGOT),
+                id(Items.LAPIS_LAZULI),
+                id(Items.QUARTZ),
+                id(Items.GUNPOWDER)
+        ), true);
+
+        ItemStack configuredNull = workbench.getStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT);
+        DeepNullInventory configuredInventory = new DeepNullInventory(DeepNullTier.REDSTONE, configuredNull, helper.getLevel().registryAccess(), null);
+        helper.assertValueEqual(plan.selectedCount(), 10, "Seeder should plan every selected item");
+        helper.assertValueEqual(plan.overflowCount(), 1, "Redstone DeepNull should overflow the tenth selected seed item");
+        helper.assertTrue(configuredInventory.getStackInSlot(0).is(Items.COBBLESTONE), "Seeder should not overwrite real stored items");
+        helper.assertTrue(configuredInventory.getReservedStack(1).is(Items.IRON_INGOT), "Seeder should reserve the second selected item in slot 1");
+        helper.assertTrue(configuredInventory.getReservedStack(2).is(Items.DIAMOND), "Seeder should reserve the third selected item in slot 2");
+
+        workbench.clearSeedReservations();
+        DeepNullInventory clearedInventory = new DeepNullInventory(DeepNullTier.REDSTONE, configuredNull, helper.getLevel().registryAccess(), null);
+        helper.assertValueEqual(clearedInventory.getReservedSlotCount(), 0, "Clearing reservations should remove ghost templates");
+        helper.assertTrue(clearedInventory.getStackInSlot(0).is(Items.COBBLESTONE), "Clearing reservations should leave real stored items intact");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void workbench_seed_applies_damp_fluid_templates_without_filling_tanks(GameTestHelper helper) {
+        NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
+        ItemStack dampNull = DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory inventory = new DeepNullInventory(DeepNullTier.REDSTONE, dampNull, helper.getLevel().registryAccess(), null);
+        inventory.fillFluid(0, new FluidStack(Fluids.WATER, 1000), false);
+
+        workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT, dampNull);
+        NullSeedPlan plan = workbench.applySeedEntries(List.of(
+                NullSeedEntry.fluid(ResourceLocation.withDefaultNamespace("lava"), 0, 1000),
+                NullSeedEntry.fluid(ResourceLocation.withDefaultNamespace("lava"), 1, 2000)
+        ), true);
+
+        DeepNullInventory configured = new DeepNullInventory(DeepNullTier.REDSTONE, workbench.getStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT), helper.getLevel().registryAccess(), null);
+        helper.assertValueEqual(plan.blockedCount(), 1, "Seed should report lava-over-water as blocked");
+        helper.assertValueEqual(plan.appliedCount(), 1, "Seed should reserve the compatible empty tank");
+        helper.assertTrue(configured.getFluidInSlot(0).getFluid().isSame(Fluids.WATER), "Existing water tank should not be overwritten");
+        helper.assertTrue(configured.getFluidInSlot(1).isEmpty(), "Seed apply should not create real lava contents");
+        helper.assertTrue(configured.getReservedFluidTemplate(1).getFluid().isSame(Fluids.LAVA), "Empty tank should receive a planned lava template");
+        helper.assertValueEqual(configured.getReservedFluidTemplate(1).getAmount(), 2000, "Planned lava template amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void workbench_seed_applies_den_entity_templates_without_captures(GameTestHelper helper) {
+        NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
+        ItemStack denNull = DeepNullGameTestSupport.denNullStack(DeepNullTier.REDSTONE);
+
+        helper.assertTrue(workbench.getItemHandler().isItemValid(NullWorkbenchBlockEntity.NULL_SLOT, denNull), "Workbench Null slot should accept DenNull for Seed");
+        workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT, denNull);
+        NullSeedPlan plan = workbench.applySeedEntries(List.of(
+                NullSeedEntry.entity(ResourceLocation.withDefaultNamespace("cow"), 0),
+                NullSeedEntry.entity(ResourceLocation.withDefaultNamespace("pig"), 1)
+        ), true);
+
+        DenNullData data = DenNullData.get(workbench.getStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT));
+        helper.assertValueEqual(plan.appliedCount(), 2, "Den seed templates should apply");
+        helper.assertValueEqual(data.entries().size(), 0, "Den seed templates should not create captured entities");
+        helper.assertValueEqual(data.templates().size(), 2, "Den seed should write entity templates");
+        helper.assertValueEqual(data.templateAt(0).entityType(), ResourceLocation.withDefaultNamespace("cow"), "Cow template target");
+        helper.assertValueEqual(data.templateAt(1).entityType(), ResourceLocation.withDefaultNamespace("pig"), "Pig template target");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void reserved_slots_route_dock_insertion_into_configured_slots(GameTestHelper helper) {
+        BlockPos dockPos = new BlockPos(2, 1, 1);
+        helper.setBlock(dockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(helper.absolutePos(dockPos)) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("DeepNull Dock block entity was not created");
+            return;
+        }
+
+        ItemStack deepNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory inventory = new DeepNullInventory(DeepNullTier.REDSTONE, deepNull, helper.getLevel().registryAccess(), null);
+        inventory.setReservedStack(2, new ItemStack(Items.IRON_INGOT));
+        dock.setStoredDeepNull(deepNull);
+
+        IItemHandler handler = dock.getAutomationHandler(null);
+        ItemStack remainder = handler.insertItem(0, new ItemStack(Items.IRON_INGOT, 5), false);
+        DeepNullInventory routedInventory = dock.createInventory();
+
+        helper.assertTrue(remainder.isEmpty(), "Dock automation should accept reserved matching items");
+        helper.assertFalse(routedInventory == null, "Dock should expose the configured DeepNull inventory");
+        helper.assertTrue(routedInventory.getStackInSlot(0).isEmpty(), "Dock insertion should not bypass a reserved matching slot");
+        helper.assertTrue(routedInventory.getStackInSlot(2).is(Items.IRON_INGOT), "Dock insertion should route into the reserved iron slot");
+        helper.assertValueEqual(routedInventory.getStackInSlot(2).getCount(), 5, "Reserved iron slot count");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void reserved_item_configuration_round_trips_and_persists_after_extract(GameTestHelper helper) {
+        ItemStack backingStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.IRON);
+        DeepNullInventory source = new DeepNullInventory(DeepNullTier.IRON, backingStack, helper.getLevel().registryAccess(), null);
+        source.setReservedStack(4, new ItemStack(Items.DIAMOND));
+        source.insertItem(4, new ItemStack(Items.DIAMOND), false);
+
+        ItemStack extracted = source.extractItemIgnoreExtractionMode(4, 1, false);
+        DeepNullInventory reloaded = new DeepNullInventory(DeepNullTier.IRON, backingStack, helper.getLevel().registryAccess(), null);
+        DeepNullInventory imported = new DeepNullInventory(DeepNullTier.IRON, DeepNullGameTestSupport.deepNullStack(DeepNullTier.IRON), helper.getLevel().registryAccess(), null);
+        imported.importConfiguration(reloaded.exportConfiguration());
+
+        helper.assertTrue(extracted.is(Items.DIAMOND), "Reserved slot should extract real stored items normally");
+        helper.assertTrue(reloaded.getStackInSlot(4).isEmpty(), "Extraction should drain the real stack");
+        helper.assertTrue(reloaded.getReservedStack(4).is(Items.DIAMOND), "Reservation should survive extraction to zero");
+        helper.assertTrue(imported.getReservedStack(4).is(Items.DIAMOND), "Synchronizer-style configuration export/import should preserve reservations");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void seed_preset_catalog_contains_representative_vanilla_entries(GameTestHelper helper) {
+        assertPresetContains(helper, ItemSetPresetOption.ORES, Items.IRON_ORE, Items.RAW_IRON, Items.IRON_INGOT, Items.DIAMOND);
+        assertPresetContains(helper, ItemSetPresetOption.FARMING, Items.OAK_SAPLING, Items.WHEAT_SEEDS, Items.WHEAT, Items.BREAD);
+        assertPresetContains(helper, ItemSetPresetOption.REDSTONE, Items.REDSTONE, Items.HOPPER, Items.PISTON, Items.OBSERVER);
+        assertPresetContains(helper, ItemSetPresetOption.MOB_DROPS, Items.ROTTEN_FLESH, Items.BONE, Items.GUNPOWDER, Items.ENDER_PEARL);
+        List<NullSeedPreset> dampPresets = NullSeedPresetCatalog.all(helper.getLevel(), NullSeedKind.FLUID);
+        helper.assertTrue(dampPresets.stream().anyMatch(preset -> preset.presetId().equals(NullSeedPresetCatalog.BUILT_IN_FLUIDS)
+                && preset.entries().stream().anyMatch(entry -> entry.kind() == NullSeedKind.FLUID && entry.id().equals(ResourceLocation.withDefaultNamespace("water")))), "Fluid seed presets should include water");
+        List<NullSeedPreset> denPresets = NullSeedPresetCatalog.all(helper.getLevel(), NullSeedKind.ENTITY);
+        helper.assertTrue(denPresets.stream().anyMatch(preset -> preset.presetId().equals(NullSeedPresetCatalog.BUILT_IN_ENTITIES)
+                && preset.entries().stream().anyMatch(entry -> entry.kind() == NullSeedKind.ENTITY && entry.id().equals(ResourceLocation.withDefaultNamespace("cow")))), "Entity seed presets should include cows");
+        helper.succeed();
+    }
+
+    @GameTest(template = DeepNullGameTestSupport.EMPTY_TEMPLATE)
+    public static void user_seed_preset_saved_data_is_visible_to_catalog(GameTestHelper helper) {
+        NullSeedPreset preset = new NullSeedPreset(
+                "user:shared_test",
+                "Shared Test",
+                NullSeedPresetSource.USER,
+                "test",
+                List.of(NullSeedKind.ITEM),
+                List.of(NullSeedEntry.item(id(Items.DIAMOND), 0))
+        );
+        NullSeedPresetSavedData.get(helper.getLevel()).savePreset(preset);
+
+        List<NullSeedPreset> presets = NullSeedPresetCatalog.all(helper.getLevel(), NullSeedKind.ITEM);
+        helper.assertTrue(presets.stream().anyMatch(candidate -> candidate.presetId().equals("user:shared_test")
+                && candidate.entries().stream().anyMatch(entry -> entry.id().equals(id(Items.DIAMOND)))), "Saved user preset should be visible in the same world catalog");
+        helper.succeed();
+    }
+
     private static NullWorkbenchRecipes.CraftRecipe findRecipeByResult(ItemStack result, List<NullWorkbenchRecipes.CraftRecipe> recipes) {
         return recipes.stream()
                 .filter(recipe -> ItemStack.isSameItemSameComponents(recipe.result(), result) && recipe.result().getCount() == result.getCount())
@@ -184,5 +359,18 @@ public final class NullWorkbenchRegressionGameTests {
             case EMERALD -> Items.GREEN_DYE;
             case CREATIVE -> throw new IllegalArgumentException("Creative tier has no crafting recipe");
         };
+    }
+
+    private static ResourceLocation id(Item item) {
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+    }
+
+    private static void assertPresetContains(GameTestHelper helper, String presetId, Item... items) {
+        List<ResourceLocation> ids = ItemSetPresetCatalog.build(presetId).stream()
+                .map(ItemSetPresetEntry::itemId)
+                .toList();
+        for (Item item : items) {
+            helper.assertTrue(ids.contains(id(item)), presetId + " should include " + id(item));
+        }
     }
 }

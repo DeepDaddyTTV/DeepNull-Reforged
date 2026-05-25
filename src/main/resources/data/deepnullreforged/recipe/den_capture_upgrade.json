@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LBL",
+    "BUB",
+    "LBL"
+  ],
+  "key": {
+    "B": {
+      "item": "deepnullreforged:bait"
+    },
+    "L": {
+      "item": "minecraft:lead"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:den_capture_upgrade",
+    "count": 1
+  }
+}

@@ -148,12 +148,15 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
             case AUTO_SMELTING -> "auto_smelting_upgrade_placeholder";
             case BASIC_COMPRESSION -> "basic_compression_upgrade_placeholder";
             case ADVANCED_COMPRESSION -> "advanced_compression_upgrade_placeholder";
+            case DIVNULL -> "divnull_upgrade_placeholder";
             case STONEWORKS -> "stoneworks_upgrade_placeholder";
             case STONE_GENERATOR -> "stone_generator_upgrade_placeholder";
             case OBSIDIAN_GENERATOR -> "obsidian_generator_upgrade_placeholder";
             case SPONGE -> "sponge_upgrade_placeholder";
+            case BALLOON -> "balloon_upgrade_placeholder";
             case GAS -> "gas_upgrade_placeholder";
             case ENDER -> "ender_upgrade_placeholder";
+            case FARM -> "farm_upgrade_placeholder";
         };
         ResourceLocation widgetTexture = DeepNullReforged.id("textures/gui/widgets/" + placeholderName + ".png");
         if (Minecraft.getInstance().getResourceManager().getResource(widgetTexture).isPresent()) {
@@ -168,12 +171,15 @@ public class DeepNullUpgradeScreen extends AbstractContainerScreen<DeepNullMenu>
             case AUTO_SMELTING -> "auto_smelting_upgrade";
             case BASIC_COMPRESSION -> "basic_compression_upgrade";
             case ADVANCED_COMPRESSION -> "advanced_compression_upgrade";
+            case DIVNULL -> "divnull_upgrade";
             case STONEWORKS -> "stoneworks_upgrade";
             case STONE_GENERATOR -> "stone_generator_upgrade";
             case OBSIDIAN_GENERATOR -> "obsidian_generator_upgrade";
             case SPONGE -> "sponge_upgrade";
+            case BALLOON -> "balloon_upgrade";
             case GAS -> "gas_upgrade";
             case ENDER -> "ender_upgrade";
+            case FARM -> "farm_upgrade";
         };
         if (itemIconName != null) {
             return DeepNullReforged.id("textures/item/" + itemIconName + ".png");

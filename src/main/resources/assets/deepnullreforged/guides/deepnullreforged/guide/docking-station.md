@@ -14,7 +14,7 @@ item_ids:
   <BlockImage id="deepnullreforged:deepnull_dock" />
 </Column>
 
-The Docking Station holds one DeepNull or DampNull and exposes it to automation.
+The Docking Station holds one supported Null and exposes its dock behavior to automation.
 
 ## Capabilities
 
@@ -22,6 +22,7 @@ The Docking Station holds one DeepNull or DampNull and exposes it to automation.
 - Fluid automation for docked DampNulls
 - Energy automation for docked DeepNulls with Energy Upgrade
 - Chemical automation for docked DampNulls with Chemical Upgrade
+- Docked access for compatible Null tools such as DenNulls and DripNulls
 
 ## Notes
 
@@ -31,4 +32,3 @@ The Docking Station holds one DeepNull or DampNull and exposes it to automation.
 ## Crafting
 
 <RecipeFor id="deepnullreforged:deepnull_dock" fallbackText="See JEI for the current recipe." />
-

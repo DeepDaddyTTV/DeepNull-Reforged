@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "aba",
+    "cdc",
+    "aba"
+  ],
+  "key": {
+    "a": { "item": "minecraft:experience_bottle" },
+    "b": { "item": "minecraft:iron_ingot" },
+    "c": { "item": "minecraft:anvil" },
+    "d": { "item": "deepnullreforged:upgrade_core" }
+  },
+  "result": {
+    "id": "deepnullreforged:drip_mend_upgrade",
+    "count": 1
+  }
+}

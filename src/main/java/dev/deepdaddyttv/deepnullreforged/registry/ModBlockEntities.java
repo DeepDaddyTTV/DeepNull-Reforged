@@ -2,6 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.registry;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.block.entity.DripStandBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -19,6 +20,11 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<NullWorkbenchBlockEntity>> NULL_WORKBENCH = BLOCK_ENTITY_TYPES.register(
             "null_workbench",
             () -> BlockEntityType.Builder.of(NullWorkbenchBlockEntity::new, ModBlocks.NULL_WORKBENCH.get()).build(null)
+    );
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DripStandBlockEntity>> DRIP_STAND = BLOCK_ENTITY_TYPES.register(
+            "drip_stand",
+            () -> BlockEntityType.Builder.of(DripStandBlockEntity::new, ModBlocks.DRIP_STAND.get()).build(null)
     );
 
     private ModBlockEntities() {

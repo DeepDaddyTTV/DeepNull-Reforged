@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WHW",
+    "SUS",
+    "WHW"
+  ],
+  "key": {
+    "H": {
+      "item": "minecraft:hopper"
+    },
+    "S": {
+      "item": "minecraft:stone_sword"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    },
+    "W": {
+      "item": "minecraft:wheat"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:den_farm_upgrade",
+    "count": 1
+  }
+}

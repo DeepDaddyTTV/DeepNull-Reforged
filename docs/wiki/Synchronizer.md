@@ -5,6 +5,7 @@ The Synchronizer stores a Null configuration snapshot so it can be restored into
 ## What It Stores
 
 - Filter settings
+- Seeder ghost slot reservations
 - Upgrade configuration settings
 - Transfer and behavior toggles
 - Other Null configuration data

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "aba",
+    "bcb",
+    "aba"
+  ],
+  "key": {
+    "a": {
+      "item": "deepnullreforged:deep_null_panel_3"
+    },
+    "b": {
+      "item": "deepnullreforged:bait"
+    },
+    "c": {
+      "item": "deepnullreforged:den_null_2"
+    }
+  },
+  "result": {
+    "id": "deepnullreforged:den_null_3",
+    "count": 1
+  }
+}

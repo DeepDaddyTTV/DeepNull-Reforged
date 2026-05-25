@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "aba",
+    "bcb",
+    "aba"
+  ],
+  "key": {
+    "a": { "item": "deepnullreforged:deep_null_panel_0" },
+    "b": { "item": "minecraft:leather" },
+    "c": { "item": "minecraft:armor_stand" }
+  },
+  "result": {
+    "id": "deepnullreforged:drip_null_0",
+    "count": 1
+  }
+}

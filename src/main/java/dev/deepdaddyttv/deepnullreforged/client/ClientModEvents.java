@@ -4,13 +4,16 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullDockRenderer;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullItemRendering;
+import dev.deepdaddyttv.deepnullreforged.client.render.DripStandRenderer;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
+import dev.deepdaddyttv.deepnullreforged.registry.ModEntityTypes;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
+import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
@@ -50,6 +53,9 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.DEEP_NULL_MENU.get(), ClientModEvents::createDeepNullScreen);
+        event.register(ModMenus.DEN_NULL_MENU.get(), DenNullScreen::new);
+        event.register(ModMenus.DRIP_NULL_MENU.get(), DripNullScreen::new);
+        event.register(ModMenus.HUB_NULL_MENU.get(), HubNullScreen::new);
         event.register(ModMenus.NULL_WORKBENCH_MENU.get(), NullWorkbenchScreen::new);
     }
 
@@ -97,6 +103,8 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.DRIP_STAND.get(), DripStandRenderer::new);
+        event.registerEntityRenderer(ModEntityTypes.DAMPNULL_BALLOON_PROJECTILE.get(), context -> new ThrownItemRenderer<>(context, 0.75F, false));
     }
 
     @SubscribeEvent
@@ -138,6 +146,7 @@ public final class ClientModEvents {
             case FLUID -> new DeepNullFluidScreen(menu, inventory, title);
             case UPGRADES -> new DeepNullUpgradeScreen(menu, inventory, title);
             case FILTER, AUTO_SMELT_FILTER -> new DeepNullFilterScreen(menu, inventory, title);
+            case FARM -> new DeepNullUpgradeScreen(menu, inventory, title);
         };
     }
 }

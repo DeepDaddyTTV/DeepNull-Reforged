@@ -1,6 +1,8 @@
 package dev.deepdaddyttv.deepnullreforged.registry;
 
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
+import dev.deepdaddyttv.deepnullreforged.devmode.DeepNullDevModeSupport;
+import dev.deepdaddyttv.deepnullreforged.nullseed.NullTestingPresets;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -29,6 +31,38 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.DIAMOND_DAMP_NULL.get());
                 output.accept(ModItems.EMERALD_DAMP_NULL.get());
                 output.accept(ModItems.CREATIVE_DAMP_NULL.get());
+                output.accept(ModItems.HUB_NULL.get());
+                output.accept(ModItems.REDSTONE_DEN_NULL.get());
+                output.accept(ModItems.LAPIS_DEN_NULL.get());
+                output.accept(ModItems.IRON_DEN_NULL.get());
+                output.accept(ModItems.GOLD_DEN_NULL.get());
+                output.accept(ModItems.DIAMOND_DEN_NULL.get());
+                output.accept(ModItems.EMERALD_DEN_NULL.get());
+                output.accept(ModItems.CREATIVE_DEN_NULL.get());
+                output.accept(ModItems.BAIT.get());
+                output.accept(ModItems.REDSTONE_DRIP_NULL.get());
+                output.accept(ModItems.LAPIS_DRIP_NULL.get());
+                output.accept(ModItems.IRON_DRIP_NULL.get());
+                output.accept(ModItems.GOLD_DRIP_NULL.get());
+                output.accept(ModItems.DIAMOND_DRIP_NULL.get());
+                output.accept(ModItems.EMERALD_DRIP_NULL.get());
+                output.accept(ModItems.CREATIVE_DRIP_NULL.get());
+                output.accept(ModItems.DRIP_MEND_UPGRADE.get());
+                output.accept(ModItems.DEN_BREEDING_UPGRADE.get());
+                output.accept(ModItems.DEN_CLONE_UPGRADE.get());
+                output.accept(ModItems.DEN_DYE_UPGRADE.get());
+                output.accept(ModItems.DEN_MILK_UPGRADE.get());
+                output.accept(ModItems.DEN_SHEAR_UPGRADE.get());
+                output.accept(ModItems.DEN_BABY_UPGRADE.get());
+                output.accept(ModItems.DEN_TAG_UPGRADE.get());
+                output.accept(ModItems.DEN_CAPTURE_UPGRADE.get());
+                output.accept(ModItems.DEN_SPAWNER_UPGRADE.get());
+                output.accept(ModItems.DEN_FARM_UPGRADE.get());
+                if (DeepNullDevModeSupport.shouldShowCreativePresets()) {
+                    for (var presetStack : NullTestingPresets.creativeStacks(parameters.holders())) {
+                        output.accept(presetStack);
+                    }
+                }
                 output.accept(ModItems.REDSTONE_PANEL.get());
                 output.accept(ModItems.LAPIS_PANEL.get());
                 output.accept(ModItems.IRON_PANEL.get());
@@ -51,12 +85,14 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.STONE_GENERATOR_UPGRADE.get());
                 output.accept(ModItems.OBSIDIAN_GENERATOR_UPGRADE.get());
                 output.accept(ModItems.SPONGE_UPGRADE.get());
+                output.accept(ModItems.BALLOON_UPGRADE.get());
                 if (ModList.get().isLoaded("mekanism")) {
                     output.accept(ModItems.GAS_UPGRADE.get());
                 }
                 output.accept(ModItems.ENDER_UPGRADE.get());
                 output.accept(ModItems.DEEP_NULL_DOCK.get());
                 output.accept(ModItems.NULL_WORKBENCH.get());
+                output.accept(ModItems.DRIP_STAND.get());
             })
             .build());
 

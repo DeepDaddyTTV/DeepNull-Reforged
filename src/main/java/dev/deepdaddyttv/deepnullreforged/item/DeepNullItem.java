@@ -4,6 +4,7 @@ import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.integration.ae2.Ae2TransferCompat;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismTransferCompat;
+import dev.deepdaddyttv.deepnullreforged.entity.DampNullBalloonProjectile;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
@@ -23,6 +24,7 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -34,6 +36,8 @@ import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ClipContext.Block;
@@ -58,7 +62,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.function.Function;
 
-public class DeepNullItem extends Item {
+public class DeepNullItem extends Item implements DockableNullItem {
     private static final String DEEPNULL_TAG = "DeepNull";
     private static final String PROXY_USE_SLOT_TAG = "ProxyUseSlot";
     private static final String PROXY_USE_ANIM_TAG = "ProxyUseAnim";
@@ -72,6 +76,16 @@ public class DeepNullItem extends Item {
 
     public DeepNullTier tier() {
         return tier;
+    }
+
+    @Override
+    public NullKind nullKind(ItemStack stack) {
+        return NullKind.DEEP;
+    }
+
+    @Override
+    public boolean overrideOtherStackedOnMe(ItemStack stack, ItemStack other, Slot slot, ClickAction action, Player player, SlotAccess access) {
+        return NullInventorySlotOpener.openFromInventorySlot(stack, other, slot, action, player, access);
     }
 
     @Override
@@ -90,6 +104,10 @@ public class DeepNullItem extends Item {
 
         DeepNullInventory inventory = new DeepNullInventory(tier, stack, level.registryAccess(), null);
         if (inventory.isFluidOnly()) {
+            InteractionResultHolder<ItemStack> balloonResult = tryLaunchDampNullBalloon(level, player, hand, stack, inventory);
+            if (balloonResult != null) {
+                return balloonResult;
+            }
             BlockHitResult hitResult = getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
             if (hitResult.getType() == HitResult.Type.BLOCK) {
                 InteractionResult spongeResult = tryUseSpongeAbsorption(level, player, stack, inventory, hitResult.getBlockPos());
@@ -176,6 +194,10 @@ public class DeepNullItem extends Item {
         }
 
         if (inventory.isFluidOnly()) {
+            InteractionResultHolder<ItemStack> balloonResult = tryLaunchDampNullBalloon(context.getLevel(), player, context.getHand(), context.getItemInHand(), inventory);
+            if (balloonResult != null) {
+                return balloonResult.getResult();
+            }
             InteractionResult fluidResult = tryUseStoredFluid(context, inventory);
             return fluidResult == null ? InteractionResult.PASS : fluidResult;
         }
@@ -304,6 +326,9 @@ public class DeepNullItem extends Item {
         }
         if (!inventory.isFluidOnly() && inventory.hasStoneworksUpgrade() && level.getGameTime() % 20L == Math.floorMod(slotId, 20)) {
             inventory.runStoneworksCycle(hasWaterDampNull(player));
+        }
+        if (!inventory.isFluidOnly() && inventory.hasFarmUpgrade()) {
+            inventory.runFarmCycle(level.getGameTime());
         }
         if (inventory.isFluidOnly()) {
             if (inventory.hasStoneGeneratorUpgrade() && level.getGameTime() % 20L == Math.floorMod(slotId, 20)) {
@@ -789,6 +814,33 @@ public class DeepNullItem extends Item {
             target = FluidUtil.getFluidHandler(context.getLevel(), context.getClickedPos(), null).orElse(null);
         }
         return target;
+    }
+
+    private static InteractionResultHolder<ItemStack> tryLaunchDampNullBalloon(
+            Level level,
+            Player player,
+            InteractionHand hand,
+            ItemStack dampNullStack,
+            DeepNullInventory inventory
+    ) {
+        if (!inventory.hasBalloonUpgrade() || !inventory.acceptsNormalFluids()) {
+            return null;
+        }
+        int selectedTank = inventory.getSelectedSlot();
+        if (selectedTank < 0 || selectedTank >= inventory.getFluidSlotCount()) {
+            return null;
+        }
+        FluidStack selectedFluid = inventory.getFluidInSlot(selectedTank);
+        if (selectedFluid.isEmpty() || selectedFluid.getAmount() < FluidType.BUCKET_VOLUME) {
+            return null;
+        }
+        if (!level.isClientSide) {
+            DampNullBalloonProjectile projectile = new DampNullBalloonProjectile(level, player, getInventorySlot(player, hand), selectedTank);
+            projectile.setPos(player.getX(), player.getEyeY() - 0.1D, player.getZ());
+            projectile.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0F, 1.15F, 0.75F);
+            level.addFreshEntity(projectile);
+        }
+        return InteractionResultHolder.sidedSuccess(dampNullStack, level.isClientSide);
     }
 
     private static InteractionResult tryUseStoredFluid(UseOnContext context, DeepNullInventory inventory) {

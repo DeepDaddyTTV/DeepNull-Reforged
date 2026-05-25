@@ -152,6 +152,18 @@ public enum DeepNullTier {
         return "damp_null_" + ordinalId;
     }
 
+    public String denNullId() {
+        return "den_null_" + ordinalId;
+    }
+
+    public String dripNullId() {
+        return "drip_null_" + ordinalId;
+    }
+
+    public String hexNullId() {
+        return "hex_null_" + ordinalId;
+    }
+
     public ResourceLocation guiTexture() {
         int textureIndex = rows() - 1 + (creative() ? 1 : 0);
         return DeepNullReforged.id("textures/gui/deepnullscreen" + textureIndex + ".png");
@@ -167,6 +179,18 @@ public enum DeepNullTier {
 
     public String dampNullTranslationKey() {
         return "item." + DeepNullReforged.MODID + "." + dampNullId();
+    }
+
+    public String denNullTranslationKey() {
+        return "item." + DeepNullReforged.MODID + "." + denNullId();
+    }
+
+    public String dripNullTranslationKey() {
+        return "item." + DeepNullReforged.MODID + "." + dripNullId();
+    }
+
+    public String hexNullTranslationKey() {
+        return "item." + DeepNullReforged.MODID + "." + hexNullId();
     }
 
     public DeepNullTier next() {

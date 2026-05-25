@@ -35,7 +35,7 @@ final class ClientUiText {
                     : Component.translatable("upgrade.kind.dampnull");
         }
         return switch (type) {
-            case STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS -> Component.translatable("upgrade.kind.dampnull");
+            case STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS, BALLOON -> Component.translatable("upgrade.kind.dampnull");
             case ENDER -> Component.translatable("upgrade.kind.anynull");
             default -> Component.translatable("upgrade.kind.deepnull");
         };
@@ -44,7 +44,7 @@ final class ClientUiText {
     static Component supportedTierText(DeepNullUpgradeType type) {
         return switch (type) {
             case FILTER -> Component.translatable("upgrade.tiers.iron_plus");
-            case FLUID, AUTO_FEEDING, AUTO_SMELTING, BASIC_COMPRESSION, ADVANCED_COMPRESSION, STONEWORKS, STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, GAS, ENDER ->
+            case FLUID, AUTO_FEEDING, AUTO_SMELTING, BASIC_COMPRESSION, ADVANCED_COMPRESSION, DIVNULL, STONEWORKS, STONE_GENERATOR, OBSIDIAN_GENERATOR, SPONGE, BALLOON, GAS, ENDER, FARM ->
                     Component.translatable("upgrade.tiers.every_tier");
             case ENERGY -> Component.translatable("upgrade.tiers.diamond_plus");
             case DEEP_ENERGY -> Component.translatable("upgrade.tiers.emerald_only");

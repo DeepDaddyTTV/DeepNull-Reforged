@@ -3,13 +3,19 @@ package dev.deepdaddyttv.deepnullreforged.network;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullSlotDomain;
+import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.DeepNullCraftingTransferSupport;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.ServerDeepNullJeiSession;
+import dev.deepdaddyttv.deepnullreforged.hubnull.HubNullData;
+import dev.deepdaddyttv.deepnullreforged.hubnull.HubNullSnapshot;
+import dev.deepdaddyttv.deepnullreforged.hubnull.HubNullStationRef;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.HubNullItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenuOpener;
 import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
@@ -24,9 +30,17 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+
 public final class DeepNullPayloads {
+    private static final int MAX_TANK_CONTENTS = 256;
+
     private DeepNullPayloads() {
     }
 
@@ -36,6 +50,10 @@ public final class DeepNullPayloads {
 
     public static void register(RegisterPayloadHandlersEvent event) {
         var registrar = event.registrar("1");
+        registrar.playToClient(FluidContentsPayload.TYPE, FluidContentsPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> handleClientFluidContents(payload)));
+        registrar.playToClient(FarmConfigPayload.TYPE, FarmConfigPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> handleClientFarmConfig(payload)));
         registrar.playToServer(OpenItemMenuPayload.TYPE, OpenItemMenuPayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
@@ -64,6 +82,24 @@ public final class DeepNullPayloads {
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
                         handleMenuReorder(payload, player);
+                    }
+                }));
+        registrar.playToServer(MenuSlotSwapPayload.TYPE, MenuSlotSwapPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuSlotSwap(payload, player);
+                    }
+                }));
+        registrar.playToServer(MenuTankMergePayload.TYPE, MenuTankMergePayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuTankMerge(payload, player);
+                    }
+                }));
+        registrar.playToServer(MenuDivNullLayerPayload.TYPE, MenuDivNullLayerPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuDivNullLayer(payload, player);
                     }
                 }));
         registrar.playToServer(MenuLockPayload.TYPE, MenuLockPayload.STREAM_CODEC, (payload, context) ->
@@ -124,6 +160,24 @@ public final class DeepNullPayloads {
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
                         handleMenuStoneworksToggle(payload, player);
+                    }
+                }));
+        registrar.playToServer(MenuFarmSubstratePayload.TYPE, MenuFarmSubstratePayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuFarmSubstrate(payload, player);
+                    }
+                }));
+        registrar.playToServer(MenuFarmEnabledPayload.TYPE, MenuFarmEnabledPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuFarmEnabled(payload, player);
+                    }
+                }));
+        registrar.playToServer(MenuClearItemSlotPayload.TYPE, MenuClearItemSlotPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleMenuClearItemSlot(payload, player);
                     }
                 }));
         registrar.playToServer(HeldTransferModePayload.TYPE, HeldTransferModePayload.STREAM_CODEC, (payload, context) ->
@@ -188,6 +242,30 @@ public final class DeepNullPayloads {
                 }));
     }
 
+    public static void sendFluidContents(ServerPlayer player, int containerId, List<FluidStack> fluids, List<StoredChemical> chemicals) {
+        PacketDistributor.sendToPlayer(player, new FluidContentsPayload(containerId, fluids, chemicals));
+    }
+
+    public static void sendFarmConfig(ServerPlayer player, int containerId, boolean enabled, ItemStack substrate) {
+        PacketDistributor.sendToPlayer(player, new FarmConfigPayload(containerId, enabled, substrate.copy()));
+    }
+
+    private static void handleClientFluidContents(FluidContentsPayload payload) {
+        try {
+            Class<?> handler = Class.forName("dev.deepdaddyttv.deepnullreforged.client.DeepNullClientPayloadHandler");
+            handler.getMethod("handleFluidContents", FluidContentsPayload.class).invoke(null, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+        }
+    }
+
+    private static void handleClientFarmConfig(FarmConfigPayload payload) {
+        try {
+            Class<?> handler = Class.forName("dev.deepdaddyttv.deepnullreforged.client.DeepNullClientPayloadHandler");
+            handler.getMethod("handleFarmConfig", FarmConfigPayload.class).invoke(null, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+        }
+    }
+
     private static void handleOpenItemMenu(OpenItemMenuPayload payload, ServerPlayer player) {
         DeepNullMenuOpener.openHeldItem(player, player.getInventory(), payload.inventorySlot());
     }
@@ -201,6 +279,21 @@ public final class DeepNullPayloads {
         if (menu.getSourceType() == DeepNullMenu.SourceType.ITEM) {
             syncContentMode(player.getInventory().getItem(menu.getInventorySlot()), player, viewMode);
             DeepNullMenuOpener.openHeldItem(player, player.getInventory(), menu.getInventorySlot(), viewMode);
+            return;
+        }
+
+        if (menu.getSourceType() == DeepNullMenu.SourceType.REMOTE_DOCK && menu.getDockPos() != null && menu.getRemoteDimension() != null) {
+            ItemStack hubStack = menu.getHubInventorySlot() >= 0 && menu.getHubInventorySlot() < player.getInventory().getContainerSize()
+                    ? player.getInventory().getItem(menu.getHubInventorySlot())
+                    : ItemStack.EMPTY;
+            HubNullStationRef ref = new HubNullStationRef(menu.getRemoteDimension(), menu.getDockPos(), "");
+            dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity dock = hubStack.getItem() instanceof HubNullItem
+                    ? HubNullSnapshot.resolveOnlineDock(player.server, HubNullData.get(hubStack), ref)
+                    : null;
+            if (dock != null) {
+                syncDockContentMode(dock, viewMode);
+                DeepNullMenuOpener.openRemoteDock(player, menu.getHubInventorySlot(), ref, dock, viewMode);
+            }
             return;
         }
 
@@ -298,6 +391,25 @@ public final class DeepNullPayloads {
         }
     }
 
+    private static void handleMenuSlotSwap(MenuSlotSwapPayload payload, ServerPlayer player) {
+        if (player.containerMenu instanceof DeepNullMenu menu
+                && menu.moveStorageSlot(NullSlotDomain.byId(payload.domainId()), payload.fromSlot(), payload.toSlot())) {
+            menu.broadcastChanges();
+        }
+    }
+
+    private static void handleMenuTankMerge(MenuTankMergePayload payload, ServerPlayer player) {
+        if (player.containerMenu instanceof DeepNullMenu menu && menu.mergeTankSlot(payload.fromSlot(), payload.toSlot())) {
+            menu.broadcastChanges();
+        }
+    }
+
+    private static void handleMenuDivNullLayer(MenuDivNullLayerPayload payload, ServerPlayer player) {
+        if (player.containerMenu instanceof DeepNullMenu menu && menu.setDivNullLayer(payload.slot(), payload.layerId())) {
+            menu.broadcastChanges();
+        }
+    }
+
     private static void handleMenuFilterMode(MenuFilterModePayload payload, ServerPlayer player) {
         if (!(player.containerMenu instanceof DeepNullMenu menu)) {
             return;
@@ -366,6 +478,34 @@ public final class DeepNullPayloads {
 
         if (menu.toggleStoneworksMonitoring(StoneworksMaterial.byId(payload.materialId()))) {
             menu.broadcastChanges();
+        }
+    }
+
+    private static void handleMenuFarmSubstrate(MenuFarmSubstratePayload payload, ServerPlayer player) {
+        if (!(player.containerMenu instanceof DeepNullMenu menu)) {
+            return;
+        }
+
+        if (menu.setFarmSubstrate(payload.substrate())) {
+            menu.broadcastChanges();
+            menu.syncFarmConfigToClient(true);
+        }
+    }
+
+    private static void handleMenuFarmEnabled(MenuFarmEnabledPayload payload, ServerPlayer player) {
+        if (!(player.containerMenu instanceof DeepNullMenu menu)) {
+            return;
+        }
+
+        if (menu.setFarmEnabled(payload.enabled())) {
+            menu.broadcastChanges();
+            menu.syncFarmConfigToClient(true);
+        }
+    }
+
+    private static void handleMenuClearItemSlot(MenuClearItemSlotPayload payload, ServerPlayer player) {
+        if (player.containerMenu instanceof DeepNullMenu menu) {
+            menu.clearStorageSlotToPlayer(payload.slot(), player);
         }
     }
 
@@ -443,6 +583,117 @@ public final class DeepNullPayloads {
             DeepNullCraftingTransferSupport.returnCraftingSnapshotContents(player, payload.containerId(), payload.craftContents());
         }
         ServerDeepNullJeiSession.clear(player);
+    }
+
+    public record FluidContentsPayload(
+            int containerId,
+            List<FluidStack> fluids,
+            List<StoredChemical> chemicals
+    ) implements CustomPacketPayload {
+        public static final Type<FluidContentsPayload> TYPE = payloadType("deep_null_fluid_contents");
+        public static final StreamCodec<RegistryFriendlyByteBuf, FluidContentsPayload> STREAM_CODEC = StreamCodec.ofMember(FluidContentsPayload::encode, FluidContentsPayload::decode);
+
+        private static FluidContentsPayload decode(RegistryFriendlyByteBuf buffer) {
+            return new FluidContentsPayload(
+                    buffer.readVarInt(),
+                    readFluidStacks(buffer),
+                    readChemicalStacks(buffer)
+            );
+        }
+
+        private void encode(RegistryFriendlyByteBuf buffer) {
+            buffer.writeVarInt(containerId);
+            writeFluidStacks(buffer, fluids);
+            writeChemicalStacks(buffer, chemicals);
+        }
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record FarmConfigPayload(int containerId, boolean enabled, ItemStack substrate) implements CustomPacketPayload {
+        public static final Type<FarmConfigPayload> TYPE = payloadType("farm_config");
+        public static final StreamCodec<RegistryFriendlyByteBuf, FarmConfigPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        FarmConfigPayload::containerId,
+                        ByteBufCodecs.BOOL,
+                        FarmConfigPayload::enabled,
+                        ItemStack.OPTIONAL_STREAM_CODEC,
+                        FarmConfigPayload::substrate,
+                        FarmConfigPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    private static List<FluidStack> readFluidStacks(RegistryFriendlyByteBuf buffer) {
+        int encodedCount = Math.max(0, buffer.readVarInt());
+        int acceptedCount = Math.min(encodedCount, MAX_TANK_CONTENTS);
+        List<FluidStack> fluids = new ArrayList<>(acceptedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            FluidStack fluidStack = FluidStack.OPTIONAL_STREAM_CODEC.decode(buffer);
+            if (index < acceptedCount) {
+                fluids.add(fluidStack.isEmpty() ? FluidStack.EMPTY : fluidStack.copy());
+            }
+        }
+        return List.copyOf(fluids);
+    }
+
+    private static void writeFluidStacks(RegistryFriendlyByteBuf buffer, List<FluidStack> fluids) {
+        int encodedCount = Math.min(fluids == null ? 0 : fluids.size(), MAX_TANK_CONTENTS);
+        buffer.writeVarInt(encodedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            FluidStack fluidStack = fluids.get(index);
+            FluidStack.OPTIONAL_STREAM_CODEC.encode(buffer, fluidStack == null ? FluidStack.EMPTY : fluidStack);
+        }
+    }
+
+    private static List<StoredChemical> readChemicalStacks(RegistryFriendlyByteBuf buffer) {
+        int encodedCount = Math.max(0, buffer.readVarInt());
+        int acceptedCount = Math.min(encodedCount, MAX_TANK_CONTENTS);
+        List<StoredChemical> chemicals = new ArrayList<>(acceptedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            StoredChemical chemical = readChemical(buffer);
+            if (index < acceptedCount) {
+                chemicals.add(chemical.copy());
+            }
+        }
+        return List.copyOf(chemicals);
+    }
+
+    private static void writeChemicalStacks(RegistryFriendlyByteBuf buffer, List<StoredChemical> chemicals) {
+        int encodedCount = Math.min(chemicals == null ? 0 : chemicals.size(), MAX_TANK_CONTENTS);
+        buffer.writeVarInt(encodedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            writeChemical(buffer, chemicals.get(index));
+        }
+    }
+
+    private static StoredChemical readChemical(RegistryFriendlyByteBuf buffer) {
+        String chemicalId = buffer.readUtf();
+        long amount = buffer.readVarLong();
+        String iconPath = buffer.readUtf();
+        int tint = buffer.readInt();
+        String translationKey = buffer.readUtf();
+        boolean gaseous = buffer.readBoolean();
+        StoredChemical chemical = new StoredChemical(chemicalId, amount, iconPath, tint, translationKey, gaseous);
+        return chemical.isEmpty() ? StoredChemical.EMPTY : chemical;
+    }
+
+    private static void writeChemical(RegistryFriendlyByteBuf buffer, StoredChemical chemical) {
+        StoredChemical value = chemical == null ? StoredChemical.EMPTY : chemical;
+        buffer.writeUtf(value.chemicalId());
+        buffer.writeVarLong(Math.max(0L, value.amount()));
+        buffer.writeUtf(value.iconPath());
+        buffer.writeInt(value.tint());
+        buffer.writeUtf(value.translationKey());
+        buffer.writeBoolean(value.gaseous());
     }
 
     public record OpenItemMenuPayload(int inventorySlot) implements CustomPacketPayload {
@@ -562,6 +813,59 @@ public final class DeepNullPayloads {
         }
     }
 
+    public record MenuSlotSwapPayload(int fromSlot, int toSlot, int domainId) implements CustomPacketPayload {
+        public static final Type<MenuSlotSwapPayload> TYPE = payloadType("menu_slot_swap");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuSlotSwapPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        MenuSlotSwapPayload::fromSlot,
+                        ByteBufCodecs.VAR_INT,
+                        MenuSlotSwapPayload::toSlot,
+                        ByteBufCodecs.VAR_INT,
+                        MenuSlotSwapPayload::domainId,
+                        MenuSlotSwapPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record MenuTankMergePayload(int fromSlot, int toSlot) implements CustomPacketPayload {
+        public static final Type<MenuTankMergePayload> TYPE = payloadType("menu_tank_merge");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuTankMergePayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        MenuTankMergePayload::fromSlot,
+                        ByteBufCodecs.VAR_INT,
+                        MenuTankMergePayload::toSlot,
+                        MenuTankMergePayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record MenuDivNullLayerPayload(int slot, ResourceLocation layerId) implements CustomPacketPayload {
+        public static final Type<MenuDivNullLayerPayload> TYPE = payloadType("menu_divnull_layer");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuDivNullLayerPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        MenuDivNullLayerPayload::slot,
+                        ResourceLocation.STREAM_CODEC,
+                        MenuDivNullLayerPayload::layerId,
+                        MenuDivNullLayerPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     public record MenuFilterModePayload(int modeId) implements CustomPacketPayload {
         public static final Type<MenuFilterModePayload> TYPE = payloadType("menu_filter_mode");
         public static final StreamCodec<RegistryFriendlyByteBuf, MenuFilterModePayload> STREAM_CODEC =
@@ -635,6 +939,43 @@ public final class DeepNullPayloads {
         public static final Type<MenuStoneworksTogglePayload> TYPE = payloadType("menu_stoneworks_toggle");
         public static final StreamCodec<RegistryFriendlyByteBuf, MenuStoneworksTogglePayload> STREAM_CODEC =
                 StreamCodec.composite(ByteBufCodecs.VAR_INT, MenuStoneworksTogglePayload::materialId, MenuStoneworksTogglePayload::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record MenuFarmSubstratePayload(ItemStack substrate) implements CustomPacketPayload {
+        public static final Type<MenuFarmSubstratePayload> TYPE = payloadType("menu_farm_substrate");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuFarmSubstratePayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ItemStack.OPTIONAL_STREAM_CODEC,
+                        MenuFarmSubstratePayload::substrate,
+                        MenuFarmSubstratePayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record MenuFarmEnabledPayload(boolean enabled) implements CustomPacketPayload {
+        public static final Type<MenuFarmEnabledPayload> TYPE = payloadType("menu_farm_enabled");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuFarmEnabledPayload> STREAM_CODEC =
+                StreamCodec.composite(ByteBufCodecs.BOOL, MenuFarmEnabledPayload::enabled, MenuFarmEnabledPayload::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record MenuClearItemSlotPayload(int slot) implements CustomPacketPayload {
+        public static final Type<MenuClearItemSlotPayload> TYPE = payloadType("menu_clear_item_slot");
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuClearItemSlotPayload> STREAM_CODEC =
+                StreamCodec.composite(ByteBufCodecs.VAR_INT, MenuClearItemSlotPayload::slot, MenuClearItemSlotPayload::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
