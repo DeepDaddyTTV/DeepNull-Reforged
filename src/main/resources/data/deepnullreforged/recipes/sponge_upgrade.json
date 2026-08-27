@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PHP",
+    "SUS",
+    "PFP"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:prismarine"
+    },
+    "H": {
+      "item": "minecraft:pufferfish"
+    },
+    "S": {
+      "item": "minecraft:sponge"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    },
+    "F": {
+      "item": "minecraft:furnace"
+    }
+  },
+  "result": {
+    "item": "deepnullreforged:sponge_upgrade",
+    "count": 1
+  }
+}

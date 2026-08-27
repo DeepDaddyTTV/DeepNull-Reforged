@@ -1,0 +1,32 @@
+{
+  "type": "forge:conditional",
+  "recipes": [
+    {
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "mekanism"
+        }
+      ],
+      "recipe": {
+        "type": "minecraft:crafting_shaped",
+        "pattern": [
+          "ORO",
+          "TUT",
+          "OAO"
+        ],
+        "key": {
+          "O": { "tag": "forge:ingots/osmium" },
+          "R": { "item": "mekanism:ingot_refined_obsidian" },
+          "T": { "item": "mekanism:ultimate_chemical_tank" },
+          "U": { "item": "deepnullreforged:upgrade_core" },
+          "A": { "tag": "mekanism:alloys/atomic" }
+        },
+        "result": {
+          "item": "deepnullreforged:gas_upgrade",
+          "count": 1
+        }
+      }
+    }
+  ]
+}

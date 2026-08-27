@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IBI",
+    "BUB",
+    "IBI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "B": {
+      "item": "deepnullreforged:basic_compression_upgrade"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "item": "deepnullreforged:advanced_compression_upgrade",
+    "count": 1
+  }
+}

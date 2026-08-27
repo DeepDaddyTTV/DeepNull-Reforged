@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " F ",
+    "PPP",
+    "I I"
+  ],
+  "key": {
+    "F": {
+      "tag": "deepnullreforged:null_frames"
+    },
+    "P": {
+      "tag": "minecraft:planks"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "deepnullreforged:null_workbench"
+  }
+}

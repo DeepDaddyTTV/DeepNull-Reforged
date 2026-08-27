@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ERE",
+    "RUR",
+    "ERE"
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:redstone_block"
+    },
+    "E": {
+      "item": "minecraft:emerald"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "item": "deepnullreforged:energy_upgrade",
+    "count": 1
+  }
+}

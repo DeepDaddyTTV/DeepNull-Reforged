@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "aca",
+    "cbc",
+    "aca"
+  ],
+  "key": {
+    "a": {
+      "item": "minecraft:emerald"
+    },
+    "b": {
+      "item": "minecraft:green_stained_glass_pane"
+    },
+    "c": {
+      "item": "minecraft:coal_block"
+    }
+  },
+  "result": {
+    "item": "deepnullreforged:deep_null_panel_5",
+    "count": 1
+  }
+}

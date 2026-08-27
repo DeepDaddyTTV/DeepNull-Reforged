@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "LLL",
+    "DUD",
+    "WWW"
+  ],
+  "key": {
+    "L": {
+      "item": "minecraft:lava_bucket"
+    },
+    "D": {
+      "item": "minecraft:diamond_pickaxe"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    },
+    "W": {
+      "item": "minecraft:water_bucket"
+    }
+  },
+  "result": {
+    "item": "deepnullreforged:obsidian_generator_upgrade",
+    "count": 1
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " a ",
+    "aaa",
+    " a "
+  ],
+  "key": {
+    "a": {
+      "item": "deepnullreforged:deep_null_panel_4"
+    }
+  },
+  "result": {
+    "item": "deepnullreforged:deep_null_4",
+    "count": 1
+  }
+}

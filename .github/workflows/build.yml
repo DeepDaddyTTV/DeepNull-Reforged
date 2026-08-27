@@ -12,10 +12,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Setup JDK 21
+      - name: Setup JDK 8
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '8'
           distribution: 'temurin'
 
       - name: Setup Gradle
@@ -24,8 +24,14 @@ jobs:
       - name: Build and run unit tests
         run: ./gradlew build --stacktrace -PincludeJeiRuntime=false -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
 
-      - name: Run regression GameTests
-        run: ./gradlew runGameTestServer --stacktrace -PincludeJeiRuntime=false -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
+      - name: Verify Forge data loading
+        run: ./gradlew runData --stacktrace -PincludeJeiRuntime=false -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
+
+      - name: Upload port jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepnull-reforged-1.16.5
+          path: build/libs/*.jar
 
       - name: Upload test logs
         if: failure()
@@ -56,10 +62,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Setup JDK 21
+      - name: Setup JDK 8
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '8'
           distribution: 'temurin'
 
       - name: Setup Gradle
@@ -67,9 +73,6 @@ jobs:
 
       - name: Build and run unit tests
         run: ./gradlew build --stacktrace ${{ matrix.gradle_args }}
-
-      - name: Run regression GameTests
-        run: ./gradlew runGameTestServer --stacktrace ${{ matrix.gradle_args }}
 
       - name: Upload test logs
         if: failure()

@@ -2,7 +2,9 @@
   <img src="./deepnull_media_logo_just_text.png" alt="DeepNull Reforged" width="960">
 </p>
 
-A modern NeoForge port and expansion of `/dank/null` by p455w0rd, rebuilt for Minecraft `1.21.1`.
+A Forge port of DeepNull Reforged `4.2.1` for Minecraft `1.16.5`, based only on the published `v4.2.1` release.
+
+> This branch is the `1.16.5` compatibility line. The original `1.21.1` implementation is retained in `src/main/java` as a release reference; Forge 1.16.5 compiles the API-specific implementation in `src/legacy/java`.
 
 DeepNull Reforged keeps the original fast-access storage concept, then pushes it further with modern automation support, fluid handling, JEI integration, upgrades, configuration, in-game documentation, and a full companion fluid variant called the DampNull.
 
@@ -13,6 +15,7 @@ DeepNull Reforged keeps the original fast-access storage concept, then pushes it
 - [Downloads](#downloads)
 - [Installation](#installation)
 - [What It Does](#what-it-does)
+- [1.16.5 Compatibility](#1165-compatibility)
 - [Issues and Support](#issues-and-support)
 - [Wiki](#wiki)
 - [Building](#building)
@@ -34,6 +37,19 @@ The mod is built around:
 - upgrade-driven customization for storage, filtering, feeding, smelting, compression, transfer behavior, generation, and styling
 - companion documentation through both the GitHub wiki and optional GuideME integration
 
+## 1.16.5 Compatibility
+
+The 1.16.5 port includes:
+
+- all released DeepNull, DampNull, panel, dock, workbench, synchronizer, and upgrade registry IDs
+- tiered portable item storage with extended integer stack counts, a six-row menu, direct selected-item use, matching-item auto-pickup, and Shift+wheel or middle-click selection
+- multi-tank DampNull fluid storage, fluid capability transfer, source pickup/placement, and Sponge Upgrade absorption
+- a dock that exposes the inserted Null's item, fluid, or energy capability to Forge-compatible automation
+- tier upgrades that preserve stored NBT, energy storage, auto-feeding, auto-smelting, 2x2/3x3 compression, stone/obsidian generation, synchronizer backup/restore, and JEI information/crafting integration
+- Java 8 and Forge `36.2.42` compatibility
+
+Minecraft 1.16.5 has no GuideME release, and the 1.21.1 Mekanism chemical, AE2-aware crafting-transfer, workbench styling, and cross-dimensional Ender mirroring implementations do not have direct API equivalents in this branch. Their item IDs and recipes remain present for pack/world compatibility; the standard Forge item/fluid/energy dock capabilities remain available.
+
 ## Project Links
 
 - [CurseForge](https://www.curseforge.com/minecraft/mc-mods/deepnull-reforged)
@@ -52,8 +68,8 @@ Stable builds are published on:
 
 ## Installation
 
-1. Install Minecraft `1.21.1`.
-2. Install NeoForge `21.1.219` or newer within the supported `1.21.1` range.
+1. Install Minecraft `1.16.5`.
+2. Install Forge `36.2.42`.
 3. Place the downloaded `deepnull-reforged-*.jar` file in your `minecraft/mods/` folder.
 
 ## What It Does
@@ -172,11 +188,11 @@ The full user-facing documentation is available on the GitHub wiki:
 
 ## Building
 
-This project targets:
+This branch targets:
 
-- Minecraft `1.21.1`
-- NeoForge `21.1.219`
-- Java `21`
+- Minecraft `1.16.5`
+- Forge `36.2.42`
+- Java `8`
 
 Build with:
 

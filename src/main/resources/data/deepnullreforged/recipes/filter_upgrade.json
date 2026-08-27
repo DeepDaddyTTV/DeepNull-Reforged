@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "deepnullreforged:filter"
+    },
+    {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  ],
+  "result": {
+    "item": "deepnullreforged:filter_upgrade",
+    "count": 1
+  }
+}

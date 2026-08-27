@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IBI",
+    "BUB",
+    "IBI"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:bucket"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "U": {
+      "item": "deepnullreforged:upgrade_core"
+    }
+  },
+  "result": {
+    "item": "deepnullreforged:fluid_upgrade",
+    "count": 1
+  }
+}

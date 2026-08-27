@@ -22,6 +22,7 @@ eclipse
 run
 runs
 run-data
+src/generated/
 .DS_Store
 .jdk
 mdk-1.21.1
