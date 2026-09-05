@@ -2894,20 +2894,15 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     private boolean passesGhostSlotFilter(NonNullList<ItemStack> configuredStacks, DeepNullFilterMode mode, ItemStack stack) {
-        boolean hasEntries = false;
         boolean matched = false;
         for (ItemStack filterStack : configuredStacks) {
             if (filterStack.isEmpty()) {
                 continue;
             }
-            hasEntries = true;
             if (matchesFilterStack(filterStack, stack)) {
                 matched = true;
                 break;
             }
-        }
-        if (!hasEntries) {
-            return true;
         }
         return mode == DeepNullFilterMode.WHITELIST ? matched : !matched;
     }

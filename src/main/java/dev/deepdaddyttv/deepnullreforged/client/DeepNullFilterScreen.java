@@ -128,10 +128,6 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (super.mouseClicked(event, doubleClick)) {
-            return true;
-        }
-
         if (event.button() == 2 && isWithin(event.x(), event.y(), leftPos, topPos, imageWidth, imageHeight)) {
             return true;
         }
@@ -166,7 +162,7 @@ public class DeepNullFilterScreen extends AbstractContainerScreen<DeepNullMenu> 
             }
         }
 
-        return false;
+        return super.mouseClicked(event, doubleClick);
     }
 
     private static boolean isWithin(double mouseX, double mouseY, int x, int y, int width, int height) {
