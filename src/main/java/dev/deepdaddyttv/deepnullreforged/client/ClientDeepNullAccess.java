@@ -1,6 +1,7 @@
 package dev.deepdaddyttv.deepnullreforged.client;
 
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -57,5 +58,36 @@ public final class ClientDeepNullAccess {
     }
 
     public record HeldDeepNull(int inventorySlot, ItemStack stack, DeepNullInventory inventory) {
+    }
+
+    /**
+     * Cheap alternative to {@link #findHeldDeepNull} for callers that only need to know what's
+     * currently selected (e.g. HUD change-detection) and don't need read/write access to the
+     * rest of the storage. Safe to call every tick or every frame.
+     */
+    public static @Nullable HeldDeepNullPreview peekHeldDeepNull(Player player) {
+        int mainHandSlot = player.getInventory().getSelectedSlot();
+        ItemStack mainHandStack = player.getInventory().getItem(mainHandSlot);
+        if (mainHandStack.getItem() instanceof DeepNullItem deepNullItem) {
+            return new HeldDeepNullPreview(
+                    mainHandSlot,
+                    mainHandStack,
+                    DeepNullInventory.peekSelectedForRender(mainHandStack, deepNullItem instanceof DampNullItem)
+            );
+        }
+
+        ItemStack offhandStack = player.getOffhandItem();
+        if (offhandStack.getItem() instanceof DeepNullItem deepNullItem) {
+            return new HeldDeepNullPreview(
+                    40,
+                    offhandStack,
+                    DeepNullInventory.peekSelectedForRender(offhandStack, deepNullItem instanceof DampNullItem)
+            );
+        }
+
+        return null;
+    }
+
+    public record HeldDeepNullPreview(int inventorySlot, ItemStack stack, DeepNullInventory.SelectedRenderPreview preview) {
     }
 }
