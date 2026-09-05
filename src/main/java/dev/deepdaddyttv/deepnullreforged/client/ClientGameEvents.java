@@ -86,33 +86,48 @@ public final class ClientGameEvents {
             ClientPacketDistributor.sendToServer(DeepNullPayloads.ToggleGlobalAutoPickupPayload.INSTANCE);
         }
 
+        // consumeClick() has a side effect (it resets the key's click counter), so every one of
+        // these must be polled every tick regardless of outcome. But building `held` is a full
+        // DeepNullInventory decode, so defer it until we know at least one hotkey actually fired.
+        boolean autoPickupClicked = ClientModEvents.TOGGLE_AUTO_PICKUP.consumeClick();
+        boolean autoFeedingClicked = ClientModEvents.TOGGLE_AUTO_FEEDING.consumeClick();
+        boolean autoSmeltingClicked = ClientModEvents.TOGGLE_AUTO_SMELTING.consumeClick();
+        boolean stoneGeneratorClicked = ClientModEvents.CYCLE_STONE_GENERATOR.consumeClick();
+        boolean nextItemClicked = ClientModEvents.NEXT_ITEM.consumeClick();
+        boolean previousItemClicked = ClientModEvents.PREVIOUS_ITEM.consumeClick();
+
+        if (!autoPickupClicked && !autoFeedingClicked && !autoSmeltingClicked
+                && !stoneGeneratorClicked && !nextItemClicked && !previousItemClicked) {
+            return;
+        }
+
         ClientDeepNullAccess.HeldDeepNull held = ClientDeepNullAccess.findHeldDeepNull(player);
         if (held == null) {
             return;
         }
 
-        if (ClientModEvents.TOGGLE_AUTO_PICKUP.consumeClick()) {
+        if (autoPickupClicked) {
             handleAutoPickupHotkey(player, held);
         }
 
-        if (ClientModEvents.TOGGLE_AUTO_FEEDING.consumeClick()) {
+        if (autoFeedingClicked) {
             handleAutoFeedingHotkey(player, held);
         }
 
-        if (ClientModEvents.TOGGLE_AUTO_SMELTING.consumeClick()) {
+        if (autoSmeltingClicked) {
             handleAutoSmeltingHotkey(player, held);
         }
 
-        if (ClientModEvents.CYCLE_STONE_GENERATOR.consumeClick()) {
+        if (stoneGeneratorClicked) {
             handleStoneGeneratorHotkey(player, held);
         }
 
-        if (ClientModEvents.NEXT_ITEM.consumeClick()) {
+        if (nextItemClicked) {
             held.inventory().cycleSelected(true);
             ClientPacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), held.inventory().getSelectedSlot()));
         }
 
-        if (ClientModEvents.PREVIOUS_ITEM.consumeClick()) {
+        if (previousItemClicked) {
             held.inventory().cycleSelected(false);
             ClientPacketDistributor.sendToServer(new DeepNullPayloads.SetSelectedSlotPayload(held.inventorySlot(), held.inventory().getSelectedSlot()));
         }

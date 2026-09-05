@@ -245,6 +245,137 @@ public class DeepNullInventory extends ItemStackHandler {
         return StyleGlassVariant.byId(root.getStringOr(STYLE_VARIANT_TAG, StyleGlassVariant.DEFAULT.id()));
     }
 
+    /**
+     * Cheaply checks whether any of the given upgrades are installed, without decoding the
+     * storage/filter/fluid data. Intended for capability-provider gating, where the answer is
+     * "no" far more often than "yes" and callers outside this mod may probe it constantly.
+     */
+    public static boolean peekHasAnyUpgrade(ItemStack stack, DeepNullUpgradeType... types) {
+        CompoundTag root = getRootTagView(stack);
+        if (root == null) {
+            return false;
+        }
+        Tag upgrades = root.getListOrEmpty(UPGRADES_TAG);
+        for (DeepNullUpgradeType type : types) {
+            ItemStack upgradeStack = peekItemEntry(upgrades, type.slot());
+            if (!upgradeStack.isEmpty() && upgradeStack.getItem() instanceof DeepNullUpgradeItem upgradeItem && upgradeItem.type() == type) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Looks up just the currently-selected slot's contents for rendering, without decoding the
+     * rest of the storage/filter/fluid data. Safe to call every frame.
+     */
+    public static SelectedRenderPreview peekSelectedForRender(ItemStack stack, boolean fluidOnly) {
+        CompoundTag root = getRootTagView(stack);
+        if (root == null) {
+            return SelectedRenderPreview.EMPTY;
+        }
+
+        int selectedSlot = root.getIntOr(SELECTED_TAG, -1);
+        if (selectedSlot < 0) {
+            return SelectedRenderPreview.EMPTY;
+        }
+
+        DeepNullContentMode contentMode = fluidOnly
+                ? DeepNullContentMode.FLUIDS
+                : DeepNullContentMode.byId(root.getIntOr(CONTENT_MODE_TAG, DeepNullContentMode.ITEMS.ordinal()));
+
+        if (contentMode == DeepNullContentMode.FLUIDS) {
+            FluidStack fluid = peekFluidEntry(root.getListOrEmpty(FLUIDS_TAG), selectedSlot);
+            StoredChemical chemical = fluid.isEmpty() ? peekChemicalEntry(root.getListOrEmpty(CHEMICALS_TAG), selectedSlot) : StoredChemical.EMPTY;
+            return new SelectedRenderPreview(contentMode, selectedSlot, ItemStack.EMPTY, fluid, chemical);
+        }
+
+        String itemsKey = isEnderMirrorLinked(root) ? ENDER_MIRROR_ITEMS_TAG : ITEMS_TAG;
+        ItemStack itemStack = peekStoredItemEntry(root.getListOrEmpty(itemsKey), selectedSlot);
+        return new SelectedRenderPreview(contentMode, selectedSlot, itemStack, FluidStack.EMPTY, StoredChemical.EMPTY);
+    }
+
+    private static boolean isEnderMirrorLinked(CompoundTag root) {
+        ItemStack enderUpgrade = peekItemEntry(root.getListOrEmpty(UPGRADES_TAG), DeepNullUpgradeType.ENDER.slot());
+        return !enderUpgrade.isEmpty() && EnderUpgradeItem.isLinked(enderUpgrade);
+    }
+
+    private static ItemStack peekItemEntry(Tag storedList, int slot) {
+        if (slot < 0 || !(storedList instanceof ListTag listTag)) {
+            return ItemStack.EMPTY;
+        }
+        for (int i = 0; i < listTag.size(); i++) {
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            if (entry.getIntOr(SLOT_TAG, -1) != slot) {
+                continue;
+            }
+            try {
+                return readItemValue(entry, STACK_TAG);
+            } catch (RuntimeException exception) {
+                return ItemStack.EMPTY;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static ItemStack peekStoredItemEntry(Tag storedList, int slot) {
+        if (slot < 0 || !(storedList instanceof ListTag listTag)) {
+            return ItemStack.EMPTY;
+        }
+        for (int i = 0; i < listTag.size(); i++) {
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            if (entry.getIntOr(SLOT_TAG, -1) != slot) {
+                continue;
+            }
+            ItemStack stack;
+            try {
+                stack = readItemValue(entry, STACK_TAG);
+            } catch (RuntimeException exception) {
+                return ItemStack.EMPTY;
+            }
+            if (stack.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            int storedCount = hasNumeric(entry, COUNT_TAG) ? entry.getIntOr(COUNT_TAG, stack.getCount()) : stack.getCount();
+            if (storedCount <= 0) {
+                return ItemStack.EMPTY;
+            }
+            stack.setCount(storedCount);
+            return stack;
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static FluidStack peekFluidEntry(Tag storedList, int slot) {
+        if (slot < 0 || !(storedList instanceof ListTag listTag)) {
+            return FluidStack.EMPTY;
+        }
+        for (int i = 0; i < listTag.size(); i++) {
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            if (entry.getIntOr(SLOT_TAG, -1) == slot) {
+                return readFluidValue(entry, STACK_TAG);
+            }
+        }
+        return FluidStack.EMPTY;
+    }
+
+    private static StoredChemical peekChemicalEntry(Tag storedList, int slot) {
+        if (slot < 0 || !(storedList instanceof ListTag listTag)) {
+            return StoredChemical.EMPTY;
+        }
+        for (int i = 0; i < listTag.size(); i++) {
+            CompoundTag entry = listTag.getCompoundOrEmpty(i);
+            if (entry.getIntOr(SLOT_TAG, -1) == slot) {
+                return StoredChemical.load(entry.getCompoundOrEmpty(STACK_TAG));
+            }
+        }
+        return StoredChemical.EMPTY;
+    }
+
+    public record SelectedRenderPreview(DeepNullContentMode contentMode, int selectedSlot, ItemStack itemStack, FluidStack fluidStack, StoredChemical chemicalStack) {
+        public static final SelectedRenderPreview EMPTY = new SelectedRenderPreview(DeepNullContentMode.ITEMS, -1, ItemStack.EMPTY, FluidStack.EMPTY, StoredChemical.EMPTY);
+    }
+
     public DeepNullTier tier() {
         return tier;
     }

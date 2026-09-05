@@ -305,6 +305,18 @@ public class DeepNullItem extends Item {
             return;
         }
 
+        if (!DeepNullInventory.peekHasAnyUpgrade(
+                stack,
+                DeepNullUpgradeType.AUTO_FEEDING,
+                DeepNullUpgradeType.STONEWORKS,
+                DeepNullUpgradeType.STONE_GENERATOR,
+                DeepNullUpgradeType.OBSIDIAN_GENERATOR,
+                DeepNullUpgradeType.ENERGY,
+                DeepNullUpgradeType.DEEP_ENERGY
+        )) {
+            return;
+        }
+
         DeepNullInventory inventory = new DeepNullInventory(tier, stack, level.registryAccess(), null);
         if (inventory.isAutoFeedingEnabled()) {
             autoFeedPlayer(player, inventory);

@@ -8,6 +8,7 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullContentMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismClientCompat;
+import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullPanelItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
@@ -84,15 +85,15 @@ public final class DeepNullSelectedItemModel implements ItemModel {
             return;
         }
 
-        DeepNullInventory inventory = new DeepNullInventory(deepNullItem.tier(), item, level == null ? null : level.registryAccess(), null);
-        if (inventory.getContentMode() == DeepNullContentMode.FLUIDS) {
-            if (appendFluidContent(output, inventory, displayContext)) {
+        DeepNullInventory.SelectedRenderPreview preview = DeepNullInventory.peekSelectedForRender(item, deepNullItem instanceof DampNullItem);
+        if (preview.contentMode() == DeepNullContentMode.FLUIDS) {
+            if (appendFluidContent(output, preview, displayContext)) {
                 output.setAnimated();
             }
             return;
         }
 
-        ItemStack selectedStack = inventory.getSelectedStack();
+        ItemStack selectedStack = preview.itemStack();
         if (selectedStack.isEmpty() || selectedStack.getItem() instanceof DeepNullItem) {
             return;
         }
@@ -103,8 +104,8 @@ public final class DeepNullSelectedItemModel implements ItemModel {
         applyItemTransform(output, startLayer, selectedStack, displayContext);
     }
 
-    private static boolean appendFluidContent(ItemStackRenderState output, DeepNullInventory inventory, ItemDisplayContext displayContext) {
-        FluidStack storedFluid = inventory.getSelectedFluid();
+    private static boolean appendFluidContent(ItemStackRenderState output, DeepNullInventory.SelectedRenderPreview preview, ItemDisplayContext displayContext) {
+        FluidStack storedFluid = preview.fluidStack();
         if (!storedFluid.isEmpty()) {
             ContainedCubeRenderData renderData = fluidRenderData(storedFluid);
             if (renderData != null) {
@@ -113,7 +114,7 @@ public final class DeepNullSelectedItemModel implements ItemModel {
             }
         }
 
-        StoredChemical storedChemical = inventory.getSelectedChemical();
+        StoredChemical storedChemical = preview.chemicalStack();
         if (!storedChemical.isEmpty()) {
             ContainedCubeRenderData renderData = chemicalRenderData(storedChemical);
             if (renderData != null) {
