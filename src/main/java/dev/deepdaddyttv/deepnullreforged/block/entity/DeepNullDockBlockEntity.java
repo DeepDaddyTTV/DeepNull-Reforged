@@ -6,6 +6,7 @@ import dev.deepdaddyttv.deepnullreforged.capability.TransferCapabilityAdapters;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
+import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
@@ -136,23 +137,34 @@ public class DeepNullDockBlockEntity extends BlockEntity {
             return;
         }
 
-        DeepNullInventory inventory = dock.createInventory();
-        if (inventory == null) {
-            return;
-        }
+        ItemStack storedDeepNull = dock.getStoredDeepNull();
+        boolean fluidOnly = storedDeepNull.getItem() instanceof DampNullItem;
 
-        if (!inventory.isFluidOnly()) {
+        if (!fluidOnly) {
             if (!dock.generatorBuffer.isEmpty()) {
                 dock.generatorBuffer = ItemStack.EMPTY;
                 dock.setChangedAndSync(false);
             }
-            if (inventory.hasStoneworksUpgrade() && level.getGameTime() % 20L == 0L) {
+            if (level.getGameTime() % 20L != 0L || !DeepNullInventory.peekHasAnyUpgrade(storedDeepNull, DeepNullUpgradeType.STONEWORKS)) {
+                return;
+            }
+            DeepNullInventory inventory = dock.createInventory();
+            if (inventory != null && inventory.hasStoneworksUpgrade()) {
                 inventory.runStoneworksCycle(false);
             }
             return;
         }
 
-        if (!hasGeneratorUpgrade(inventory)) {
+        if (!DeepNullInventory.peekHasAnyUpgrade(storedDeepNull, DeepNullUpgradeType.STONE_GENERATOR, DeepNullUpgradeType.OBSIDIAN_GENERATOR)) {
+            if (!dock.generatorBuffer.isEmpty()) {
+                dock.generatorBuffer = ItemStack.EMPTY;
+                dock.setChangedAndSync(false);
+            }
+            return;
+        }
+
+        DeepNullInventory inventory = dock.createInventory();
+        if (inventory == null || !hasGeneratorUpgrade(inventory)) {
             if (!dock.generatorBuffer.isEmpty()) {
                 dock.generatorBuffer = ItemStack.EMPTY;
                 dock.setChangedAndSync(false);
