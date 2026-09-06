@@ -291,8 +291,23 @@ public class DeepNullInventory extends ItemStackHandler {
         }
 
         String itemsKey = isEnderMirrorLinked(root) ? ENDER_MIRROR_ITEMS_TAG : ITEMS_TAG;
-        ItemStack itemStack = peekStoredItemEntry(root.getListOrEmpty(itemsKey), selectedSlot);
+        ItemStack itemStack = peekStoredItemEntry(peekItemsList(root, itemsKey), selectedSlot);
         return new SelectedRenderPreview(contentMode, selectedSlot, itemStack, FluidStack.EMPTY, StoredChemical.EMPTY);
+    }
+
+    /**
+     * Mirrors readPrimaryStorageFromRoot's fallback: items were historically stored as a compound
+     * wrapping a nested "Items" list before migrating to a plain top-level list. Peek callers need
+     * to recognize both, the same as a full load does, or pre-migration stacks read back empty.
+     */
+    private static Tag peekItemsList(CompoundTag root, String itemsKey) {
+        if (hasList(root, itemsKey)) {
+            return root.getListOrEmpty(itemsKey);
+        }
+        if (hasCompound(root, itemsKey)) {
+            return root.getCompoundOrEmpty(itemsKey).getListOrEmpty("Items");
+        }
+        return new ListTag();
     }
 
     private static boolean isEnderMirrorLinked(CompoundTag root) {
@@ -2895,7 +2910,18 @@ public class DeepNullInventory extends ItemStackHandler {
         }
 
         Level level = server.getLevel(link.dimension());
-        if (level == null || !(level.getBlockEntity(link.pos()) instanceof DeepNullDockBlockEntity dock) || !dock.hasStoredDeepNull()) {
+        if (level == null) {
+            invalidateEnderLink(enderUpgrade, clearInvalidLink);
+            return null;
+        }
+        if (!server.isSameThread() || !level.isLoaded(link.pos())) {
+            // Either we're being asked from off the server thread (e.g. a client-side render
+            // reconstruction on an integrated server) or the target chunk simply isn't loaded
+            // right now. Neither is proof the dock is actually gone, so don't destroy the link
+            // over it - just report no source for this one lookup and try again later.
+            return null;
+        }
+        if (!(level.getBlockEntity(link.pos()) instanceof DeepNullDockBlockEntity dock) || !dock.hasStoredDeepNull()) {
             invalidateEnderLink(enderUpgrade, clearInvalidLink);
             return null;
         }
