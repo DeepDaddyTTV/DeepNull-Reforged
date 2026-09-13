@@ -7,6 +7,8 @@ import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.capability.TransferCapabilityAdapters;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
+import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -129,6 +131,9 @@ public final class ModCapabilities {
     }
 
     private static @Nullable ResourceHandler<FluidResource> createFluidHandler(ItemStack stack) {
+        if (!(stack.getItem() instanceof DampNullItem)) {
+            return null;
+        }
         DeepNullInventory inventory = createInventory(stack);
         if (inventory == null || !inventory.supportsFluidStorage()) {
             return null;
@@ -142,6 +147,9 @@ public final class ModCapabilities {
     }
 
     private static @Nullable EnergyHandler createEnergyStorage(ItemStack stack) {
+        if (!DeepNullInventory.peekHasAnyUpgrade(stack, DeepNullUpgradeType.ENERGY, DeepNullUpgradeType.DEEP_ENERGY)) {
+            return null;
+        }
         DeepNullInventory inventory = createInventory(stack);
         if (inventory == null || !inventory.hasEnergyUpgrade()) {
             return null;

@@ -6,6 +6,7 @@ import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.capability.LegacyCapabilityBridge;
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.event.CommonEvents;
+import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
@@ -15,6 +16,8 @@ import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
 import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
+import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
+import dev.deepdaddyttv.deepnullreforged.item.EnderUpgradeItem;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
 import dev.deepdaddyttv.deepnullreforged.player.DeepNullPlayerState;
@@ -22,17 +25,21 @@ import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import dev.deepdaddyttv.deepnullreforged.registry.ModCapabilities;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.TriState;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -307,6 +314,135 @@ public final class DeepNullRegressionGameTests {
         helper.assertValueEqual(inventory.getFluidInSlot(0).getAmount(), FluidType.BUCKET_VOLUME, "Remaining water amount");
 
         helper.assertValueEqual(inventory.getChemicalInSlot(0), StoredChemical.EMPTY, "Filling fluid should not populate chemical storage");
+        helper.succeed();
+    }
+
+    public static void empty_whitelist_rejects_items_while_empty_blacklist_allows_them(GameTestHelper helper) {
+        DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.IRON);
+        inventory.getUpgradeHandler().setStackInSlot(
+                DeepNullUpgradeType.FILTER.slot(),
+                DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.FILTER)
+        );
+
+        helper.assertFalse(inventory.isItemValid(0, new ItemStack(Items.COBBLESTONE)), "An empty whitelist should reject incoming items");
+        inventory.setFilterMode(DeepNullFilterMode.BLACKLIST);
+        helper.assertTrue(inventory.isItemValid(0, new ItemStack(Items.COBBLESTONE)), "An empty blacklist should allow incoming items");
+        helper.succeed();
+    }
+
+    public static void ender_linked_dampnull_render_preview_uses_mirrored_fluid(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory dockInventory = dock.createInventory();
+        if (dockInventory == null) {
+            helper.fail("Docked DampNull inventory was not created");
+            return;
+        }
+        dockInventory.fillFluid(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME), false);
+
+        ItemStack heldDampNull = DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory heldInventory = new DeepNullInventory(DeepNullTier.REDSTONE, heldDampNull, helper.getLevel().registryAccess(), null);
+        heldInventory.fillFluid(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME), false);
+        ItemStack enderUpgrade = DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.ENDER);
+        EnderUpgradeItem.setLink(enderUpgrade, helper.getLevel().dimension(), absoluteDockPos, true, DeepNullTier.REDSTONE);
+        heldInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.ENDER.slot(), enderUpgrade);
+
+        DeepNullInventory changedDockInventory = dock.createInventory();
+        if (changedDockInventory == null) {
+            helper.fail("Docked DampNull inventory was not recreated");
+            return;
+        }
+        changedDockInventory.clearFluidSlot(0);
+        changedDockInventory.fillFluid(new FluidStack(Fluids.LAVA, FluidType.BUCKET_VOLUME), false);
+
+        new DeepNullInventory(DeepNullTier.REDSTONE, heldDampNull, helper.getLevel().registryAccess(), null);
+        DeepNullInventory.SelectedRenderPreview preview = DeepNullInventory.peekSelectedForRender(heldDampNull, true);
+        helper.assertTrue(preview.fluidStack().getFluid() == Fluids.LAVA, "Linked DampNull preview should use the dock's mirrored fluid");
+        helper.assertValueEqual(preview.fluidStack().getAmount(), FluidType.BUCKET_VOLUME, "Linked DampNull preview should preserve the mirrored fluid amount");
+        helper.succeed();
+    }
+
+    public static void ender_only_inventory_tick_refreshes_linked_mirror(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.deepNullStack(DeepNullTier.IRON));
+        DeepNullInventory dockInventory = dock.createInventory();
+        if (dockInventory == null) {
+            helper.fail("Docked DeepNull inventory was not created");
+            return;
+        }
+        dockInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 4));
+        dockInventory.setSelectedSlot(0);
+
+        ItemStack heldDeepNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.IRON);
+        DeepNullInventory heldInventory = new DeepNullInventory(DeepNullTier.IRON, heldDeepNull, helper.getLevel().registryAccess(), null);
+        heldInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 4));
+        heldInventory.setSelectedSlot(0);
+        ItemStack enderUpgrade = DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.ENDER);
+        EnderUpgradeItem.setLink(enderUpgrade, helper.getLevel().dimension(), absoluteDockPos, false, DeepNullTier.IRON);
+        heldInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.ENDER.slot(), enderUpgrade);
+
+        DeepNullInventory changedDockInventory = dock.createInventory();
+        if (changedDockInventory == null) {
+            helper.fail("Docked DeepNull inventory was not recreated");
+            return;
+        }
+        changedDockInventory.setStackInSlot(0, new ItemStack(Items.DIRT, 7));
+        changedDockInventory.setSelectedSlot(0);
+
+        DeepNullInventory.SelectedRenderPreview stalePreview = DeepNullInventory.peekSelectedForRender(heldDeepNull, false);
+        helper.assertTrue(stalePreview.itemStack().is(Items.COBBLESTONE), "Held mirror should remain stale until its scheduled inventory tick");
+
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        int tickSlot = Math.floorMod((int) helper.getLevel().getGameTime(), 5);
+        player.getInventory().setItem(tickSlot, heldDeepNull);
+        ItemStack tickingStack = player.getInventory().getItem(tickSlot);
+        ((DeepNullItem) tickingStack.getItem()).inventoryTick(tickingStack, helper.getLevel(), player, EquipmentSlot.MAINHAND);
+
+        DeepNullInventory.SelectedRenderPreview refreshedPreview = DeepNullInventory.peekSelectedForRender(tickingStack, false);
+        helper.assertTrue(refreshedPreview.itemStack().is(Items.DIRT), "An Ender-only DeepNull should refresh its linked dock mirror during inventory tick");
+        helper.assertValueEqual(refreshedPreview.itemStack().getCount(), 7, "The refreshed mirror should preserve the docked stack count");
+        helper.succeed();
+    }
+
+    public static void malformed_render_storage_returns_an_empty_preview(GameTestHelper helper) {
+        ItemStack dampNull = DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE);
+        CustomData.update(DataComponents.CUSTOM_DATA, dampNull, tag -> {
+            CompoundTag root = new CompoundTag();
+            root.putInt("Selected", 0);
+
+            CompoundTag malformedFluid = new CompoundTag();
+            malformedFluid.putInt("Slot", 0);
+            malformedFluid.putString("Stack", "not-a-fluid-stack");
+            ListTag fluids = new ListTag();
+            fluids.add(malformedFluid);
+            root.put("Fluids", fluids);
+
+            CompoundTag malformedChemical = new CompoundTag();
+            malformedChemical.putInt("Slot", 0);
+            malformedChemical.putString("Stack", "not-a-chemical-stack");
+            ListTag chemicals = new ListTag();
+            chemicals.add(malformedChemical);
+            root.put("Chemicals", chemicals);
+            tag.put("DeepNull", root);
+        });
+
+        DeepNullInventory.SelectedRenderPreview preview = DeepNullInventory.peekSelectedForRender(dampNull, true);
+        helper.assertTrue(preview.fluidStack().isEmpty(), "Malformed fluid render data should produce an empty preview");
+        helper.assertTrue(preview.chemicalStack().isEmpty(), "Malformed chemical render data should produce an empty preview");
         helper.succeed();
     }
 

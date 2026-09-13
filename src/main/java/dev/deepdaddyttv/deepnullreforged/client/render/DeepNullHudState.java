@@ -16,7 +16,7 @@ public final class DeepNullHudState {
     }
 
     public static void tick(Player player) {
-        HudKey nextKey = HudKey.from(ClientDeepNullAccess.findHeldDeepNull(player));
+        HudKey nextKey = HudKey.from(ClientDeepNullAccess.peekHeldDeepNull(player));
         if (!nextKey.equals(lastKey)) {
             lastKey = nextKey;
             visibleUntil = nextKey.active() ? System.currentTimeMillis() + DeepNullConfig.getHudDisplayMs() : 0L;
@@ -35,22 +35,23 @@ public final class DeepNullHudState {
     private record HudKey(int inventorySlot, int outerHash, int selectedSlot, int selectedHash, int selectedFluidHash, int selectedChemicalHash, DeepNullContentMode mode) {
         private static final HudKey EMPTY = new HudKey(-1, 0, -1, 0, 0, 0, DeepNullContentMode.ITEMS);
 
-        private static HudKey from(ClientDeepNullAccess.HeldDeepNull held) {
+        private static HudKey from(ClientDeepNullAccess.HeldDeepNullPreview held) {
             if (held == null) {
                 return EMPTY;
             }
 
-            FluidStack selectedFluid = held.inventory().getSelectedFluid();
-            StoredChemical selectedChemical = held.inventory().getSelectedChemical();
+            var preview = held.preview();
+            FluidStack selectedFluid = preview.fluidStack();
+            StoredChemical selectedChemical = preview.chemicalStack();
 
             return new HudKey(
                     held.inventorySlot(),
                     ItemStack.hashItemAndComponents(held.stack()),
-                    held.inventory().getSelectedSlot(),
-                    ItemStack.hashItemAndComponents(held.inventory().getSelectedStack()),
+                    preview.selectedSlot(),
+                    ItemStack.hashItemAndComponents(preview.itemStack()),
                     selectedFluid.isEmpty() ? 0 : selectedFluid.hashCode(),
                     selectedChemical.isEmpty() ? 0 : 31 * selectedChemical.chemicalId().hashCode() + Long.hashCode(selectedChemical.amount()),
-                    held.inventory().getContentMode()
+                    preview.contentMode()
             );
         }
 
