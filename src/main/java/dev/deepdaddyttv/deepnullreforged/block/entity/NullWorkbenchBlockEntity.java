@@ -2,6 +2,7 @@ package dev.deepdaddyttv.deepnullreforged.block.entity;
 
 import dev.deepdaddyttv.deepnullreforged.block.NullWorkbenchPart;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
@@ -98,6 +99,10 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
         }
         workbench.tickCrafting();
         workbench.tickSync();
+        if (level.getGameTime() % 5L == Math.floorMod(pos.hashCode(), 5)
+                && DeepNullInventory.peekHasAnyUpgrade(workbench.items.getStackInSlot(NULL_SLOT), DeepNullUpgradeType.ENDER)) {
+            workbench.createNullInventory();
+        }
     }
 
     public ItemStackHandler getItemHandler() {
@@ -178,7 +183,7 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
 
     public boolean applyStyleColors(int frameColor, int glassColor) {
         ItemStack input = items.getStackInSlot(NULL_SLOT);
-        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || level == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
+        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || level == null) {
             return false;
         }
         ItemStack modifier = items.getStackInSlot(STYLE_MODIFIER_SLOT);
@@ -191,27 +196,25 @@ public class NullWorkbenchBlockEntity extends BlockEntity {
         ItemStack styled = input.copy();
         DeepNullInventory inventory = new DeepNullInventory(deepNullItem.tier(), styled, level.registryAccess(), null);
         inventory.setStyle(frameColor, glassColor, variant);
-        items.setStackInSlot(NULL_SLOT, ItemStack.EMPTY);
         if (!modifier.isEmpty() && variant != StyleGlassVariant.DEFAULT) {
             ItemStack remaining = modifier.copy();
             remaining.shrink(1);
             items.setStackInSlot(STYLE_MODIFIER_SLOT, remaining.isEmpty() ? ItemStack.EMPTY : remaining);
         }
-        items.setStackInSlot(OUTPUT_SLOT, styled);
+        items.setStackInSlot(NULL_SLOT, styled);
         setChangedAndSync();
         return true;
     }
 
     public boolean resetStyleColors() {
         ItemStack input = items.getStackInSlot(NULL_SLOT);
-        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || level == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
+        if (!(input.getItem() instanceof DeepNullItem deepNullItem) || level == null) {
             return false;
         }
         ItemStack styled = input.copy();
         DeepNullInventory inventory = new DeepNullInventory(deepNullItem.tier(), styled, level.registryAccess(), null);
         inventory.resetStyleColors();
-        items.setStackInSlot(NULL_SLOT, ItemStack.EMPTY);
-        items.setStackInSlot(OUTPUT_SLOT, styled);
+        items.setStackInSlot(NULL_SLOT, styled);
         setChangedAndSync();
         return true;
     }

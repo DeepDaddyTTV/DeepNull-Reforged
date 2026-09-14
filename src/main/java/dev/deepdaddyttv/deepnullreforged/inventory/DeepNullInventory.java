@@ -28,6 +28,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.item.crafting.SmeltingRecipe;
 import net.minecraft.core.NonNullList;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluid;
@@ -2925,11 +2926,8 @@ public class DeepNullInventory extends ItemStackHandler {
             invalidateEnderLink(enderUpgrade, clearInvalidLink);
             return null;
         }
-        if (!server.isSameThread() || !level.isLoaded(link.pos())) {
-            // Either we're being asked from off the server thread (e.g. a client-side render
-            // reconstruction on an integrated server) or the target chunk simply isn't loaded
-            // right now. Neither is proof the dock is actually gone, so don't destroy the link
-            // over it - just report no source for this one lookup and try again later.
+        if (!server.isSameThread()) {
+            // Client-side render reconstruction on an integrated server must never load chunks.
             return null;
         }
         if (!(level.getBlockEntity(link.pos()) instanceof DeepNullDockBlockEntity dock) || !dock.hasStoredDeepNull()) {
@@ -3889,6 +3887,8 @@ public class DeepNullInventory extends ItemStackHandler {
     }
 
     private final class UpgradeItemHandler extends ItemStackHandler {
+        private boolean mergeOnNextEnderChange;
+
         private UpgradeItemHandler() {
             super(DeepNullUpgradeType.values().length);
         }
@@ -3934,9 +3934,103 @@ public class DeepNullInventory extends ItemStackHandler {
         }
 
         @Override
+        public void setStackInSlot(int slot, ItemStack stack) {
+            boolean merge = shouldMergeLinkedEnder(slot, stack);
+            boolean previous = mergeOnNextEnderChange;
+            mergeOnNextEnderChange = previous || merge;
+            try {
+                super.setStackInSlot(slot, stack);
+            } finally {
+                mergeOnNextEnderChange = previous;
+            }
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            boolean merge = !simulate && shouldMergeLinkedEnder(slot, stack);
+            boolean previous = mergeOnNextEnderChange;
+            mergeOnNextEnderChange = previous || merge;
+            try {
+                return super.insertItem(slot, stack, simulate);
+            } finally {
+                mergeOnNextEnderChange = previous;
+            }
+        }
+
+        private boolean shouldMergeLinkedEnder(int slot, ItemStack stack) {
+            return slot == DeepNullUpgradeType.ENDER.slot()
+                    && getStackInSlot(slot).isEmpty()
+                    && stack.getItem() instanceof EnderUpgradeItem
+                    && EnderUpgradeItem.isLinked(stack);
+        }
+
+        @Override
         protected void onContentsChanged(int slot) {
             super.onContentsChanged(slot);
+            if (slot == DeepNullUpgradeType.ENDER.slot() && mergeOnNextEnderChange) {
+                mergeOnNextEnderChange = false;
+                mergeLinkedItemStorageOnEnderInstall();
+            }
             save();
+        }
+    }
+
+    private void mergeLinkedItemStorageOnEnderInstall() {
+        if (fluidOnly) {
+            return;
+        }
+
+        HolderLookup.Provider registries = registriesSupplier.get();
+        LinkedDockSource linkedSource = resolveLinkedDockSource(false);
+        if (registries == null || linkedSource == null) {
+            return;
+        }
+
+        DeepNullInventory target = linkedSource.dock().createInventory();
+        if (target == null || target.isFluidOnly()) {
+            return;
+        }
+
+        List<ItemStack> overflow = new ArrayList<>();
+        for (ItemStack sourceStack : stacks) {
+            ItemStack remaining = sourceStack.copy();
+            for (int slot = 0; slot < target.getSlots() && !remaining.isEmpty(); slot++) {
+                remaining = target.insertItem(slot, remaining, false);
+            }
+            if (!remaining.isEmpty()) {
+                mergeOverflowStack(overflow, remaining);
+            }
+        }
+
+        overlayLinkedStorage(registries, linkedSource.dock().getStoredDeepNull());
+        dropLinkedOverflow(linkedSource.dock(), overflow);
+    }
+
+    private static void mergeOverflowStack(List<ItemStack> overflow, ItemStack remainder) {
+        for (ItemStack existing : overflow) {
+            if (ItemStack.isSameItemSameComponents(existing, remainder)) {
+                existing.grow(remainder.getCount());
+                return;
+            }
+        }
+        overflow.add(remainder.copy());
+    }
+
+    private static void dropLinkedOverflow(DeepNullDockBlockEntity dock, List<ItemStack> overflow) {
+        Level level = dock.getLevel();
+        if (level == null || level.isClientSide()) {
+            return;
+        }
+        for (ItemStack stack : overflow) {
+            ItemEntity entity = new ItemEntity(
+                    level,
+                    dock.getBlockPos().getX() + 0.5D,
+                    dock.getBlockPos().getY() + 1.0D,
+                    dock.getBlockPos().getZ() + 0.5D,
+                    stack
+            );
+            entity.setDefaultPickUpDelay();
+            level.addFreshEntity(entity);
         }
     }
 

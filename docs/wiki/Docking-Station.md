@@ -11,6 +11,7 @@ The Docking Station holds one DeepNull or DampNull and exposes it to automation.
 
 ## Notes
 
+- Auto-Export is off by default. Shift-right-click the Docking Station with an empty hand to toggle it
 - Docked generator DampNulls use the dock buffer for generated item output
 - Ender Upgrades can link to docked Nulls across dimensions
 

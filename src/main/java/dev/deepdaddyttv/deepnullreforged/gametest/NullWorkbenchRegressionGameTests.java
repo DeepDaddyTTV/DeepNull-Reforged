@@ -1,14 +1,18 @@
 package dev.deepdaddyttv.deepnullreforged.gametest;
 
 import dev.deepdaddyttv.deepnullreforged.block.entity.NullWorkbenchBlockEntity;
+import dev.deepdaddyttv.deepnullreforged.block.entity.DeepNullDockBlockEntity;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
+import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
 import dev.deepdaddyttv.deepnullreforged.inventory.StyleGlassVariant;
 import dev.deepdaddyttv.deepnullreforged.integration.jei.NullWorkbenchTransferSupport;
 import dev.deepdaddyttv.deepnullreforged.item.SynchronizerItem;
+import dev.deepdaddyttv.deepnullreforged.item.EnderUpgradeItem;
 import dev.deepdaddyttv.deepnullreforged.menu.NullWorkbenchMenu;
 import dev.deepdaddyttv.deepnullreforged.recipe.NullWorkbenchRecipes;
 import dev.deepdaddyttv.deepnullreforged.registry.ModItems;
+import dev.deepdaddyttv.deepnullreforged.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.Item;
@@ -52,14 +56,15 @@ public final class NullWorkbenchRegressionGameTests {
         helper.succeed();
     }
 
-    public static void workbench_style_apply_and_reset_output_behave(GameTestHelper helper) {
+    public static void workbench_style_apply_and_reset_stay_in_null_slot(GameTestHelper helper) {
         NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
         workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT, DeepNullGameTestSupport.deepNullStack(DeepNullTier.DIAMOND));
         workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT, new ItemStack(Items.CREEPER_HEAD));
 
         helper.assertTrue(workbench.applyStyleColors(0x112233, 0x445566), "Workbench style apply should succeed");
-        ItemStack styledOutput = workbench.getStackInSlot(NullWorkbenchBlockEntity.OUTPUT_SLOT);
-        helper.assertFalse(styledOutput.isEmpty(), "Style apply should place the Null into the output slot");
+        ItemStack styledOutput = workbench.getStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT);
+        helper.assertFalse(styledOutput.isEmpty(), "Style apply should keep the Null in its input slot");
+        helper.assertTrue(workbench.getStackInSlot(NullWorkbenchBlockEntity.OUTPUT_SLOT).isEmpty(), "Style apply should not use the crafting output slot");
 
         DeepNullInventory styledInventory = new DeepNullInventory(DeepNullTier.DIAMOND, styledOutput, helper.getLevel().registryAccess(), null);
         helper.assertValueEqual(styledInventory.getFrameColor(), 0x112233, "Styled output frame color");
@@ -67,14 +72,13 @@ public final class NullWorkbenchRegressionGameTests {
         helper.assertValueEqual(styledInventory.getStyleVariant(), StyleGlassVariant.CREEPER, "Styled output variant");
         helper.assertTrue(workbench.getStackInSlot(NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT).isEmpty(), "Style modifier should be consumed on apply");
 
-        workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.OUTPUT_SLOT, ItemStack.EMPTY);
-        workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT, styledOutput);
         helper.assertTrue(workbench.resetStyleColors(), "Workbench style reset should succeed");
 
-        ItemStack resetOutput = workbench.getStackInSlot(NullWorkbenchBlockEntity.OUTPUT_SLOT);
+        ItemStack resetOutput = workbench.getStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT);
         DeepNullInventory resetInventory = new DeepNullInventory(DeepNullTier.DIAMOND, resetOutput, helper.getLevel().registryAccess(), null);
         helper.assertValueEqual(resetInventory.getStyleVariant(), StyleGlassVariant.DEFAULT, "Style reset should clear the variant");
         helper.assertFalse(DeepNullInventory.hasCustomStyle(resetOutput), "Style reset should restore the default look");
+        helper.assertTrue(workbench.getStackInSlot(NullWorkbenchBlockEntity.OUTPUT_SLOT).isEmpty(), "Style reset should leave the crafting output slot empty");
         helper.succeed();
     }
 
@@ -110,6 +114,62 @@ public final class NullWorkbenchRegressionGameTests {
         helper.assertValueEqual(restoredInventory.getGlassColor(), 0x556677, "Restore should preserve glass color");
         helper.assertValueEqual(restoredInventory.getStyleVariant(), StyleGlassVariant.PICKAXE, "Restore should preserve style variant");
         helper.succeed();
+    }
+
+    public static void workbench_refreshes_an_inserted_ender_linked_null(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(3, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory dockInventory = dock.createInventory();
+        if (dockInventory == null) {
+            helper.fail("Docked DeepNull inventory was not created");
+            return;
+        }
+        dockInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 4));
+        dockInventory.setSelectedSlot(0);
+
+        ItemStack linkedNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory linkedInventory = new DeepNullInventory(DeepNullTier.REDSTONE, linkedNull, helper.getLevel().registryAccess(), null);
+        linkedInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+        linkedInventory.setSelectedSlot(0);
+        ItemStack enderUpgrade = DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.ENDER);
+        EnderUpgradeItem.setLink(enderUpgrade, helper.getLevel().dimension(), absoluteDockPos, false, DeepNullTier.REDSTONE);
+        linkedInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.ENDER.slot(), enderUpgrade);
+
+        NullWorkbenchBlockEntity workbench = DeepNullGameTestSupport.placeWorkbench(helper, WORKBENCH_POS);
+        workbench.getItemHandler().setStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT, linkedNull);
+        DeepNullInventory changedDock = dock.createInventory();
+        changedDock.setStackInSlot(0, new ItemStack(Items.DIRT, 7));
+        changedDock.setSelectedSlot(0);
+        helper.assertTrue(
+                DeepNullInventory.peekSelectedForRender(linkedNull, false).itemStack().is(Items.COBBLESTONE),
+                "Workbench Null mirror should begin stale before its refresh tick"
+        );
+
+        BlockPos absoluteWorkbenchPos = helper.absolutePos(WORKBENCH_POS);
+        long phase = Math.floorMod(absoluteWorkbenchPos.hashCode(), 5);
+        long delay = Math.floorMod(phase - helper.getLevel().getGameTime(), 5);
+        helper.runAfterDelay(delay == 0L ? 5L : delay, () -> {
+            NullWorkbenchBlockEntity.serverTick(
+                    helper.getLevel(),
+                    absoluteWorkbenchPos,
+                    helper.getLevel().getBlockState(absoluteWorkbenchPos),
+                    workbench
+            );
+            DeepNullInventory.SelectedRenderPreview refreshed = DeepNullInventory.peekSelectedForRender(
+                    workbench.getStackInSlot(NullWorkbenchBlockEntity.NULL_SLOT),
+                    false
+            );
+            helper.assertTrue(refreshed.itemStack().is(Items.DIRT), "Workbench should refresh linked Null contents while it remains inserted");
+            helper.assertValueEqual(refreshed.itemStack().getCount(), 7, "Workbench linked preview should preserve the docked count");
+            helper.succeed();
+        });
     }
 
     public static void workbench_transfer_support_moves_recipe_inputs_from_player_inventory(GameTestHelper helper) {

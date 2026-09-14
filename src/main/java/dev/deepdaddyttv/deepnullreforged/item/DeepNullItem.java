@@ -318,7 +318,17 @@ public class DeepNullItem extends Item {
             return;
         }
 
+        ItemStack beforeRefresh = stack.copy();
         DeepNullInventory inventory = new DeepNullInventory(tier, stack, level.registryAccess(), null);
+        if (!ItemStack.isSameItemSameComponents(beforeRefresh, stack)) {
+            player.getInventory().setChanged();
+            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                serverPlayer.inventoryMenu.broadcastChanges();
+                if (serverPlayer.containerMenu != serverPlayer.inventoryMenu) {
+                    serverPlayer.containerMenu.broadcastChanges();
+                }
+            }
+        }
         if (inventory.isAutoFeedingEnabled()) {
             autoFeedPlayer(player, inventory);
         }

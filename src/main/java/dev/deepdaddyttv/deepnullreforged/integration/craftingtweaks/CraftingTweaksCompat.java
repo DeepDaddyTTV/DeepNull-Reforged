@@ -168,16 +168,30 @@ public final class CraftingTweaksCompat {
                             || parameterTypes.length == 3
                             && parameterTypes[0] == String.class
                             && parameterTypes[1] == int.class
-                            && parameterTypes[2] == int.class;
+                            && parameterTypes[2] == int.class
+                            || parameterTypes.length == 3
+                            && parameterTypes[0] == int.class
+                            && parameterTypes[1] == int.class
+                            && parameterTypes[2] == int.class
+                            || parameterTypes.length == 4
+                            && parameterTypes[0] == String.class
+                            && parameterTypes[1] == int.class
+                            && parameterTypes[2] == int.class
+                            && parameterTypes[3] == int.class;
                 })
                 .findFirst()
                 .orElseThrow(() -> new NoSuchMethodException("No compatible addGrid overload found on " + builderInterface.getName()));
     }
 
-    private static Object invokeAddGrid(Method addGrid, Object builder, int width, int height) throws ReflectiveOperationException {
-        return switch (addGrid.getParameterCount()) {
-            case 2 -> addGrid.invoke(builder, width, height);
-            case 3 -> addGrid.invoke(builder, "deepnullreforged", width, height);
+    private static Object invokeAddGrid(Method addGrid, Object builder, int firstSlot, int slotCount) throws ReflectiveOperationException {
+        int dimension = (int) Math.sqrt(slotCount);
+        Class<?>[] parameterTypes = addGrid.getParameterTypes();
+        return switch (parameterTypes.length) {
+            case 2 -> addGrid.invoke(builder, firstSlot, slotCount);
+            case 3 -> parameterTypes[0] == String.class
+                    ? addGrid.invoke(builder, "deepnullreforged", firstSlot, slotCount)
+                    : addGrid.invoke(builder, firstSlot, dimension, dimension);
+            case 4 -> addGrid.invoke(builder, "deepnullreforged", firstSlot, dimension, dimension);
             default -> throw new NoSuchMethodException("Unsupported addGrid overload: " + addGrid);
         };
     }

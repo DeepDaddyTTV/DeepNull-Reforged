@@ -36,11 +36,14 @@ import net.minecraft.util.TriState;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
@@ -56,8 +59,11 @@ import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
 public final class DeepNullRegressionGameTests {
     private DeepNullRegressionGameTests() {
@@ -418,6 +424,132 @@ public final class DeepNullRegressionGameTests {
         helper.succeed();
     }
 
+    public static void ender_linked_placement_decrements_the_docked_inventory(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory dockInventory = dock.createInventory();
+        if (dockInventory == null) {
+            helper.fail("Docked DeepNull inventory was not created");
+            return;
+        }
+        dockInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 4));
+        dockInventory.setSelectedSlot(0);
+
+        ItemStack heldDeepNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory heldInventory = new DeepNullInventory(DeepNullTier.REDSTONE, heldDeepNull, helper.getLevel().registryAccess(), null);
+        heldInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 2));
+        heldInventory.setSelectedSlot(0);
+        ItemStack enderUpgrade = DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.ENDER);
+        EnderUpgradeItem.setLink(enderUpgrade, helper.getLevel().dimension(), absoluteDockPos, false, DeepNullTier.REDSTONE);
+        heldInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.ENDER.slot(), enderUpgrade);
+        helper.assertValueEqual(dock.createInventory().getStackInSlot(0).getCount(), 6, "Installing Ender Upgrade should merge the handheld items into the dock");
+
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        player.getAbilities().instabuild = false;
+        player.setItemInHand(InteractionHand.MAIN_HAND, heldDeepNull);
+        BlockPos clickedPos = new BlockPos(3, 1, 1);
+        helper.setBlock(clickedPos, Blocks.STONE);
+        BlockPos absoluteClickedPos = helper.absolutePos(clickedPos);
+        BlockHitResult hit = new BlockHitResult(
+                Vec3.atBottomCenterOf(absoluteClickedPos.above()),
+                Direction.UP,
+                absoluteClickedPos,
+                false
+        );
+
+        ((DeepNullItem) heldDeepNull.getItem()).useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
+
+        helper.assertBlockPresent(Blocks.COBBLESTONE, clickedPos.above());
+        helper.assertValueEqual(dock.createInventory().getStackInSlot(0).getCount(), 5, "Placing from a linked handheld DeepNull must decrement the docked inventory");
+        helper.succeed();
+    }
+
+    public static void linked_ender_install_merges_both_item_inventories(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory dockInventory = dock.createInventory();
+        if (dockInventory == null) {
+            helper.fail("Docked DeepNull inventory was not created");
+            return;
+        }
+        dockInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 7));
+
+        ItemStack heldDeepNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory heldInventory = new DeepNullInventory(DeepNullTier.REDSTONE, heldDeepNull, helper.getLevel().registryAccess(), null);
+        heldInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 5));
+        heldInventory.setStackInSlot(1, new ItemStack(Items.DIRT, 3));
+        ItemStack enderUpgrade = DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.ENDER);
+        EnderUpgradeItem.setLink(enderUpgrade, helper.getLevel().dimension(), absoluteDockPos, false, DeepNullTier.REDSTONE);
+        heldInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.ENDER.slot(), enderUpgrade);
+
+        DeepNullInventory mergedDock = dock.createInventory();
+        helper.assertValueEqual(DeepNullGameTestSupport.storedItemCount(mergedDock, Items.COBBLESTONE), 12, "Ender install should combine matching item counts");
+        helper.assertValueEqual(DeepNullGameTestSupport.storedItemCount(mergedDock, Items.DIRT), 3, "Ender install should preserve distinct handheld items");
+        DeepNullInventory mirroredHeld = new DeepNullInventory(DeepNullTier.REDSTONE, heldDeepNull, helper.getLevel().registryAccess(), null);
+        helper.assertValueEqual(DeepNullGameTestSupport.storedItemCount(mirroredHeld, Items.COBBLESTONE), 12, "Handheld mirror should immediately reflect the merged dock");
+        helper.assertValueEqual(DeepNullGameTestSupport.storedItemCount(mirroredHeld, Items.DIRT), 3, "Handheld mirror should include all merged item types");
+        helper.succeed();
+    }
+
+    public static void linked_ender_install_drops_consolidated_overflow_at_the_dock(GameTestHelper helper) {
+        BlockPos relativeDockPos = new BlockPos(1, 1, 1);
+        BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
+        helper.setBlock(relativeDockPos, ModBlocks.DEEP_NULL_DOCK.get());
+        if (!(helper.getLevel().getBlockEntity(absoluteDockPos) instanceof DeepNullDockBlockEntity dock)) {
+            helper.fail("Expected DeepNull Dock block entity at " + relativeDockPos);
+            return;
+        }
+
+        dock.setStoredDeepNull(DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE));
+        DeepNullInventory dockInventory = dock.createInventory();
+        if (dockInventory == null) {
+            helper.fail("Docked DeepNull inventory was not created");
+            return;
+        }
+        ItemStack[] fullInventory = {
+                new ItemStack(Items.COBBLESTONE, DeepNullTier.REDSTONE.perSlotCapacity()),
+                new ItemStack(Items.DIRT, 1),
+                new ItemStack(Items.STONE, 1),
+                new ItemStack(Items.SAND, 1),
+                new ItemStack(Items.GRAVEL, 1),
+                new ItemStack(Items.ANDESITE, 1),
+                new ItemStack(Items.DIORITE, 1),
+                new ItemStack(Items.GRANITE, 1),
+                new ItemStack(Items.NETHERRACK, 1)
+        };
+        for (int slot = 0; slot < fullInventory.length; slot++) {
+            dockInventory.setStackInSlot(slot, fullInventory[slot]);
+        }
+
+        ItemStack heldDeepNull = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        DeepNullInventory heldInventory = new DeepNullInventory(DeepNullTier.REDSTONE, heldDeepNull, helper.getLevel().registryAccess(), null);
+        heldInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 20));
+        ItemStack enderUpgrade = DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.ENDER);
+        EnderUpgradeItem.setLink(enderUpgrade, helper.getLevel().dimension(), absoluteDockPos, false, DeepNullTier.REDSTONE);
+        heldInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.ENDER.slot(), enderUpgrade);
+
+        List<ItemEntity> drops = helper.getEntities(EntityType.ITEM, relativeDockPos.above(), 2.0D);
+        helper.assertValueEqual(drops.size(), 1, "Ender overflow should be emitted as one item entity");
+        helper.assertTrue(drops.getFirst().getItem().is(Items.COBBLESTONE), "Ender overflow should preserve the item type");
+        helper.assertValueEqual(drops.getFirst().getItem().getCount(), 20, "Ender overflow should preserve the full count in one stack");
+        helper.assertValueEqual(dock.createInventory().getStackInSlot(0).getCount(), DeepNullTier.REDSTONE.perSlotCapacity(), "Overflow should not overfill the dock");
+        helper.succeed();
+    }
+
     public static void malformed_render_storage_returns_an_empty_preview(GameTestHelper helper) {
         ItemStack dampNull = DeepNullGameTestSupport.dampNullStack(DeepNullTier.REDSTONE);
         CustomData.update(DataComponents.CUSTOM_DATA, dampNull, tag -> {
@@ -588,6 +720,43 @@ public final class DeepNullRegressionGameTests {
         helper.succeed();
     }
 
+    public static void dock_empty_hand_crouch_click_toggles_empty_dock(GameTestHelper helper) {
+        assertDockEmptyHandToggle(helper, false);
+    }
+
+    public static void dock_empty_hand_crouch_click_preserves_docked_null(GameTestHelper helper) {
+        assertDockEmptyHandToggle(helper, true);
+    }
+
+    private static void assertDockEmptyHandToggle(GameTestHelper helper, boolean filled) {
+        BlockPos relativePos = new BlockPos(1, 1, 1);
+        helper.setBlock(relativePos, ModBlocks.DEEP_NULL_DOCK.get());
+        BlockPos pos = helper.absolutePos(relativePos);
+        DeepNullDockBlockEntity dock = (DeepNullDockBlockEntity) helper.getLevel().getBlockEntity(pos);
+        ItemStack stored = filled ? DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE) : ItemStack.EMPTY;
+        if (filled) {
+            dock.setStoredDeepNull(stored.copy());
+        }
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+        player.setShiftKeyDown(true);
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
+        try {
+            helper.assertFalse(dock.isAutoExportEnabled(), "Auto-Export must start off");
+            helper.assertTrue(player.gameMode.useItemOn(player, helper.getLevel(), ItemStack.EMPTY,
+                    InteractionHand.MAIN_HAND, hit).consumesAction(), "Empty-hand toggle must consume the actual block interaction");
+            helper.assertTrue(dock.isAutoExportEnabled(), "First crouch click must enable Auto-Export");
+            player.gameMode.useItemOn(player, helper.getLevel(), ItemStack.EMPTY, InteractionHand.MAIN_HAND, hit);
+            helper.assertFalse(dock.isAutoExportEnabled(), "Second crouch click must disable Auto-Export");
+            helper.assertValueEqual(dock.hasStoredDeepNull(), filled, "Toggle must not eject the docked Null");
+            helper.assertTrue(player.getInventory().isEmpty(), "Toggle must not move the docked Null to the player");
+        } finally {
+            player.setShiftKeyDown(false);
+        }
+        helper.succeed();
+    }
+
     public static void dock_automation_extracts_default_keep_one_fully_but_respects_explicit_keep_amounts(GameTestHelper helper) {
         BlockPos relativeDockPos = new BlockPos(1, 1, 1);
         BlockPos absoluteDockPos = helper.absolutePos(relativeDockPos);
@@ -606,6 +775,9 @@ public final class DeepNullRegressionGameTests {
         defaultInventory.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 20));
 
         IItemHandler dockHandler = dock.getAutomationHandler(null);
+        helper.assertTrue(dockHandler.extractItem(0, 64, false).isEmpty(), "Dock automation should not export while Auto-Export is off by default");
+        helper.assertValueEqual(dock.createInventory().getStackInSlot(0).getCount(), 20, "Disabled Auto-Export should leave stored items untouched");
+        dock.setAutoExportEnabled(true);
         ItemStack fullyExtracted = dockHandler.extractItem(0, 64, false);
         helper.assertValueEqual(fullyExtracted.getCount(), 20, "Dock automation should fully extract a default Keep 1 slot");
         helper.assertTrue(dock.createInventory().getStackInSlot(0).isEmpty(), "Dock automation should leave the slot empty after full extraction from a default Keep 1 slot");
@@ -640,6 +812,7 @@ public final class DeepNullRegressionGameTests {
             return;
         }
         inventory.fillFluid(new FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME * 2), false);
+        dock.setAutoExportEnabled(true);
 
         ResourceHandler<FluidResource> northHandler = helper.getLevel().getCapability(Capabilities.Fluid.BLOCK, absoluteDockPos, Direction.NORTH);
         ResourceHandler<FluidResource> southHandler = helper.getLevel().getCapability(Capabilities.Fluid.BLOCK, absoluteDockPos, Direction.SOUTH);
@@ -674,7 +847,7 @@ public final class DeepNullRegressionGameTests {
             return;
         }
         inventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.STONE_GENERATOR.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.STONE_GENERATOR));
-        dock.restoreState(new DeepNullDockBlockEntity.DockState(dock.getStoredDeepNull().copy(), new ItemStack(Items.COBBLESTONE, 20)));
+        dock.restoreState(new DeepNullDockBlockEntity.DockState(dock.getStoredDeepNull().copy(), new ItemStack(Items.COBBLESTONE, 20), true));
 
         ResourceHandler<ItemResource> northTransfer = helper.getLevel().getCapability(Capabilities.Item.BLOCK, absoluteDockPos, Direction.NORTH);
         ResourceHandler<ItemResource> southTransfer = helper.getLevel().getCapability(Capabilities.Item.BLOCK, absoluteDockPos, Direction.SOUTH);

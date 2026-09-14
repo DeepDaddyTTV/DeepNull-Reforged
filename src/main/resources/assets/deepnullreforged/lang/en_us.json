@@ -250,5 +250,7 @@
   "filter.mode.hunter": "Hunter",
   "filter.mode.network_engineer": "Network Engineer",
   "filter.mode.connections": "Connections",
-  "filter.mode.builder": "Builder"
+  "filter.mode.builder": "Builder",
+  "message.deepnullreforged.auto_export_on": "Auto-Export: On",
+  "message.deepnullreforged.auto_export_off": "Auto-Export: Off"
 }

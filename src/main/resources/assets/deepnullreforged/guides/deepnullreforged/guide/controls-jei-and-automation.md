@@ -3,8 +3,6 @@ navigation:
   title: Controls, JEI, and Automation
   icon: deepnullreforged:deepnull_dock
   position: 5
-item_ids:
-  - deepnullreforged:deepnull_dock
 ---
 
 # Controls, JEI, and Automation

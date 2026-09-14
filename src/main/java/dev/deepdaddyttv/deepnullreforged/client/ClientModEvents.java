@@ -3,7 +3,9 @@ package dev.deepdaddyttv.deepnullreforged.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullDockRenderer;
+import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullItemModel;
 import dev.deepdaddyttv.deepnullreforged.client.render.DeepNullSelectedItemModel;
+import dev.deepdaddyttv.deepnullreforged.client.render.NullWorkbenchRenderer;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.item.DampNullItem;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
@@ -101,10 +103,12 @@ public final class ClientModEvents {
 
     public static void registerItemModels(RegisterItemModelsEvent event) {
         event.register(DeepNullReforged.id("selected_item"), DeepNullSelectedItemModel.Unbaked.MAP_CODEC);
+        event.register(DeepNullReforged.id("deep_null"), DeepNullItemModel.Unbaked.MAP_CODEC);
     }
 
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.DEEP_NULL_DOCK.get(), DeepNullDockRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.NULL_WORKBENCH.get(), NullWorkbenchRenderer::new);
     }
 
     private static AbstractContainerScreen<DeepNullMenu> createDeepNullScreen(DeepNullMenu menu, Inventory inventory, Component title) {

@@ -32,15 +32,28 @@ import org.jetbrains.annotations.Nullable;
 public class DeepNullDockBlockEntity extends BlockEntity {
     private static final String STORED_DANK_TAG = "StoredDeepNull";
     private static final String GENERATOR_BUFFER_TAG = "GeneratorBuffer";
+    private static final String AUTO_EXPORT_TAG = "AutoExport";
     private static final int EMPTY_DOCK_SLOT = 0;
     private static final int GENERATOR_BUFFER_SLOT = 0;
 
     private ItemStack storedDeepNull = ItemStack.EMPTY;
     private ItemStack generatorBuffer = ItemStack.EMPTY;
+    private boolean autoExportEnabled;
     private final IItemHandler automationHandler = new DockAutomationHandler(this);
     private final ResourceHandler<ItemResource> transferItemHandler = TransferCapabilityAdapters.item((IItemHandlerModifiable) automationHandler);
-    private final ResourceHandler<FluidResource> transferFluidHandler = TransferCapabilityAdapters.fluid(this::createInventory, this::snapshotState, this::restoreState);
-    private final EnergyHandler transferEnergyHandler = TransferCapabilityAdapters.energy(this::createInventory, this::snapshotState, this::restoreState);
+    private final ResourceHandler<FluidResource> transferFluidHandler = TransferCapabilityAdapters.fluid(
+            this::createInventory,
+            this::snapshotState,
+            this::restoreState,
+            false,
+            this::isAutoExportEnabled
+    );
+    private final EnergyHandler transferEnergyHandler = TransferCapabilityAdapters.energy(
+            this::createInventory,
+            this::snapshotState,
+            this::restoreState,
+            this::isAutoExportEnabled
+    );
 
     public DeepNullDockBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.DEEP_NULL_DOCK.get(), pos, blockState);
@@ -122,13 +135,31 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         return generatorBuffer;
     }
 
+    public boolean isAutoExportEnabled() {
+        return autoExportEnabled;
+    }
+
+    public void setAutoExportEnabled(boolean enabled) {
+        if (autoExportEnabled == enabled) {
+            return;
+        }
+        autoExportEnabled = enabled;
+        setChangedAndSync(true);
+    }
+
+    public boolean toggleAutoExport() {
+        setAutoExportEnabled(!autoExportEnabled);
+        return autoExportEnabled;
+    }
+
     public DockState snapshotState() {
-        return new DockState(storedDeepNull.copy(), generatorBuffer.copy());
+        return new DockState(storedDeepNull.copy(), generatorBuffer.copy(), autoExportEnabled);
     }
 
     public void restoreState(DockState state) {
         this.storedDeepNull = state.storedDeepNull().copy();
         this.generatorBuffer = state.generatorBuffer().copy();
+        this.autoExportEnabled = state.autoExportEnabled();
         setChangedAndSync(false);
     }
 
@@ -195,6 +226,7 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         super.saveAdditional(output);
         storeItem(output, STORED_DANK_TAG, storedDeepNull);
         storeItem(output, GENERATOR_BUFFER_TAG, generatorBuffer);
+        output.putBoolean(AUTO_EXPORT_TAG, autoExportEnabled);
     }
 
     @Override
@@ -202,6 +234,7 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         super.loadAdditional(input);
         storedDeepNull = readItem(input, STORED_DANK_TAG);
         generatorBuffer = readItem(input, GENERATOR_BUFFER_TAG);
+        autoExportEnabled = input.getBooleanOr(AUTO_EXPORT_TAG, false);
     }
 
     @Override
@@ -316,7 +349,7 @@ public class DeepNullDockBlockEntity extends BlockEntity {
     }
 
     private void pushGeneratorBuffer(Level level, BlockPos pos) {
-        if (!exposesGeneratorBuffer() || generatorBuffer.isEmpty()) {
+        if (!autoExportEnabled || !exposesGeneratorBuffer() || generatorBuffer.isEmpty()) {
             return;
         }
 
@@ -365,7 +398,7 @@ public class DeepNullDockBlockEntity extends BlockEntity {
         return inventory.hasStoneGeneratorUpgrade() || inventory.hasObsidianGeneratorUpgrade();
     }
 
-    public record DockState(ItemStack storedDeepNull, ItemStack generatorBuffer) {
+    public record DockState(ItemStack storedDeepNull, ItemStack generatorBuffer, boolean autoExportEnabled) {
     }
 
     private static final class DockAutomationHandler implements IItemHandlerModifiable {
@@ -425,6 +458,9 @@ public class DeepNullDockBlockEntity extends BlockEntity {
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (!dock.autoExportEnabled) {
+                return ItemStack.EMPTY;
+            }
             DeepNullInventory inventory = dock.createInventory();
             if (inventory == null) {
                 return ItemStack.EMPTY;

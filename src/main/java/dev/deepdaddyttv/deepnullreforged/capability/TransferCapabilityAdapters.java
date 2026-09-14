@@ -15,6 +15,7 @@ import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 public final class TransferCapabilityAdapters {
@@ -56,7 +57,17 @@ public final class TransferCapabilityAdapters {
             Consumer<S> snapshotRestore,
             boolean singleSelectedTankView
     ) {
-        return new FluidHandlerResourceBridge<>(inventorySupplier, snapshotSource, snapshotRestore, singleSelectedTankView);
+        return fluid(inventorySupplier, snapshotSource, snapshotRestore, singleSelectedTankView, () -> true);
+    }
+
+    public static <S> ResourceHandler<FluidResource> fluid(
+            Supplier<@Nullable DeepNullInventory> inventorySupplier,
+            Supplier<S> snapshotSource,
+            Consumer<S> snapshotRestore,
+            boolean singleSelectedTankView,
+            BooleanSupplier canExtract
+    ) {
+        return new FluidHandlerResourceBridge<>(inventorySupplier, snapshotSource, snapshotRestore, singleSelectedTankView, canExtract);
     }
 
     public static <S> EnergyHandler energy(
@@ -72,7 +83,16 @@ public final class TransferCapabilityAdapters {
             Supplier<S> snapshotSource,
             Consumer<S> snapshotRestore
     ) {
-        return new EnergyStorageResourceBridge<>(inventorySupplier, snapshotSource, snapshotRestore);
+        return energy(inventorySupplier, snapshotSource, snapshotRestore, () -> true);
+    }
+
+    public static <S> EnergyHandler energy(
+            Supplier<@Nullable DeepNullInventory> inventorySupplier,
+            Supplier<S> snapshotSource,
+            Consumer<S> snapshotRestore,
+            BooleanSupplier canExtract
+    ) {
+        return new EnergyStorageResourceBridge<>(inventorySupplier, snapshotSource, snapshotRestore, canExtract);
     }
 
     public static void restoreItemStack(ItemStack target, ItemStack snapshot) {
@@ -173,17 +193,20 @@ public final class TransferCapabilityAdapters {
         private final Supplier<S> snapshotSource;
         private final Consumer<S> snapshotRestore;
         private final boolean singleSelectedTankView;
+        private final BooleanSupplier canExtract;
 
         private FluidHandlerResourceBridge(
                 Supplier<@Nullable DeepNullInventory> inventorySupplier,
                 Supplier<S> snapshotSource,
                 Consumer<S> snapshotRestore,
-                boolean singleSelectedTankView
+                boolean singleSelectedTankView,
+                BooleanSupplier canExtract
         ) {
             this.inventorySupplier = inventorySupplier;
             this.snapshotSource = snapshotSource;
             this.snapshotRestore = snapshotRestore;
             this.singleSelectedTankView = singleSelectedTankView;
+            this.canExtract = canExtract;
         }
 
         @Override
@@ -257,7 +280,7 @@ public final class TransferCapabilityAdapters {
         @Override
         public int extract(int slot, FluidResource resource, int maxAmount, TransactionContext transaction) {
             DeepNullInventory inventory = currentInventory();
-            if (inventory == null || maxAmount <= 0) {
+            if (inventory == null || maxAmount <= 0 || !canExtract.getAsBoolean()) {
                 return 0;
             }
             int resolvedSlot = resolveSlot(inventory, slot);
@@ -311,11 +334,18 @@ public final class TransferCapabilityAdapters {
         private final Supplier<@Nullable DeepNullInventory> inventorySupplier;
         private final Supplier<S> snapshotSource;
         private final Consumer<S> snapshotRestore;
+        private final BooleanSupplier canExtract;
 
-        private EnergyStorageResourceBridge(Supplier<@Nullable DeepNullInventory> inventorySupplier, Supplier<S> snapshotSource, Consumer<S> snapshotRestore) {
+        private EnergyStorageResourceBridge(
+                Supplier<@Nullable DeepNullInventory> inventorySupplier,
+                Supplier<S> snapshotSource,
+                Consumer<S> snapshotRestore,
+                BooleanSupplier canExtract
+        ) {
             this.inventorySupplier = inventorySupplier;
             this.snapshotSource = snapshotSource;
             this.snapshotRestore = snapshotRestore;
+            this.canExtract = canExtract;
         }
 
         @Override
@@ -343,7 +373,7 @@ public final class TransferCapabilityAdapters {
         @Override
         public int extract(int maxAmount, TransactionContext transaction) {
             DeepNullInventory inventory = currentInventory();
-            if (inventory == null || maxAmount <= 0) {
+            if (inventory == null || maxAmount <= 0 || !canExtract.getAsBoolean()) {
                 return 0;
             }
             updateSnapshots(transaction);

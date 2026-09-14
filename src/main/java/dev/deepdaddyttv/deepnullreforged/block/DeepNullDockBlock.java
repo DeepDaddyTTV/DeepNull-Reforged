@@ -12,6 +12,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -106,6 +107,10 @@ public class DeepNullDockBlock extends BaseEntityBlock {
 
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
+        // Minecraft calls this even for an empty stack; PASS skips useWithoutItem.
+        if (stack.isEmpty()) {
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
+        }
         if (!(level.getBlockEntity(pos) instanceof DeepNullDockBlockEntity dock)) {
             return InteractionResult.PASS;
         }
@@ -152,23 +157,26 @@ public class DeepNullDockBlock extends BaseEntityBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!(level.getBlockEntity(pos) instanceof DeepNullDockBlockEntity dock) || !dock.hasStoredDeepNull()) {
+        if (!(level.getBlockEntity(pos) instanceof DeepNullDockBlockEntity dock)) {
             return InteractionResult.PASS;
         }
 
         if (player.isShiftKeyDown()) {
-            if (level.isClientSide()) {
-                dock.setStoredDeepNullClient(ItemStack.EMPTY);
-            } else {
-                ItemStack stored = dock.removeStoredDeepNull();
-                if (!player.addItem(stored)) {
-                    player.drop(stored, false);
+            if (!level.isClientSide()) {
+                boolean enabled = dock.toggleAutoExport();
+                Component message = Component.translatable(
+                        enabled ? "message.deepnullreforged.auto_export_on" : "message.deepnullreforged.auto_export_off"
+                );
+                if (player instanceof ServerPlayer serverPlayer) {
+                    serverPlayer.sendOverlayMessage(message);
+                } else {
+                    player.sendSystemMessage(message);
                 }
             }
             return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
         }
 
-        if (player instanceof ServerPlayer serverPlayer) {
+        if (dock.hasStoredDeepNull() && player instanceof ServerPlayer serverPlayer) {
             DeepNullMenuOpener.openDock(serverPlayer, dock);
             return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
         }

@@ -199,10 +199,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
                 renderStyleGradient(graphics);
                 renderStyleSelection(graphics);
             }
-            ItemStack output = menu.getOutputStack();
-            if (!output.isEmpty()) {
-                renderLargeSlotItem(graphics, output, leftPos + STYLE_OUTPUT_PREVIEW_X, topPos + STYLE_OUTPUT_PREVIEW_Y);
-            } else if (hasStyledNull()) {
+            if (hasStyledNull()) {
                 renderLargeSlotItem(graphics, previewStack(), leftPos + STYLE_OUTPUT_PREVIEW_X, topPos + STYLE_OUTPUT_PREVIEW_Y);
             }
             renderLargeSlotHover(graphics, mouseX, mouseY, leftPos + STYLE_NULL_SLOT_X, topPos + STYLE_NULL_SLOT_Y);
@@ -252,9 +249,6 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
                 return true;
             }
             if (activeTab == WorkbenchTab.STYLE && clickLargeSlot(event, leftPos + STYLE_MODIFIER_SLOT_X, topPos + STYLE_MODIFIER_SLOT_Y, NullWorkbenchBlockEntity.STYLE_MODIFIER_SLOT)) {
-                return true;
-            }
-            if (activeTab == WorkbenchTab.STYLE && clickLargeSlot(event, leftPos + STYLE_OUTPUT_PREVIEW_X, topPos + STYLE_OUTPUT_PREVIEW_Y, NullWorkbenchBlockEntity.OUTPUT_SLOT)) {
                 return true;
             }
             if (activeTab == WorkbenchTab.STYLE && handleStylePickerClick(event)) {
@@ -390,8 +384,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
         } else if (activeTab == WorkbenchTab.STYLE) {
             renderItemTooltip(graphics, mouseX, mouseY, leftPos + STYLE_NULL_SLOT_X, topPos + STYLE_NULL_SLOT_Y, menu.getNullStack());
             renderItemTooltip(graphics, mouseX, mouseY, leftPos + STYLE_MODIFIER_SLOT_X, topPos + STYLE_MODIFIER_SLOT_Y, menu.getStyleModifierStack());
-            ItemStack output = menu.getOutputStack();
-            renderItemTooltip(graphics, mouseX, mouseY, leftPos + STYLE_OUTPUT_PREVIEW_X, topPos + STYLE_OUTPUT_PREVIEW_Y, output.isEmpty() ? previewStack() : output);
+            renderItemTooltip(graphics, mouseX, mouseY, leftPos + STYLE_OUTPUT_PREVIEW_X, topPos + STYLE_OUTPUT_PREVIEW_Y, previewStack());
         }
     }
 
@@ -482,7 +475,7 @@ public class NullWorkbenchScreen extends AbstractContainerScreen<NullWorkbenchMe
 
     private void updateMachineSlotState() {
         menu.setCraftSlotsActive(activeTab == WorkbenchTab.CRAFT);
-        menu.setOutputSlotActive(activeTab == WorkbenchTab.CRAFT || activeTab == WorkbenchTab.STYLE);
+        menu.setOutputSlotActive(activeTab == WorkbenchTab.CRAFT);
     }
 
     private void refreshStyleFields() {

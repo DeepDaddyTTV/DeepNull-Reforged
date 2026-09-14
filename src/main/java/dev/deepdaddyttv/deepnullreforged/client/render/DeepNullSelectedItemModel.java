@@ -70,6 +70,10 @@ public final class DeepNullSelectedItemModel implements ItemModel {
     private DeepNullSelectedItemModel() {
     }
 
+    static DeepNullSelectedItemModel instance() {
+        return INSTANCE;
+    }
+
     @Override
     public void update(
             ItemStackRenderState output,
