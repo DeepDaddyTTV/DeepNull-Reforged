@@ -27,4 +27,9 @@ run-data
 mdk-1.21.1
 original-danknull
 
+# local gameplay testing
+DeepNull Testing 26.1/
+layout-backups/
+logs/
+
 repo

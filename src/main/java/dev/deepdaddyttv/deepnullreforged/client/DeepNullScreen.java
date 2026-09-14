@@ -5,6 +5,9 @@ import dev.deepdaddyttv.deepnullreforged.DeepNullConfig;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
+import dev.deepdaddyttv.deepnullreforged.inventory.ItemExtractionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullSlotDomain;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullStorageAction;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
@@ -36,8 +39,17 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
-public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
+public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> implements StorageActionResultListener, ExtractionEditResultListener {
+    private static final List<NullShortcutController.Action> SHORTCUT_ACTIONS = List.of(
+            NullShortcutController.Action.SWAP,
+            NullShortcutController.Action.MERGE,
+            NullShortcutController.Action.CLEAR,
+            NullShortcutController.Action.SELECT,
+            NullShortcutController.Action.CYCLE
+    );
     private static final int BASE_IMAGE_WIDTH = 202;
     private static final int ENERGY_IMAGE_WIDTH = 252;
     private static final int INFO_PANEL_WIDTH = 146;
@@ -54,7 +66,6 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final Identifier DIALOGUE_INACTIVE_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_dialogue_inactive.png");
     private static final Identifier PLUS_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_plus_button.png");
     private static final Identifier MINUS_BUTTON_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_minus_button.png");
-    private static final Identifier EXTRACT_DIALOG_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_extract_mode_dialogue_box.png");
     private static final Identifier INFO_TAB_TEXTURE = DeepNullReforged.id("textures/gui/widgets/deepnull_info_tab.png");
     private static final int TAB_BUTTON_U = 98;
     private static final int INFO_BUTTON_V = 16;
@@ -92,19 +103,26 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private static final int PLUS_BUTTON_V = 47;
     private static final int MINUS_BUTTON_U = 54;
     private static final int MINUS_BUTTON_V = 55;
-    private static final int EXTRACT_DIALOG_TEXTURE_SIZE = 128;
-    private static final int EXTRACT_DIALOG_U = 11;
-    private static final int EXTRACT_DIALOG_V = 35;
-    private static final int EXTRACT_DIALOG_WIDTH = 106;
-    private static final int EXTRACT_DIALOG_HEIGHT = 42;
-    private static final int EXTRACT_DIALOG_TITLE_X = 8;
-    private static final int EXTRACT_DIALOG_TITLE_Y = 7;
-    private static final int EXTRACT_DIALOG_CONTROLS_Y = 18;
+    private static final int EXTRACT_DIALOG_WIDTH = 166;
+    private static final int EXTRACT_DIALOG_HEIGHT = 76;
+    private static final int EXTRACT_SLIDER_PADDING = 12;
+    private static final int EXTRACT_SLIDER_Y = 29;
+    private static final int EXTRACT_SLIDER_HEIGHT = 9;
+    private static final int EXTRACT_BUTTON_WIDTH = 38;
+    private static final int EXTRACT_BUTTON_HEIGHT = 13;
 
     private final Identifier backgroundTexture;
     private final int baseImageWidth;
     private final boolean integratedEnergyGui;
     private int latchedReorderSlot = -1;
+    private final NullShortcutController shortcutController = new NullShortcutController();
+    private final NullShortcutActionAnimations shortcutAnimations = new NullShortcutActionAnimations();
+    private final Map<Long, PendingStorageAction> pendingStorageActions = new HashMap<>();
+    private long nextStorageNonce = 1L;
+    private int pendingSwapSlot = -1;
+    private int pendingMergeSlot = -1;
+    private int pendingClearSlot = -1;
+    private ItemStack pendingClearIdentity = ItemStack.EMPTY;
     private boolean shiftQuickMoveDragging;
     private int shiftQuickMoveButton = -1;
     private final Set<Integer> shiftQuickMovedSlots = new HashSet<>();
@@ -116,7 +134,14 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     private int customExtractionAnchorX;
     private int customExtractionAnchorY;
     private int customExtractionInitialValue;
+    private ItemExtractionMode customExtractionInitialMode = ItemExtractionMode.KEEP_NONE;
+    private ItemExtractionMode customExtractionMode = ItemExtractionMode.KEEP_NONE;
     private boolean customExtractionApplyAll;
+    private long nextExtractionEditId = 1L;
+    private long activeExtractionEditId = Long.MIN_VALUE;
+    private boolean extractionEditReady;
+    private boolean extractionSliderDragging;
+    private boolean suppressExtractionResponder;
 
     public DeepNullScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, imageWidthFor(menu), imageHeightFor(menu));
@@ -163,6 +188,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         customExtractionBox.setTextColor(0xFFFFFFFF);
         customExtractionBox.setTextColorUneditable(0xFFFFFFFF);
         customExtractionBox.setFilter(value -> value.chars().allMatch(Character::isDigit));
+        customExtractionBox.setResponder(this::onCustomExtractionAmountChanged);
         customExtractionBox.visible = false;
         customExtractionBox.active = false;
 
@@ -198,6 +224,20 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             graphics.nextStratum();
             renderCustomExtractionEditor(graphics);
         }
+        graphics.nextStratum();
+        shortcutAnimations.render(graphics, font);
+        shortcutController.render(
+                graphics,
+                font,
+                mouseX,
+                mouseY,
+                leftPos,
+                topPos,
+                baseImageWidth,
+                imageHeight,
+                SHORTCUT_ACTIONS,
+                this::hasPendingAction
+        );
     }
 
     @Override
@@ -224,10 +264,23 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (stoneworksPanelOpen) {
             renderStoneworksTooltip(graphics, mouseX, mouseY);
         }
+        shortcutController.renderTooltip(graphics, font, mouseX, mouseY, SHORTCUT_ACTIONS);
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        NullShortcutController.Action chip = shortcutController.handleClick(event.x(), event.y(), event.button(), SHORTCUT_ACTIONS);
+        if (chip != null) {
+            if (shortcutController.isArmed(chip)) {
+                cancelPendingExcept(chip);
+            } else {
+                cancelAllPendingActions();
+            }
+            return true;
+        }
+        if (shortcutController.consumedLastClick()) {
+            return true;
+        }
         if (ClientModEvents.isTertiaryGuiButton(event.button()) && handleBlockedMiddleClick(event.x(), event.y())) {
             return true;
         }
@@ -241,6 +294,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
 
         Slot slot = findSlotAt(event.x(), event.y());
+        if (pendingClearSlot >= 0 && (slot == null || slot.index != pendingClearSlot)) {
+            clearPendingClear();
+        }
         if (handleIconButtonClick(event)) {
             return true;
         }
@@ -258,6 +314,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
         clearShiftQuickMoveState();
         boolean shouldBeginShiftQuickMoveDrag = canStartShiftQuickMoveDrag(slot, event.button());
+        if (slot instanceof DeepNullMenu.StorageSlot && handleShortcutSlotClick(slot.index, event.button())) {
+            return true;
+        }
         if (slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
             if (ScreenActions.handle(this, slot.index, event.button())) {
                 return true;
@@ -278,6 +337,10 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        if (extractionSliderDragging && customExtractionBox != null && customExtractionBox.visible) {
+            setExtractionSliderFromMouse(event.x());
+            return true;
+        }
         if (shiftQuickMoveDragging && event.button() == shiftQuickMoveButton && isShiftDown() && menu.getCarried().isEmpty()) {
             Slot hovered = findSlotAt(event.x(), event.y());
             if (canShiftQuickMoveSlot(hovered) && shiftQuickMovedSlots.add(hovered.index)) {
@@ -290,6 +353,10 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (extractionSliderDragging) {
+            extractionSliderDragging = false;
+            return true;
+        }
         clearShiftQuickMoveState();
         if (ClientModEvents.isTertiaryGuiButton(event.button()) && handleBlockedMiddleRelease(event.x(), event.y())) {
             return true;
@@ -298,14 +365,32 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollY != 0.0D && customExtractionBox != null && customExtractionBox.visible
+                && isWithin(customExtractionPopupBounds(), mouseX, mouseY)) {
+            int current = NullExtractionPresets.indexOf(customExtractionMode, parseCustomExtractionAmount());
+            setExtractionPreset(current + (scrollY > 0.0D ? 1 : -1));
+            return true;
+        }
+        Slot slot = findSlotAt(mouseX, mouseY);
+        if (scrollY != 0.0D && shortcutController.activeAction(SHORTCUT_ACTIONS) == NullShortcutController.Action.CYCLE
+                && slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
+            requestStorageAction(scrollY > 0.0D ? NullStorageAction.CYCLE_FORWARD : NullStorageAction.CYCLE_BACKWARD, slot.index, slot.index);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
     public boolean keyPressed(KeyEvent event) {
         if (customExtractionBox != null && customExtractionBox.isFocused()) {
-            if (event.isConfirmation() || event.isCycleFocus()) {
+            if (event.isConfirmation()) {
                 closeCustomExtractionEditor(true);
                 return true;
             }
             if (event.isEscape()) {
-                closeCustomExtractionEditor(false);
+                closeCustomExtractionEditor(true);
+                cancelAllPendingActions();
                 return true;
             }
             return customExtractionBox.keyPressed(event) || super.keyPressed(event);
@@ -316,22 +401,38 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             }
             return super.keyPressed(event);
         }
-        if (event.hasAltDown()) {
+        if (shortcutController.handleEscape(event.key())) {
+            cancelAllPendingActions();
+            return true;
+        }
+        NullShortcutController.Action pressedAction = shortcutController.handleKeyPressed(event, SHORTCUT_ACTIONS);
+        if (shortcutController.isActive(NullShortcutController.Action.SWAP)) {
             int sourceSlot = getReorderSourceSlot();
             int targetSlot = getReorderTargetSlot(sourceSlot, event.key());
-            if (sourceSlot >= 0 && targetSlot >= 0 && menu.moveStorageSlot(sourceSlot, targetSlot)) {
+            if (sourceSlot >= 0 && targetSlot >= 0) {
                 latchedReorderSlot = targetSlot;
-                ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuReorderPayload(sourceSlot, targetSlot));
+                requestStorageAction(NullStorageAction.SWAP, sourceSlot, targetSlot);
                 return true;
             }
+        }
+        if (pressedAction != null) {
+            return true;
         }
         return super.keyPressed(event);
     }
 
     @Override
     public boolean keyReleased(KeyEvent event) {
-        if (event.key() == GLFW.GLFW_KEY_LEFT_ALT || event.key() == GLFW.GLFW_KEY_RIGHT_ALT || !event.hasAltDown()) {
+        shortcutController.handleKeyReleased(event, SHORTCUT_ACTIONS);
+        if (shortcutController.shouldCancelPendingOnRelease(NullShortcutController.Action.SWAP)) {
             latchedReorderSlot = -1;
+            pendingSwapSlot = -1;
+        }
+        if (shortcutController.shouldCancelPendingOnRelease(NullShortcutController.Action.MERGE)) {
+            pendingMergeSlot = -1;
+        }
+        if (shortcutController.shouldCancelPendingOnRelease(NullShortcutController.Action.CLEAR)) {
+            clearPendingClear();
         }
         return super.keyReleased(event);
     }
@@ -350,7 +451,14 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     @Override
     public void containerTick() {
         super.containerTick();
-        if (!isAltDown()) {
+        if (pendingClearSlot >= 0
+                && (shortcutController.activeAction(SHORTCUT_ACTIONS) != NullShortcutController.Action.CLEAR
+                || !validStorageSlot(pendingClearSlot)
+                || !ItemStack.matches(menu.getDankInventory().getStackInSlot(pendingClearSlot), pendingClearIdentity))) {
+            clearPendingClear();
+        }
+        if (!shortcutController.isKeyHeld(NullShortcutController.Action.SWAP)
+                && !shortcutController.isActive(NullShortcutController.Action.SWAP)) {
             latchedReorderSlot = -1;
         }
         if (!isShiftDown()) {
@@ -363,6 +471,9 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
     @Override
     protected void renderSlotContents(GuiGraphicsExtractor graphics, ItemStack itemStack, Slot slot, String countString) {
         if (isStorageItemSlot(slot) && !itemStack.isEmpty()) {
+            if (shortcutAnimations.suppressesItemSlot(slot.index)) {
+                return;
+            }
             if (customExtractionBox != null && customExtractionBox.visible) {
                 Rect2i slotRect = new Rect2i(leftPos + slot.x, topPos + slot.y, 16, 16);
                 if (intersects(customExtractionPopupBounds(), slotRect)) {
@@ -407,8 +518,24 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         int selectedSlot = menu.getDankInventory().getSelectedSlot();
         if (selectedSlot >= 0 && selectedSlot < menu.getStorageSlotCount()) {
             Slot slot = menu.slots.get(selectedSlot);
-            graphics.outline(leftPos + slot.x - 1, topPos + slot.y - 1, 18, 18, menu.getTier().ordinalId() == 0 ? 0xFFE7B623 : 0xFFD8DCE5);
+            int start = selectedPaletteColor(0x48);
+            int end = selectedPaletteColor(0x18);
+            graphics.fillGradient(leftPos + slot.x - 1, topPos + slot.y - 1, leftPos + slot.x + 17, topPos + slot.y + 17, start, end);
+            graphics.outline(leftPos + slot.x - 1, topPos + slot.y - 1, 18, 18, selectedPaletteColor(0xFF));
         }
+    }
+
+    private int selectedPaletteColor(int alpha) {
+        int rgb = switch (menu.getTier()) {
+            case REDSTONE -> 0xD44848;
+            case LAPIS -> 0x4878D4;
+            case IRON -> 0xD8DCE5;
+            case GOLD -> 0xE7B623;
+            case DIAMOND -> 0x42C8D8;
+            case EMERALD -> 0x3ED47A;
+            case CREATIVE -> 0xC767E8;
+        };
+        return (alpha << 24) | rgb;
     }
 
     private boolean canStartShiftQuickMoveDrag(Slot slot, int button) {
@@ -907,45 +1034,55 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (stack.isEmpty()) {
             return;
         }
+        closeCustomExtractionEditor(true);
         customExtractionSlot = slot;
         customExtractionAnchorX = mouseX;
         customExtractionAnchorY = mouseY;
         customExtractionApplyAll = applyAll;
-        int currentMinimum = currentCustomExtractionEditorValue(slot, stack);
-        customExtractionInitialValue = currentMinimum;
-        customExtractionBox.setValue(Integer.toString(currentMinimum));
+        customExtractionInitialMode = menu.getDankInventory().getExtractionMode(slot);
+        customExtractionMode = customExtractionInitialMode;
+        customExtractionInitialValue = currentCustomExtractionEditorValue(slot, stack);
+        setCustomExtractionBoxValue(customExtractionInitialValue);
+        activeExtractionEditId = nextExtractionEditId++;
+        extractionEditReady = false;
+        extractionSliderDragging = false;
         updateCustomExtractionBox();
         customExtractionBox.visible = true;
-        customExtractionBox.active = true;
+        customExtractionBox.active = false;
         customExtractionBox.setFocused(true);
         customExtractionBox.setCursorPosition(0);
         customExtractionBox.setHighlightPos(customExtractionBox.getValue().length());
         if (stoneworksAmountBox != null) {
             stoneworksAmountBox.setFocused(false);
         }
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.ExtractionEditBeginPayload(
+                menu.containerId,
+                activeExtractionEditId,
+                slot,
+                applyAll
+        ));
     }
 
-    private void closeCustomExtractionEditor(boolean apply) {
+    private void closeCustomExtractionEditor(boolean retainChanges) {
         if (customExtractionBox == null) {
             return;
         }
-        if (apply && customExtractionSlot >= 0 && customExtractionSlot < menu.getStorageSlotCount()) {
-            ItemStack stack = menu.getDankInventory().getStackInSlot(customExtractionSlot);
-            if (!stack.isEmpty() && !customExtractionBox.getValue().isEmpty()) {
-                try {
-                    int amount = Integer.parseInt(customExtractionBox.getValue());
-                    if (amount != customExtractionInitialValue) {
-                        ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuCustomExtractionPayload(customExtractionSlot, amount, customExtractionApplyAll));
-                    }
-                } catch (NumberFormatException ignored) {
-                }
-            }
+        if (activeExtractionEditId != Long.MIN_VALUE) {
+            ClientPacketDistributor.sendToServer(new DeepNullPayloads.ExtractionEditInvalidatePayload(
+                    menu.containerId,
+                    activeExtractionEditId
+            ));
         }
         customExtractionSlot = -1;
         customExtractionAnchorX = 0;
         customExtractionAnchorY = 0;
         customExtractionInitialValue = 0;
+        customExtractionInitialMode = ItemExtractionMode.KEEP_NONE;
+        customExtractionMode = ItemExtractionMode.KEEP_NONE;
         customExtractionApplyAll = false;
+        activeExtractionEditId = Long.MIN_VALUE;
+        extractionEditReady = false;
+        extractionSliderDragging = false;
         customExtractionBox.setFocused(false);
         customExtractionBox.visible = false;
         customExtractionBox.active = false;
@@ -969,15 +1106,12 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         customExtractionBox.setX(bounds.getX() + DIALOGUE_TEXT_PADDING_X + 2);
         customExtractionBox.setY(bounds.getY() + DIALOGUE_TEXT_PADDING_Y + 2);
         customExtractionBox.visible = true;
-        customExtractionBox.active = true;
-        if (!customExtractionBox.isFocused()) {
-            customExtractionBox.setValue(Integer.toString(currentCustomExtractionEditorValue(customExtractionSlot, stack)));
-        }
+        customExtractionBox.active = extractionEditReady;
     }
 
     private int currentCustomExtractionEditorValue(int slot, ItemStack stack) {
         return switch (menu.getDankInventory().getExtractionMode(slot)) {
-            case KEEP_ALL -> Math.min(stack.getCount(), menu.getDankInventory().getSlotLimit(slot));
+            case KEEP_ALL -> menu.getDankInventory().getSlotLimit(slot);
             default -> menu.getDankInventory().getExtractionMinimum(slot);
         };
     }
@@ -998,11 +1132,38 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
         Rect2i popup = customExtractionPopupBounds();
         Rect2i dialog = customExtractionDialogBounds();
-        graphics.blit(RenderPipelines.GUI_TEXTURED, EXTRACT_DIALOG_TEXTURE, popup.getX(), popup.getY(), EXTRACT_DIALOG_U, EXTRACT_DIALOG_V, EXTRACT_DIALOG_WIDTH, EXTRACT_DIALOG_HEIGHT, EXTRACT_DIALOG_TEXTURE_SIZE, EXTRACT_DIALOG_TEXTURE_SIZE);
-        graphics.text(font, Component.translatable("dn.custom_extract_limit.desc"), popup.getX() + EXTRACT_DIALOG_TITLE_X, popup.getY() + EXTRACT_DIALOG_TITLE_Y, 0xFFFFFFFF, false);
+        graphics.fill(popup.getX(), popup.getY(), popup.getX() + popup.getWidth(), popup.getY() + popup.getHeight(), 0xF0121820);
+        graphics.outline(popup.getX(), popup.getY(), popup.getWidth(), popup.getHeight(), selectedPaletteColor(0xFF));
+        graphics.text(font, Component.translatable("dn.custom_extract_limit.desc"), popup.getX() + 8, popup.getY() + 6, 0xFFFFFFFF, false);
+        Component modeLabel = customExtractionMode.tooltip(parseCustomExtractionAmount());
+        graphics.text(font, modeLabel, popup.getX() + popup.getWidth() - font.width(modeLabel) - 8, popup.getY() + 6, 0xFFBAC6D4, false);
+
+        Rect2i slider = customExtractionSliderBounds();
+        int centerY = slider.getY() + slider.getHeight() / 2;
+        graphics.fill(slider.getX(), centerY - 1, slider.getX() + slider.getWidth(), centerY + 1, 0xFF465462);
+        for (int index = 0; index < NullExtractionPresets.stopCount(); index++) {
+            int x = extractionStopX(slider, index);
+            graphics.fill(x - 2, centerY - 2, x + 3, centerY + 3, 0xFF718292);
+        }
+        int selectedIndex = NullExtractionPresets.indexOf(customExtractionMode, parseCustomExtractionAmount());
+        int selectedX = extractionStopX(slider, selectedIndex);
+        graphics.fill(selectedX - 3, centerY - 3, selectedX + 4, centerY + 4, selectedPaletteColor(0xFF));
+        graphics.text(font, Component.literal("\uD83D\uDD12"), extractionStopX(slider, NullExtractionPresets.stopCount() - 1) - 3, slider.getY() - 10, 0xFFFFFFFF, false);
+
         renderDialogue(graphics, dialog, customExtractionBox.isFocused());
-        renderStepButton(graphics, customExtractionMinusButtonBounds(), MINUS_BUTTON_TEXTURE, MINUS_BUTTON_U, MINUS_BUTTON_V);
-        renderStepButton(graphics, customExtractionPlusButtonBounds(), PLUS_BUTTON_TEXTURE, PLUS_BUTTON_U, PLUS_BUTTON_V);
+        drawEditorButton(graphics, customExtractionUndoButtonBounds(), Component.translatable("dn.undo.desc"), extractionEditReady);
+        drawEditorButton(graphics, customExtractionApplyButtonBounds(), Component.translatable("dn.apply.desc"), extractionEditReady);
+        if (customExtractionApplyAll) {
+            graphics.text(font, Component.translatable("dn.apply_all.desc"), popup.getX() + 8, popup.getY() + 43, 0xFF9EC7FF, false);
+        }
+    }
+
+    private void drawEditorButton(GuiGraphicsExtractor graphics, Rect2i bounds, Component label, boolean active) {
+        int fill = active ? 0xFF283746 : 0xFF1B222A;
+        int color = active ? 0xFFFFFFFF : 0xFF71808F;
+        graphics.fill(bounds.getX(), bounds.getY(), bounds.getX() + bounds.getWidth(), bounds.getY() + bounds.getHeight(), fill);
+        graphics.outline(bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(), active ? 0xFF718BA3 : 0xFF3C4854);
+        graphics.text(font, label, bounds.getX() + (bounds.getWidth() - font.width(label)) / 2, bounds.getY() + 2, color, false);
     }
 
     private void renderDialogue(GuiGraphicsExtractor graphics, Rect2i bounds, boolean active) {
@@ -1041,14 +1202,22 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         if (!ClientModEvents.isPrimaryGuiButton(event.button()) || customExtractionBox == null || !customExtractionBox.visible) {
             return false;
         }
-        if (isWithin(customExtractionMinusButtonBounds(), event.x(), event.y())) {
-            adjustCustomExtractionAmount(-customExtractionDialogStep());
-            customExtractionBox.setFocused(true);
+        if (isWithin(customExtractionApplyButtonBounds(), event.x(), event.y())) {
+            closeCustomExtractionEditor(true);
             return true;
         }
-        if (isWithin(customExtractionPlusButtonBounds(), event.x(), event.y())) {
-            adjustCustomExtractionAmount(customExtractionDialogStep());
-            customExtractionBox.setFocused(true);
+        if (isWithin(customExtractionUndoButtonBounds(), event.x(), event.y())) {
+            if (extractionEditReady) {
+                ClientPacketDistributor.sendToServer(new DeepNullPayloads.ExtractionEditUndoPayload(menu.containerId, activeExtractionEditId));
+            }
+            return true;
+        }
+        if (isWithin(customExtractionSliderBounds(), event.x(), event.y())) {
+            if (extractionEditReady) {
+                extractionSliderDragging = true;
+                customExtractionBox.setFocused(false);
+                setExtractionSliderFromMouse(event.x());
+            }
             return true;
         }
         if (isWithin(customExtractionDialogBounds(), event.x(), event.y())) {
@@ -1067,20 +1236,6 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
     }
 
-    private void adjustCustomExtractionAmount(int delta) {
-        if (customExtractionSlot < 0 || customExtractionSlot >= menu.getStorageSlotCount()) {
-            return;
-        }
-        ItemStack stack = menu.getDankInventory().getStackInSlot(customExtractionSlot);
-        if (stack.isEmpty()) {
-            return;
-        }
-        int current = parseNumericBox(customExtractionBox, currentCustomExtractionEditorValue(customExtractionSlot, stack));
-        long unclamped = (long) current + delta;
-        int next = (int) Math.max(0L, Math.min((long) menu.getDankInventory().getSlotLimit(customExtractionSlot), unclamped));
-        customExtractionBox.setValue(Integer.toString(next));
-    }
-
     private int parseNumericBox(EditBox box, int fallback) {
         if (box == null || box.getValue().isEmpty()) {
             return fallback;
@@ -1092,8 +1247,81 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
     }
 
-    private int customExtractionDialogStep() {
-        return isShiftDown() ? 10 : 1;
+    private int parseCustomExtractionAmount() {
+        if (customExtractionSlot < 0 || customExtractionSlot >= menu.getStorageSlotCount()) {
+            return 0;
+        }
+        return parseNumericBox(customExtractionBox, customExtractionInitialValue);
+    }
+
+    private void onCustomExtractionAmountChanged(String value) {
+        if (suppressExtractionResponder || !extractionEditReady || value.isEmpty()
+                || customExtractionSlot < 0 || customExtractionSlot >= menu.getStorageSlotCount()) {
+            return;
+        }
+        int parsed;
+        try {
+            parsed = Integer.parseInt(value);
+        } catch (NumberFormatException ignored) {
+            return;
+        }
+        int capacity = menu.getDankInventory().getSlotLimit(customExtractionSlot);
+        int amount = Math.max(0, Math.min(capacity, parsed));
+        if (amount != parsed) {
+            setCustomExtractionBoxValue(amount);
+        }
+        customExtractionMode = NullExtractionPresets.modeForTypedAmount(amount);
+        sendExtractionSetting(customExtractionMode, amount);
+    }
+
+    private void setExtractionSliderFromMouse(double mouseX) {
+        Rect2i bounds = customExtractionSliderBounds();
+        double progress = bounds.getWidth() <= 1
+                ? 0.0D
+                : (mouseX - bounds.getX()) / (double) bounds.getWidth();
+        int index = (int) Math.round(progress * (NullExtractionPresets.stopCount() - 1));
+        setExtractionPreset(index);
+    }
+
+    private void setExtractionPreset(int index) {
+        if (!extractionEditReady || customExtractionSlot < 0 || customExtractionSlot >= menu.getStorageSlotCount()) {
+            return;
+        }
+        int clamped = Math.max(0, Math.min(NullExtractionPresets.stopCount() - 1, index));
+        ItemExtractionMode mode = NullExtractionPresets.modeAt(clamped);
+        int amount = NullExtractionPresets.amountFor(mode, menu.getDankInventory().getSlotLimit(customExtractionSlot));
+        customExtractionMode = mode;
+        setCustomExtractionBoxValue(amount);
+        sendExtractionSetting(mode, amount);
+    }
+
+    private void sendExtractionSetting(ItemExtractionMode mode, int amount) {
+        if (!extractionEditReady || activeExtractionEditId == Long.MIN_VALUE) {
+            return;
+        }
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.ExtractionEditSetPayload(
+                menu.containerId,
+                activeExtractionEditId,
+                mode.protocolId(),
+                amount
+        ));
+    }
+
+    private void setCustomExtractionBoxValue(int amount) {
+        if (customExtractionBox == null) {
+            return;
+        }
+        String value = Integer.toString(Math.max(0, amount));
+        if (value.equals(customExtractionBox.getValue())) {
+            return;
+        }
+        suppressExtractionResponder = true;
+        customExtractionBox.setValue(value);
+        suppressExtractionResponder = false;
+    }
+
+    private static int extractionStopX(Rect2i slider, int index) {
+        return slider.getX() + Math.round((slider.getWidth() - 1) * (index / (float) (NullExtractionPresets.stopCount() - 1)));
     }
 
     boolean handleBlockedMiddleClick(double mouseX, double mouseY) {
@@ -1104,8 +1332,12 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return true;
         }
         Slot slot = findSlotAt(mouseX, mouseY);
-        if (slot instanceof DeepNullMenu.StorageSlot && slot.hasItem()) {
-            openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY), ScreenActions.hasControlDown());
+        if (slot instanceof DeepNullMenu.StorageSlot) {
+            if (slot.hasItem()) {
+                openCustomExtractionEditor(slot.index, (int) Math.round(mouseX), (int) Math.round(mouseY), ScreenActions.hasControlDown());
+            } else {
+                requestStorageAction(NullStorageAction.SORT, slot.index, slot.index);
+            }
         }
         return true;
     }
@@ -1139,7 +1371,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         Rect2i popup = customExtractionPopupBounds();
         return new Rect2i(
                 popup.getX() + ((EXTRACT_DIALOG_WIDTH - DIALOGUE_WIDTH) / 2),
-                popup.getY() + EXTRACT_DIALOG_CONTROLS_Y,
+                popup.getY() + 44,
                 DIALOGUE_WIDTH,
                 DIALOGUE_HEIGHT
         );
@@ -1157,14 +1389,24 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
         return new Rect2i(x, y, EXTRACT_DIALOG_WIDTH, EXTRACT_DIALOG_HEIGHT);
     }
 
-    private Rect2i customExtractionMinusButtonBounds() {
-        Rect2i dialog = customExtractionDialogBounds();
-        return new Rect2i(dialog.getX() - DIALOGUE_BUTTON_GAP - STEP_BUTTON_SIZE, dialog.getY(), STEP_BUTTON_SIZE, STEP_BUTTON_SIZE);
+    private Rect2i customExtractionSliderBounds() {
+        Rect2i popup = customExtractionPopupBounds();
+        return new Rect2i(
+                popup.getX() + EXTRACT_SLIDER_PADDING,
+                popup.getY() + EXTRACT_SLIDER_Y,
+                popup.getWidth() - (EXTRACT_SLIDER_PADDING * 2),
+                EXTRACT_SLIDER_HEIGHT
+        );
     }
 
-    private Rect2i customExtractionPlusButtonBounds() {
-        Rect2i dialog = customExtractionDialogBounds();
-        return new Rect2i(dialog.getX() + dialog.getWidth() + DIALOGUE_BUTTON_GAP, dialog.getY(), STEP_BUTTON_SIZE, STEP_BUTTON_SIZE);
+    private Rect2i customExtractionUndoButtonBounds() {
+        Rect2i popup = customExtractionPopupBounds();
+        return new Rect2i(popup.getX() + 8, popup.getY() + popup.getHeight() - EXTRACT_BUTTON_HEIGHT - 7, EXTRACT_BUTTON_WIDTH, EXTRACT_BUTTON_HEIGHT);
+    }
+
+    private Rect2i customExtractionApplyButtonBounds() {
+        Rect2i popup = customExtractionPopupBounds();
+        return new Rect2i(popup.getX() + popup.getWidth() - EXTRACT_BUTTON_WIDTH - 8, popup.getY() + popup.getHeight() - EXTRACT_BUTTON_HEIGHT - 7, EXTRACT_BUTTON_WIDTH, EXTRACT_BUTTON_HEIGHT);
     }
 
     private Rect2i customExtractionEditorBounds() {
@@ -1187,16 +1429,242 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
             return latchedReorderSlot;
         }
         Slot hovered = hoveredSlot;
-        if (hovered instanceof SlotItemHandler && hovered.index < menu.getStorageSlotCount()) {
+        if (hovered instanceof SlotItemHandler
+                && hovered.index < menu.getStorageSlotCount()
+                && !menu.getDankInventory().getStackInSlot(hovered.index).isEmpty()) {
             latchedReorderSlot = hovered.index;
             return hovered.index;
         }
         int selectedSlot = menu.getDankInventory().getSelectedSlot();
-        if (selectedSlot >= 0 && selectedSlot < menu.getStorageSlotCount()) {
+        if (selectedSlot >= 0
+                && selectedSlot < menu.getStorageSlotCount()
+                && !menu.getDankInventory().getStackInSlot(selectedSlot).isEmpty()) {
             latchedReorderSlot = selectedSlot;
             return selectedSlot;
         }
         return -1;
+    }
+
+    private boolean handleShortcutSlotClick(int slot, int button) {
+        boolean primary = ClientModEvents.isPrimaryGuiButton(button);
+        boolean secondary = ClientModEvents.isSecondaryGuiButton(button);
+        if (!primary && !secondary) {
+            return false;
+        }
+        ItemStack stack = menu.getDankInventory().getStackInSlot(slot);
+        NullShortcutController.Action activeAction = shortcutController.activeAction(SHORTCUT_ACTIONS);
+        if (activeAction == NullShortcutController.Action.CLEAR) {
+            if (stack.isEmpty() || !primary) {
+                clearPendingClear();
+                return true;
+            }
+            if (pendingClearSlot < 0) {
+                pendingClearSlot = slot;
+                pendingClearIdentity = stack.copy();
+                return true;
+            }
+            if (pendingClearSlot != slot || !ItemStack.matches(stack, pendingClearIdentity)) {
+                clearPendingClear();
+                return true;
+            }
+            requestStorageAction(NullStorageAction.CLEAR, slot, slot);
+            return true;
+        }
+        if (activeAction == NullShortcutController.Action.SELECT) {
+            if (!stack.isEmpty()) {
+                requestStorageAction(NullStorageAction.SELECT, slot, slot);
+            }
+            return true;
+        }
+        if (activeAction == NullShortcutController.Action.CYCLE) {
+            if (!stack.isEmpty()) {
+                requestStorageAction(primary ? NullStorageAction.CYCLE_FORWARD : NullStorageAction.CYCLE_BACKWARD, slot, slot);
+            }
+            return true;
+        }
+        if (activeAction == NullShortcutController.Action.MERGE) {
+            if (stack.isEmpty()) {
+                pendingMergeSlot = -1;
+                return true;
+            }
+            if (pendingMergeSlot < 0) {
+                pendingMergeSlot = slot;
+                return true;
+            }
+            int source = pendingMergeSlot;
+            pendingMergeSlot = -1;
+            if (source != slot) {
+                requestStorageAction(NullStorageAction.MERGE, source, slot);
+            }
+            return true;
+        }
+        if (activeAction == NullShortcutController.Action.SWAP) {
+            if (pendingSwapSlot < 0) {
+                pendingSwapSlot = slot;
+                latchedReorderSlot = slot;
+                return true;
+            }
+            int source = pendingSwapSlot;
+            pendingSwapSlot = -1;
+            if (source != slot) {
+                requestStorageAction(NullStorageAction.SWAP, source, slot);
+            }
+            return true;
+        }
+        if (pendingClearSlot >= 0 && pendingClearSlot != slot) {
+            clearPendingClear();
+        }
+        return false;
+    }
+
+    private void requestStorageAction(NullStorageAction action, int sourceSlot, int targetSlot) {
+        long nonce = nextStorageNonce++;
+        ItemStack source = validStorageSlot(sourceSlot) ? menu.getDankInventory().getStackInSlot(sourceSlot).copy() : ItemStack.EMPTY;
+        ItemStack target = validStorageSlot(targetSlot) ? menu.getDankInventory().getStackInSlot(targetSlot).copy() : ItemStack.EMPTY;
+        PendingStorageAction pending = new PendingStorageAction(action, sourceSlot, targetSlot, source, target);
+        pendingStorageActions.put(nonce, pending);
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.StorageActionRequestPayload(
+                menu.containerId,
+                nonce,
+                action.id(),
+                NullSlotDomain.ITEM_STORAGE.id(),
+                sourceSlot,
+                targetSlot
+        ));
+    }
+
+    @Override
+    public void deepNullReforged$handleStorageActionResult(DeepNullPayloads.StorageActionResultPayload payload) {
+        PendingStorageAction pending = pendingStorageActions.remove(payload.nonce());
+        if (pending == null
+                || payload.domainId() != NullSlotDomain.ITEM_STORAGE.id()
+                || payload.actionId() != pending.action().id()
+                || payload.sourceSlot() != pending.sourceSlot()
+                || payload.targetSlot() != pending.targetSlot()
+                || !payload.success()) {
+            if (pending != null) {
+                cancelPendingFor(pending.action());
+            }
+            return;
+        }
+        Rect2i sourceBounds = storageSlotBounds(pending.sourceSlot());
+        Rect2i targetBounds = storageSlotBounds(pending.targetSlot());
+        switch (pending.action()) {
+            case SWAP -> shortcutAnimations.startSwap(pending.sourceSlot(), pending.targetSlot(), pending.source(), pending.target(), sourceBounds, targetBounds);
+            case MERGE -> shortcutAnimations.startMerge(pending.sourceSlot(), pending.targetSlot(), pending.source(), pending.target(), sourceBounds, targetBounds);
+            case CLEAR -> shortcutAnimations.startDelete(pending.targetSlot(), pending.target(), targetBounds, pending.target().getItem().hashCode());
+            case SELECT -> shortcutAnimations.startSelect(pending.targetSlot(), targetBounds);
+            case CYCLE_FORWARD -> shortcutAnimations.startCycle(pending.targetSlot(), pending.target(), targetBounds, true);
+            case CYCLE_BACKWARD -> shortcutAnimations.startCycle(pending.targetSlot(), pending.target(), targetBounds, false);
+            case SORT -> { }
+        }
+        cancelPendingFor(pending.action());
+        if (pending.action() != NullStorageAction.SORT) {
+            shortcutController.clearArmed(actionFor(pending.action()));
+        }
+    }
+
+    @Override
+    public void deepNullReforged$handleExtractionEditResult(DeepNullPayloads.ExtractionEditResultPayload payload) {
+        if (payload.editId() != activeExtractionEditId) {
+            return;
+        }
+        DeepNullPayloads.ExtractionEditOperation operation = DeepNullPayloads.ExtractionEditOperation.byId(payload.operationId());
+        if (operation == null) {
+            closeCustomExtractionEditor(true);
+            return;
+        }
+        if (!payload.success()) {
+            if (operation != DeepNullPayloads.ExtractionEditOperation.INVALIDATE) {
+                closeCustomExtractionEditor(true);
+            }
+            return;
+        }
+        switch (operation) {
+            case BEGIN -> {
+                extractionEditReady = true;
+                if (customExtractionBox != null) {
+                    customExtractionBox.active = true;
+                }
+            }
+            case UNDO -> {
+                customExtractionMode = customExtractionInitialMode;
+                setCustomExtractionBoxValue(customExtractionInitialValue);
+            }
+            case SET, INVALIDATE -> { }
+        }
+    }
+
+    private Rect2i storageSlotBounds(int slot) {
+        if (!validStorageSlot(slot)) {
+            return new Rect2i(0, 0, 16, 16);
+        }
+        Slot menuSlot = menu.slots.get(slot);
+        return new Rect2i(leftPos + menuSlot.x, topPos + menuSlot.y, 16, 16);
+    }
+
+    private boolean validStorageSlot(int slot) {
+        return slot >= 0 && slot < menu.getStorageSlotCount();
+    }
+
+    private boolean hasPendingAction(NullShortcutController.Action action) {
+        return switch (action) {
+            case SWAP -> pendingSwapSlot >= 0;
+            case MERGE -> pendingMergeSlot >= 0;
+            case CLEAR -> pendingClearSlot >= 0;
+            case SELECT, CYCLE -> false;
+        };
+    }
+
+    private void cancelPendingExcept(NullShortcutController.Action action) {
+        if (action != NullShortcutController.Action.SWAP) pendingSwapSlot = -1;
+        if (action != NullShortcutController.Action.MERGE) pendingMergeSlot = -1;
+        if (action != NullShortcutController.Action.CLEAR) clearPendingClear();
+    }
+
+    private void cancelPendingFor(NullStorageAction action) {
+        switch (action) {
+            case SWAP -> pendingSwapSlot = -1;
+            case MERGE -> pendingMergeSlot = -1;
+            case CLEAR -> clearPendingClear();
+            default -> { }
+        }
+    }
+
+    private void clearPendingClear() {
+        pendingClearSlot = -1;
+        pendingClearIdentity = ItemStack.EMPTY;
+    }
+
+    private void cancelAllPendingActions() {
+        pendingSwapSlot = -1;
+        pendingMergeSlot = -1;
+        clearPendingClear();
+        latchedReorderSlot = -1;
+    }
+
+    private static NullShortcutController.Action actionFor(NullStorageAction action) {
+        return switch (action) {
+            case SWAP -> NullShortcutController.Action.SWAP;
+            case MERGE -> NullShortcutController.Action.MERGE;
+            case CLEAR -> NullShortcutController.Action.CLEAR;
+            case SELECT -> NullShortcutController.Action.SELECT;
+            case CYCLE_FORWARD, CYCLE_BACKWARD -> NullShortcutController.Action.CYCLE;
+            case SORT -> NullShortcutController.Action.SWAP;
+        };
+    }
+
+    @Override
+    public void removed() {
+        closeCustomExtractionEditor(true);
+        shortcutAnimations.clear();
+        pendingStorageActions.clear();
+        cancelAllPendingActions();
+        shortcutController.clearAll();
+        super.removed();
+    }
+
+    private record PendingStorageAction(NullStorageAction action, int sourceSlot, int targetSlot, ItemStack source, ItemStack target) {
     }
 
     private void latchReorderSlot(int slot) {
@@ -1267,7 +1735,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 screen.menu.getDankInventory().toggleTagMatching(storageSlot);
                 ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         storageSlot,
-                        DeepNullPayloads.MenuSlotAction.TOGGLE_TAG_MATCHING.ordinal()
+                        DeepNullPayloads.MenuSlotAction.TOGGLE_TAG_MATCHING.id()
                 ));
                 return true;
             }
@@ -1276,7 +1744,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 screen.menu.getDankInventory().cyclePlacementMode(storageSlot, primary);
                 ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         storageSlot,
-                        (primary ? DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_BACKWARD).ordinal()
+                        (primary ? DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_PLACEMENT_BACKWARD).id()
                 ));
                 return true;
             }
@@ -1285,7 +1753,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 screen.menu.getDankInventory().cycleExtractionMode(storageSlot, primary);
                 ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         storageSlot,
-                        (primary ? DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_BACKWARD).ordinal()
+                        (primary ? DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_FORWARD : DeepNullPayloads.MenuSlotAction.CYCLE_EXTRACTION_BACKWARD).id()
                 ));
                 return true;
             }
@@ -1295,7 +1763,7 @@ public class DeepNullScreen extends AbstractContainerScreen<DeepNullMenu> {
                 screen.latchReorderSlot(storageSlot);
                 ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
                         storageSlot,
-                        DeepNullPayloads.MenuSlotAction.SELECT.ordinal()
+                        DeepNullPayloads.MenuSlotAction.SELECT.id()
                 ));
                 return true;
             }

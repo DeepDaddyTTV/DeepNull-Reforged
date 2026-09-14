@@ -3,6 +3,10 @@ package dev.deepdaddyttv.deepnullreforged.network;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullSlotDomain;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullStorageAction;
+import dev.deepdaddyttv.deepnullreforged.inventory.ItemExtractionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
@@ -28,8 +32,15 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.fluids.FluidStack;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class DeepNullPayloads {
+    private static final int MAX_TANK_CONTENTS = 256;
     private DeepNullPayloads() {
     }
 
@@ -38,7 +49,13 @@ public final class DeepNullPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("1");
+        var registrar = event.registrar("2");
+        registrar.playToClient(FluidContentsPayload.TYPE, FluidContentsPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> handleClientFluidContents(payload)));
+        registrar.playToClient(StorageActionResultPayload.TYPE, StorageActionResultPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> handleClientStorageActionResult(payload)));
+        registrar.playToClient(ExtractionEditResultPayload.TYPE, ExtractionEditResultPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> handleClientExtractionEditResult(payload)));
         registrar.playToServer(OpenItemMenuPayload.TYPE, OpenItemMenuPayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
@@ -67,6 +84,36 @@ public final class DeepNullPayloads {
                 context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
                         handleMenuReorder(payload, player);
+                    }
+                }));
+        registrar.playToServer(StorageActionRequestPayload.TYPE, StorageActionRequestPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleStorageActionRequest(payload, player);
+                    }
+                }));
+        registrar.playToServer(ExtractionEditBeginPayload.TYPE, ExtractionEditBeginPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleExtractionEditBegin(payload, player);
+                    }
+                }));
+        registrar.playToServer(ExtractionEditSetPayload.TYPE, ExtractionEditSetPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleExtractionEditSet(payload, player);
+                    }
+                }));
+        registrar.playToServer(ExtractionEditUndoPayload.TYPE, ExtractionEditUndoPayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleExtractionEditUndo(payload, player);
+                    }
+                }));
+        registrar.playToServer(ExtractionEditInvalidatePayload.TYPE, ExtractionEditInvalidatePayload.STREAM_CODEC, (payload, context) ->
+                context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        handleExtractionEditInvalidate(payload, player);
                     }
                 }));
         registrar.playToServer(MenuLockPayload.TYPE, MenuLockPayload.STREAM_CODEC, (payload, context) ->
@@ -256,7 +303,11 @@ public final class DeepNullPayloads {
             return;
         }
 
-        boolean changed = switch (MenuSlotAction.fromId(payload.actionId())) {
+        MenuSlotAction action = MenuSlotAction.fromId(payload.actionId());
+        if (action == null) {
+            return;
+        }
+        boolean changed = switch (action) {
             case SELECT -> menu.selectStorageSlot(payload.slot());
             case CLEAR_FLUID -> menu.clearFluidSlot(payload.slot());
             case CYCLE_EXTRACTION_FORWARD -> menu.cycleExtractionMode(payload.slot(), true);
@@ -298,6 +349,123 @@ public final class DeepNullPayloads {
     private static void handleMenuReorder(MenuReorderPayload payload, ServerPlayer player) {
         if (player.containerMenu instanceof DeepNullMenu menu && menu.moveStorageSlot(payload.fromSlot(), payload.toSlot())) {
             menu.broadcastChanges();
+        }
+    }
+
+    private static void handleStorageActionRequest(StorageActionRequestPayload payload, ServerPlayer player) {
+        boolean success = false;
+        NullSlotDomain domain = NullSlotDomain.byId(payload.domainId());
+        NullStorageAction action = NullStorageAction.byId(payload.actionId());
+        if (player.containerMenu instanceof DeepNullMenu menu
+                && menu.containerId == payload.containerId()
+                && menu.hasCurrentSourceIdentity()
+                && domain != null
+                && action != null
+                && menu.acceptStorageActionNonce(payload.nonce())) {
+            success = switch (action) {
+                case SWAP -> menu.moveStorageSlot(domain, payload.sourceSlot(), payload.targetSlot());
+                case MERGE -> menu.mergeStorageSlot(domain, payload.sourceSlot(), payload.targetSlot());
+                case CLEAR -> payload.sourceSlot() == payload.targetSlot()
+                        && menu.clearStorageSlot(domain, payload.targetSlot());
+                case SORT -> domain == NullSlotDomain.ITEM_STORAGE
+                        && payload.targetSlot() >= 0
+                        && payload.targetSlot() < menu.getStorageSlotCount()
+                        && menu.getDankInventory().getStackInSlot(payload.targetSlot()).isEmpty()
+                        && menu.compactItemStorage();
+                case SELECT -> menu.selectStorageSlot(domain, payload.targetSlot());
+                case CYCLE_FORWARD -> domain == NullSlotDomain.ITEM_STORAGE
+                        && menu.cycleExtractionMode(payload.targetSlot(), true);
+                case CYCLE_BACKWARD -> domain == NullSlotDomain.ITEM_STORAGE
+                        && menu.cycleExtractionMode(payload.targetSlot(), false);
+            };
+            if (success) {
+                menu.broadcastChanges();
+            }
+        }
+
+        PacketDistributor.sendToPlayer(player, new StorageActionResultPayload(
+                payload.containerId(),
+                payload.nonce(),
+                payload.actionId(),
+                payload.domainId(),
+                payload.sourceSlot(),
+                payload.targetSlot(),
+                success
+        ));
+    }
+
+    private static void handleClientStorageActionResult(StorageActionResultPayload payload) {
+        try {
+            Class<?> handler = Class.forName("dev.deepdaddyttv.deepnullreforged.client.DeepNullClientPayloadHandler");
+            handler.getMethod("handleStorageActionResult", StorageActionResultPayload.class).invoke(null, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+        }
+    }
+
+    public static void sendFluidContents(ServerPlayer player, int containerId, List<FluidStack> fluids, List<StoredChemical> chemicals) {
+        PacketDistributor.sendToPlayer(player, new FluidContentsPayload(containerId, fluids, chemicals));
+    }
+
+    private static void handleClientFluidContents(FluidContentsPayload payload) {
+        try {
+            Class<?> handler = Class.forName("dev.deepdaddyttv.deepnullreforged.client.DeepNullClientPayloadHandler");
+            handler.getMethod("handleFluidContents", FluidContentsPayload.class).invoke(null, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+        }
+    }
+
+    private static void handleExtractionEditBegin(ExtractionEditBeginPayload payload, ServerPlayer player) {
+        boolean success = player.containerMenu instanceof DeepNullMenu menu
+                && menu.containerId == payload.containerId()
+                && menu.beginExtractionEdit(payload.editId(), payload.slot(), payload.applyAll());
+        sendExtractionEditResult(player, payload.containerId(), payload.editId(), ExtractionEditOperation.BEGIN, success);
+    }
+
+    private static void handleExtractionEditSet(ExtractionEditSetPayload payload, ServerPlayer player) {
+        boolean success = false;
+        if (player.containerMenu instanceof DeepNullMenu menu && menu.containerId == payload.containerId()) {
+            ItemExtractionMode mode = ItemExtractionMode.byProtocolId(payload.modeId());
+            success = mode != null && menu.setExtractionEdit(payload.editId(), mode, payload.customAmount());
+            if (success) {
+                menu.broadcastChanges();
+            }
+        }
+        sendExtractionEditResult(player, payload.containerId(), payload.editId(), ExtractionEditOperation.SET, success);
+    }
+
+    private static void handleExtractionEditUndo(ExtractionEditUndoPayload payload, ServerPlayer player) {
+        boolean success = false;
+        if (player.containerMenu instanceof DeepNullMenu menu && menu.containerId == payload.containerId()) {
+            success = menu.undoExtractionEdit(payload.editId());
+            if (success) {
+                menu.broadcastChanges();
+            }
+        }
+        sendExtractionEditResult(player, payload.containerId(), payload.editId(), ExtractionEditOperation.UNDO, success);
+    }
+
+    private static void handleExtractionEditInvalidate(ExtractionEditInvalidatePayload payload, ServerPlayer player) {
+        boolean success = player.containerMenu instanceof DeepNullMenu menu
+                && menu.containerId == payload.containerId()
+                && menu.invalidateExtractionEdit(payload.editId());
+        sendExtractionEditResult(player, payload.containerId(), payload.editId(), ExtractionEditOperation.INVALIDATE, success);
+    }
+
+    private static void sendExtractionEditResult(
+            ServerPlayer player,
+            int containerId,
+            long editId,
+            ExtractionEditOperation operation,
+            boolean success
+    ) {
+        PacketDistributor.sendToPlayer(player, new ExtractionEditResultPayload(containerId, editId, operation.id(), success));
+    }
+
+    private static void handleClientExtractionEditResult(ExtractionEditResultPayload payload) {
+        try {
+            Class<?> handler = Class.forName("dev.deepdaddyttv.deepnullreforged.client.DeepNullClientPayloadHandler");
+            handler.getMethod("handleExtractionEditResult", ExtractionEditResultPayload.class).invoke(null, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
         }
     }
 
@@ -451,6 +619,96 @@ public final class DeepNullPayloads {
         ServerDeepNullJeiSession.clear(player);
     }
 
+    public record FluidContentsPayload(
+            int containerId,
+            List<FluidStack> fluids,
+            List<StoredChemical> chemicals
+    ) implements CustomPacketPayload {
+        public static final Type<FluidContentsPayload> TYPE = payloadType("deep_null_fluid_contents");
+        public static final StreamCodec<RegistryFriendlyByteBuf, FluidContentsPayload> STREAM_CODEC =
+                StreamCodec.ofMember(FluidContentsPayload::encode, FluidContentsPayload::decode);
+
+        private static FluidContentsPayload decode(RegistryFriendlyByteBuf buffer) {
+            return new FluidContentsPayload(buffer.readVarInt(), readFluidStacks(buffer), readChemicalStacks(buffer));
+        }
+
+        private void encode(RegistryFriendlyByteBuf buffer) {
+            buffer.writeVarInt(containerId);
+            writeFluidStacks(buffer, fluids);
+            writeChemicalStacks(buffer, chemicals);
+        }
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    private static List<FluidStack> readFluidStacks(RegistryFriendlyByteBuf buffer) {
+        int encodedCount = Math.max(0, buffer.readVarInt());
+        int acceptedCount = Math.min(encodedCount, MAX_TANK_CONTENTS);
+        List<FluidStack> fluids = new ArrayList<>(acceptedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            FluidStack fluidStack = FluidStack.OPTIONAL_STREAM_CODEC.decode(buffer);
+            if (index < acceptedCount) {
+                fluids.add(fluidStack.isEmpty() ? FluidStack.EMPTY : fluidStack.copy());
+            }
+        }
+        return List.copyOf(fluids);
+    }
+
+    private static void writeFluidStacks(RegistryFriendlyByteBuf buffer, List<FluidStack> fluids) {
+        int encodedCount = Math.min(fluids == null ? 0 : fluids.size(), MAX_TANK_CONTENTS);
+        buffer.writeVarInt(encodedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            FluidStack fluidStack = fluids.get(index);
+            FluidStack.OPTIONAL_STREAM_CODEC.encode(buffer, fluidStack == null ? FluidStack.EMPTY : fluidStack);
+        }
+    }
+
+    private static List<StoredChemical> readChemicalStacks(RegistryFriendlyByteBuf buffer) {
+        int encodedCount = Math.max(0, buffer.readVarInt());
+        int acceptedCount = Math.min(encodedCount, MAX_TANK_CONTENTS);
+        List<StoredChemical> chemicals = new ArrayList<>(acceptedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            StoredChemical chemical = readChemical(buffer);
+            if (index < acceptedCount) {
+                chemicals.add(chemical.copy());
+            }
+        }
+        return List.copyOf(chemicals);
+    }
+
+    private static void writeChemicalStacks(RegistryFriendlyByteBuf buffer, List<StoredChemical> chemicals) {
+        int encodedCount = Math.min(chemicals == null ? 0 : chemicals.size(), MAX_TANK_CONTENTS);
+        buffer.writeVarInt(encodedCount);
+        for (int index = 0; index < encodedCount; index++) {
+            writeChemical(buffer, chemicals.get(index));
+        }
+    }
+
+    private static StoredChemical readChemical(RegistryFriendlyByteBuf buffer) {
+        StoredChemical chemical = new StoredChemical(
+                buffer.readUtf(),
+                buffer.readVarLong(),
+                buffer.readUtf(),
+                buffer.readInt(),
+                buffer.readUtf(),
+                buffer.readBoolean()
+        );
+        return chemical.isEmpty() ? StoredChemical.EMPTY : chemical;
+    }
+
+    private static void writeChemical(RegistryFriendlyByteBuf buffer, StoredChemical chemical) {
+        StoredChemical value = chemical == null ? StoredChemical.EMPTY : chemical;
+        buffer.writeUtf(value.chemicalId());
+        buffer.writeVarLong(Math.max(0L, value.amount()));
+        buffer.writeUtf(value.iconPath());
+        buffer.writeInt(value.tint());
+        buffer.writeUtf(value.translationKey());
+        buffer.writeBoolean(value.gaseous());
+    }
+
     public record OpenItemMenuPayload(int inventorySlot) implements CustomPacketPayload {
         public static final Type<OpenItemMenuPayload> TYPE = payloadType("open_item_menu");
         public static final StreamCodec<RegistryFriendlyByteBuf, OpenItemMenuPayload> STREAM_CODEC =
@@ -565,6 +823,180 @@ public final class DeepNullPayloads {
         @Override
         public Type<? extends CustomPacketPayload> type() {
             return TYPE;
+        }
+    }
+
+    public record StorageActionRequestPayload(
+            int containerId,
+            long nonce,
+            int actionId,
+            int domainId,
+            int sourceSlot,
+            int targetSlot
+    ) implements CustomPacketPayload {
+        public static final Type<StorageActionRequestPayload> TYPE = payloadType("storage_action_request");
+        public static final StreamCodec<RegistryFriendlyByteBuf, StorageActionRequestPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionRequestPayload::containerId,
+                        ByteBufCodecs.VAR_LONG,
+                        StorageActionRequestPayload::nonce,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionRequestPayload::actionId,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionRequestPayload::domainId,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionRequestPayload::sourceSlot,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionRequestPayload::targetSlot,
+                        StorageActionRequestPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record StorageActionResultPayload(
+            int containerId,
+            long nonce,
+            int actionId,
+            int domainId,
+            int sourceSlot,
+            int targetSlot,
+            boolean success
+    ) implements CustomPacketPayload {
+        public static final Type<StorageActionResultPayload> TYPE = payloadType("storage_action_result");
+        public static final StreamCodec<RegistryFriendlyByteBuf, StorageActionResultPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionResultPayload::containerId,
+                        ByteBufCodecs.VAR_LONG,
+                        StorageActionResultPayload::nonce,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionResultPayload::actionId,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionResultPayload::domainId,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionResultPayload::sourceSlot,
+                        ByteBufCodecs.VAR_INT,
+                        StorageActionResultPayload::targetSlot,
+                        ByteBufCodecs.BOOL,
+                        StorageActionResultPayload::success,
+                        StorageActionResultPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record ExtractionEditBeginPayload(int containerId, long editId, int slot, boolean applyAll) implements CustomPacketPayload {
+        public static final Type<ExtractionEditBeginPayload> TYPE = payloadType("extraction_edit_begin");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ExtractionEditBeginPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, ExtractionEditBeginPayload::containerId,
+                        ByteBufCodecs.VAR_LONG, ExtractionEditBeginPayload::editId,
+                        ByteBufCodecs.VAR_INT, ExtractionEditBeginPayload::slot,
+                        ByteBufCodecs.BOOL, ExtractionEditBeginPayload::applyAll,
+                        ExtractionEditBeginPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record ExtractionEditSetPayload(int containerId, long editId, int modeId, int customAmount) implements CustomPacketPayload {
+        public static final Type<ExtractionEditSetPayload> TYPE = payloadType("extraction_edit_set");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ExtractionEditSetPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, ExtractionEditSetPayload::containerId,
+                        ByteBufCodecs.VAR_LONG, ExtractionEditSetPayload::editId,
+                        ByteBufCodecs.VAR_INT, ExtractionEditSetPayload::modeId,
+                        ByteBufCodecs.VAR_INT, ExtractionEditSetPayload::customAmount,
+                        ExtractionEditSetPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record ExtractionEditUndoPayload(int containerId, long editId) implements CustomPacketPayload {
+        public static final Type<ExtractionEditUndoPayload> TYPE = payloadType("extraction_edit_undo");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ExtractionEditUndoPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, ExtractionEditUndoPayload::containerId,
+                        ByteBufCodecs.VAR_LONG, ExtractionEditUndoPayload::editId,
+                        ExtractionEditUndoPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record ExtractionEditInvalidatePayload(int containerId, long editId) implements CustomPacketPayload {
+        public static final Type<ExtractionEditInvalidatePayload> TYPE = payloadType("extraction_edit_invalidate");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ExtractionEditInvalidatePayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, ExtractionEditInvalidatePayload::containerId,
+                        ByteBufCodecs.VAR_LONG, ExtractionEditInvalidatePayload::editId,
+                        ExtractionEditInvalidatePayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record ExtractionEditResultPayload(int containerId, long editId, int operationId, boolean success) implements CustomPacketPayload {
+        public static final Type<ExtractionEditResultPayload> TYPE = payloadType("extraction_edit_result");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ExtractionEditResultPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, ExtractionEditResultPayload::containerId,
+                        ByteBufCodecs.VAR_LONG, ExtractionEditResultPayload::editId,
+                        ByteBufCodecs.VAR_INT, ExtractionEditResultPayload::operationId,
+                        ByteBufCodecs.BOOL, ExtractionEditResultPayload::success,
+                        ExtractionEditResultPayload::new
+                );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public enum ExtractionEditOperation {
+        BEGIN(1),
+        SET(2),
+        UNDO(3),
+        INVALIDATE(4);
+
+        private final int id;
+
+        ExtractionEditOperation(int id) {
+            this.id = id;
+        }
+
+        public int id() {
+            return id;
+        }
+
+        public static ExtractionEditOperation byId(int id) {
+            for (ExtractionEditOperation operation : values()) {
+                if (operation.id == id) {
+                    return operation;
+                }
+            }
+            return null;
         }
     }
 
@@ -816,20 +1248,31 @@ public final class DeepNullPayloads {
     }
 
     public enum MenuSlotAction {
-        SELECT,
-        CLEAR_FLUID,
-        CYCLE_EXTRACTION_FORWARD,
-        CYCLE_EXTRACTION_BACKWARD,
-        CYCLE_PLACEMENT_FORWARD,
-        CYCLE_PLACEMENT_BACKWARD,
-        TOGGLE_TAG_MATCHING;
+        SELECT(1),
+        CLEAR_FLUID(2),
+        CYCLE_EXTRACTION_FORWARD(3),
+        CYCLE_EXTRACTION_BACKWARD(4),
+        CYCLE_PLACEMENT_FORWARD(5),
+        CYCLE_PLACEMENT_BACKWARD(6),
+        TOGGLE_TAG_MATCHING(7);
+
+        private final int id;
+
+        MenuSlotAction(int id) {
+            this.id = id;
+        }
+
+        public int id() {
+            return id;
+        }
 
         public static MenuSlotAction fromId(int actionId) {
-            MenuSlotAction[] values = values();
-            if (actionId < 0 || actionId >= values.length) {
-                return SELECT;
+            for (MenuSlotAction action : values()) {
+                if (action.id == actionId) {
+                    return action;
+                }
             }
-            return values[actionId];
+            return null;
         }
     }
 }

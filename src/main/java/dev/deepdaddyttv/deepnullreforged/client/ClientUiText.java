@@ -5,6 +5,9 @@ import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.client.KeyMapping;
+
+import java.util.Locale;
 
 final class ClientUiText {
     private ClientUiText() {
@@ -48,6 +51,31 @@ final class ClientUiText {
                     Component.translatable("upgrade.tiers.every_tier");
             case ENERGY -> Component.translatable("upgrade.tiers.diamond_plus");
             case DEEP_ENERGY -> Component.translatable("upgrade.tiers.emerald_only");
+        };
+    }
+
+    static String shortcutKeyToken(KeyMapping keyMapping) {
+        return keyMapping == null ? "?" : shortcutKeyToken(keyMapping.getTranslatedKeyMessage().getString());
+    }
+
+    static String shortcutKeyToken(String rawKeyName) {
+        if (rawKeyName == null || rawKeyName.trim().isEmpty()) {
+            return "?";
+        }
+        String normalized = rawKeyName.trim();
+        return switch (normalized.toLowerCase(Locale.ROOT)) {
+            case "grave accent" -> "`";
+            case "delete" -> "Del";
+            case "escape" -> "Esc";
+            case "backspace" -> "Bksp";
+            case "left control", "right control", "control" -> "Ctrl";
+            case "left alt", "right alt", "alt" -> "Alt";
+            case "left shift", "right shift", "shift" -> "Shift";
+            case "page up" -> "PgUp";
+            case "page down" -> "PgDn";
+            case "caps lock" -> "Caps";
+            case "insert" -> "Ins";
+            default -> normalized.length() == 1 ? normalized.toUpperCase(Locale.ROOT) : normalized;
         };
     }
 }

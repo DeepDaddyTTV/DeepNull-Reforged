@@ -30,6 +30,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.TriState;
@@ -38,6 +39,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
@@ -931,6 +933,132 @@ public final class DeepNullRegressionGameTests {
 
         SynchronizerItem.clearConfiguration(synchronizer);
         helper.assertFalse(SynchronizerItem.hasConfiguration(synchronizer), "Synchronizer should clear stored configuration");
+        helper.succeed();
+    }
+
+    public static void direct_cursor_storage_uses_tier_capacity_and_conserves_the_cursor(GameTestHelper helper) {
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        ItemStack nullStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        player.getInventory().setItem(0, nullStack);
+        DeepNullMenu menu = DeepNullMenu.forItem(31, player.getInventory(), 0, DeepNullTier.REDSTONE, DeepNullMenu.ViewMode.MAIN);
+        int capacity = menu.getDankInventory().getSlotLimit(0);
+
+        menu.getDankInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, capacity - 2));
+        menu.setCarried(new ItemStack(Items.COBBLESTONE, 10));
+        menu.clicked(0, 0, ContainerInput.PICKUP, player);
+        helper.assertValueEqual(menu.getDankInventory().getStackInSlot(0).getCount(), capacity, "Left-click should fill to the actual tier capacity");
+        helper.assertValueEqual(menu.getCarried().getCount(), 8, "Left-click should conserve cursor overflow");
+
+        menu.setCarried(new ItemStack(Items.DIRT, 10));
+        menu.clicked(1, 1, ContainerInput.PICKUP, player);
+        helper.assertValueEqual(menu.getDankInventory().getStackInSlot(1).getCount(), 1, "Right-click should insert one item");
+        helper.assertValueEqual(menu.getCarried().getCount(), 9, "Right-click should remove exactly one cursor item");
+
+        ItemStack unsupported = new ItemStack(Items.DIAMOND, 3);
+        DeepNullMenu upgradeMenu = DeepNullMenu.forItem(33, player.getInventory(), 0, DeepNullTier.REDSTONE, DeepNullMenu.ViewMode.UPGRADES);
+        upgradeMenu.setCarried(unsupported.copy());
+        upgradeMenu.clicked(0, 0, ContainerInput.PICKUP, player);
+        helper.assertTrue(ItemStack.matches(upgradeMenu.getCarried(), unsupported), "Upgrade interactions must not use direct storage insertion");
+        helper.succeed();
+    }
+
+    public static void item_merge_sort_selection_metadata_and_extraction_undo_are_stable(GameTestHelper helper) {
+        DeepNullInventory inventory = DeepNullGameTestSupport.deepNullInventory(helper, DeepNullTier.REDSTONE);
+        int capacity = inventory.getSlotLimit(0);
+        ItemStack namedCobble = new ItemStack(Items.COBBLESTONE, 20);
+        namedCobble.set(DataComponents.CUSTOM_NAME, Component.literal("Stable source"));
+        ItemStack matchingCobble = namedCobble.copyWithCount(capacity - 5);
+        inventory.setStackInSlot(2, namedCobble);
+        inventory.setStackInSlot(5, matchingCobble);
+        inventory.setSelectedSlot(2);
+        inventory.setExtractionSetting(2, ItemExtractionMode.CUSTOM, 7);
+
+        helper.assertTrue(inventory.mergeSlot(2, 5), "Matching item and component stacks should merge partially");
+        helper.assertValueEqual(inventory.getStackInSlot(2).getCount(), 15, "Partial merge source remainder");
+        helper.assertValueEqual(inventory.getStackInSlot(5).getCount(), capacity, "Partial merge destination capacity");
+        helper.assertValueEqual(inventory.getSelectedSlot(), 5, "Source selection should follow a merge to its destination");
+
+        ItemStack mismatched = new ItemStack(Items.COBBLESTONE, 1);
+        mismatched.set(DataComponents.CUSTOM_NAME, Component.literal("Different components"));
+        inventory.setStackInSlot(8, mismatched);
+        helper.assertFalse(inventory.mergeSlot(8, 5), "Different components must not merge");
+
+        inventory.setSelectedSlot(2);
+        helper.assertTrue(inventory.compactItemSlots(), "DeepNull Sorting should pack occupied entries into gaps");
+        helper.assertValueEqual(inventory.getStackInSlot(0).getHoverName().getString(), "Stable source", "Sorting should preserve the first entry and its metadata");
+        helper.assertValueEqual(inventory.getExtractionMode(0), ItemExtractionMode.CUSTOM, "Sorting should move extraction metadata with its entry");
+        helper.assertValueEqual(inventory.getExtractionMinimum(0), 7, "Sorting should preserve custom extraction amounts");
+        helper.assertValueEqual(inventory.getSelectedSlot(), 0, "Selection should follow its sorted entry");
+
+        ServerPlayer player = DeepNullGameTestSupport.fakePlayer(helper);
+        ItemStack menuStack = DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE);
+        player.getInventory().setItem(0, menuStack);
+        DeepNullMenu menu = DeepNullMenu.forItem(32, player.getInventory(), 0, DeepNullTier.REDSTONE, DeepNullMenu.ViewMode.MAIN);
+        menu.getDankInventory().setStackInSlot(0, new ItemStack(Items.STONE, 8));
+        menu.getDankInventory().setStackInSlot(1, new ItemStack(Items.DIRT, 8));
+        menu.getDankInventory().setExtractionSetting(0, ItemExtractionMode.KEEP_1, 1);
+        menu.getDankInventory().setExtractionSetting(1, ItemExtractionMode.KEEP_16, 16);
+        helper.assertTrue(menu.beginExtractionEdit(40L, 0, true), "Apply All should begin with a complete occupied-entry snapshot");
+        helper.assertTrue(menu.setExtractionEdit(40L, ItemExtractionMode.CUSTOM, 37), "Apply All should update all snapshotted entries");
+        helper.assertValueEqual(menu.getDankInventory().getExtractionMinimum(1), 37, "Apply All custom amount");
+        helper.assertTrue(menu.undoExtractionEdit(40L), "Undo should restore the complete snapshot");
+        helper.assertValueEqual(menu.getDankInventory().getExtractionMode(0), ItemExtractionMode.KEEP_1, "Undo slot 0 mode");
+        helper.assertValueEqual(menu.getDankInventory().getExtractionMode(1), ItemExtractionMode.KEEP_16, "Undo slot 1 mode");
+        helper.assertTrue(menu.beginExtractionEdit(41L, 0, true), "A newer extraction edit should replace the completed session");
+        helper.assertFalse(menu.setExtractionEdit(40L, ItemExtractionMode.KEEP_ALL, 0), "A stale update must be rejected");
+        helper.assertTrue(menu.setExtractionEdit(41L, ItemExtractionMode.KEEP_ALL, 0), "A stale update must not cancel the active session");
+        helper.assertFalse(menu.undoExtractionEdit(40L), "A stale undo must be rejected");
+        helper.assertTrue(menu.undoExtractionEdit(41L), "A stale undo must not erase the active rollback snapshot");
+        helper.assertTrue(menu.invalidateExtractionEdit(41L), "Closing should invalidate the active extraction edit");
+        helper.assertFalse(menu.setExtractionEdit(41L, ItemExtractionMode.KEEP_ALL, 0), "Invalidated edits must reject stale updates");
+        helper.assertTrue(menu.beginExtractionEdit(42L, 0, true), "An edit should begin against the current handheld Null instance");
+        player.getInventory().setItem(0, DeepNullGameTestSupport.deepNullStack(DeepNullTier.REDSTONE));
+        helper.assertFalse(menu.setExtractionEdit(42L, ItemExtractionMode.KEEP_NONE, 0), "Replacing the source Null must invalidate its edit session");
+        helper.assertFalse(menu.undoExtractionEdit(42L), "An invalidated source must not retain a stale undo path");
+        helper.assertTrue(menu.acceptStorageActionNonce(1L), "First action nonce should be accepted");
+        helper.assertFalse(menu.acceptStorageActionNonce(1L), "Replayed action nonce should be rejected");
+        helper.succeed();
+    }
+
+    public static void dampnull_swap_merge_clear_and_type_boundaries_persist(GameTestHelper helper) {
+        DeepNullInventory fluidInventory = DeepNullGameTestSupport.dampNullInventory(helper, DeepNullTier.REDSTONE);
+        fluidInventory.fillFluid(0, new FluidStack(Fluids.WATER, 4_000), false);
+        fluidInventory.fillFluid(1, new FluidStack(Fluids.WATER, 2_000), false);
+        fluidInventory.setSelectedSlot(0);
+        helper.assertTrue(fluidInventory.mergeTankSlot(0, 1), "Matching fluids should merge");
+        helper.assertValueEqual(fluidInventory.getFluidInSlot(1).getAmount(), 6_000, "Merged fluid amount");
+        helper.assertValueEqual(fluidInventory.getSelectedSlot(), 1, "Fluid source selection should follow the merge");
+        helper.assertTrue(fluidInventory.moveTankSlot(1, 2), "Fluid tanks should swap with empty tanks");
+        helper.assertTrue(fluidInventory.getFluidInSlot(1).isEmpty(), "Swap should empty the old tank");
+        helper.assertValueEqual(fluidInventory.getFluidInSlot(2).getAmount(), 6_000, "Swap should preserve the fluid amount");
+
+        DeepNullInventory fluidReload = new DeepNullInventory(DeepNullTier.REDSTONE, fluidInventory.backingStack(), helper.getLevel().registryAccess(), null);
+        helper.assertValueEqual(fluidReload.getFluidInSlot(2).getAmount(), 6_000, "Fluid swap should survive save and reload");
+        helper.assertTrue(fluidReload.clearFluidSlot(2), "Destructive fluid clear should accept occupied tanks");
+        helper.assertTrue(fluidReload.getFluidInSlot(2).isEmpty(), "Destructive fluid clear should void contents");
+
+        DeepNullInventory chemicalInventory = DeepNullGameTestSupport.dampNullInventory(helper, DeepNullTier.REDSTONE);
+        chemicalInventory.getUpgradeHandler().setStackInSlot(DeepNullUpgradeType.GAS.slot(), DeepNullGameTestSupport.upgradeStack(DeepNullUpgradeType.GAS));
+        StoredChemical steam = new StoredChemical("mekanism:steam", 3_000L, "mekanism:chemical/steam", 0xFFBBDDEE, "chemical.mekanism.steam", true);
+        StoredChemical oxygen = new StoredChemical("mekanism:oxygen", 1_000L, "mekanism:chemical/oxygen", 0xFF88AACC, "chemical.mekanism.oxygen", true);
+        helper.assertTrue(steam.isSameChemical(steam.copyWithAmount(1L)), "Chemical identity comparisons must ignore amount");
+        helper.assertFalse(steam.isSameChemical(oxygen), "Chemical identity comparisons must reject cross-type conversion");
+        helper.assertValueEqual(steam.copyWithAmount(9L).tint(), 0xFFBBDDEE, "Chemical copies should preserve tint");
+        if (!net.neoforged.fml.ModList.get().isLoaded("mekanism")) {
+            helper.succeed();
+            return;
+        }
+        helper.assertTrue(chemicalInventory.setChemicalInSlot(0, steam), "Chemical storage should retain its identity and tint");
+        helper.assertTrue(chemicalInventory.setChemicalInSlot(1, steam.copyWithAmount(2_000L)), "Matching chemical target");
+        helper.assertTrue(chemicalInventory.mergeTankSlot(0, 1), "Matching chemicals should merge without conversion");
+        helper.assertValueEqual(chemicalInventory.getChemicalInSlot(1).amount(), 5_000L, "Merged chemical amount");
+        helper.assertValueEqual(chemicalInventory.getChemicalInSlot(1).tint(), 0xFFBBDDEE, "Chemical tint should survive merging");
+        helper.assertTrue(chemicalInventory.setChemicalInSlot(2, oxygen), "Different chemical target");
+        helper.assertFalse(chemicalInventory.mergeTankSlot(1, 2), "Different chemicals must not merge");
+
+        DeepNullInventory chemicalReload = new DeepNullInventory(DeepNullTier.REDSTONE, chemicalInventory.backingStack(), helper.getLevel().registryAccess(), null);
+        helper.assertValueEqual(chemicalReload.getChemicalInSlot(1).chemicalId(), "mekanism:steam", "Chemical identity should survive save and reload");
+        helper.assertValueEqual(chemicalReload.getChemicalInSlot(1).tint(), 0xFFBBDDEE, "Chemical tint should survive save and reload");
         helper.succeed();
     }
 

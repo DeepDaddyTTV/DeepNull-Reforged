@@ -32,7 +32,7 @@ import java.lang.reflect.Proxy;
 import java.util.function.Consumer;
 
 public final class ClientModEvents {
-    private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(DeepNullReforged.MODID, "general"));
+    private static final KeyMapping.Category KEY_CATEGORY = new KeyMapping.Category(Identifier.fromNamespaceAndPath(DeepNullReforged.MODID, "general"));
     private static final @SuppressWarnings("rawtypes") Class ITEM_COLOR_EVENT_CLASS = loadItemColorEventClass();
     private static final Method ITEM_COLOR_REGISTER_METHOD = findItemColorRegisterMethod();
 
@@ -51,6 +51,11 @@ public final class ClientModEvents {
     public static final KeyMapping GUI_PRIMARY_ACTION = new KeyMapping("key.gui_primary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_LEFT, KEY_CATEGORY);
     public static final KeyMapping GUI_SECONDARY_ACTION = new KeyMapping("key.gui_secondary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_RIGHT, KEY_CATEGORY);
     public static final KeyMapping GUI_TERTIARY_ACTION = new KeyMapping("key.gui_tertiary_action.desc", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, KEY_CATEGORY);
+    public static final KeyMapping NULL_SHORTCUT_SWAP = new KeyMapping("key.null_shortcut_swap.desc", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_TAB, KEY_CATEGORY);
+    public static final KeyMapping NULL_SHORTCUT_MERGE = new KeyMapping("key.null_shortcut_merge.desc", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_GRAVE_ACCENT, KEY_CATEGORY);
+    public static final KeyMapping NULL_SHORTCUT_CLEAR = new KeyMapping("key.null_shortcut_clear.desc", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_DELETE, KEY_CATEGORY);
+    public static final KeyMapping NULL_SHORTCUT_SELECT = new KeyMapping("key.null_shortcut_select.desc", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, KEY_CATEGORY);
+    public static final KeyMapping NULL_SHORTCUT_CYCLE = new KeyMapping("key.null_shortcut_cycle_extract_limit.desc", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_CONTROL, KEY_CATEGORY);
 
     private ClientModEvents() {
     }
@@ -69,6 +74,7 @@ public final class ClientModEvents {
     }
 
     public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
+        event.registerCategory(KEY_CATEGORY);
         event.register(NEXT_ITEM);
         event.register(PREVIOUS_ITEM);
         event.register(OPEN_DEEP_NULL);
@@ -84,6 +90,11 @@ public final class ClientModEvents {
         event.register(GUI_PRIMARY_ACTION);
         event.register(GUI_SECONDARY_ACTION);
         event.register(GUI_TERTIARY_ACTION);
+        event.register(NULL_SHORTCUT_SWAP);
+        event.register(NULL_SHORTCUT_MERGE);
+        event.register(NULL_SHORTCUT_CLEAR);
+        event.register(NULL_SHORTCUT_SELECT);
+        event.register(NULL_SHORTCUT_CYCLE);
     }
 
     public static boolean isPrimaryGuiButton(int button) {

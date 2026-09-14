@@ -4,6 +4,8 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.integration.mekanism.MekanismClientCompat;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullSlotDomain;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullStorageAction;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
@@ -13,6 +15,7 @@ import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -24,6 +27,7 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
@@ -35,11 +39,18 @@ import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
+public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> implements StorageActionResultListener {
+    private static final List<NullShortcutController.Action> SHORTCUT_ACTIONS = List.of(
+            NullShortcutController.Action.SWAP,
+            NullShortcutController.Action.MERGE,
+            NullShortcutController.Action.CLEAR,
+            NullShortcutController.Action.SELECT
+    );
     private static final int BASE_IMAGE_WIDTH = 202;
     private static final int INFO_PANEL_WIDTH = 146;
     private static final int INFO_PANEL_PADDING = 6;
@@ -86,6 +97,15 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     private boolean infoPanelOpen;
     private boolean stonePanelOpen;
     private int hoveredTankIndex = -1;
+    private final NullShortcutController shortcutController = new NullShortcutController();
+    private final NullShortcutActionAnimations shortcutAnimations = new NullShortcutActionAnimations();
+    private final Map<Long, PendingTankAction> pendingTankActions = new HashMap<>();
+    private final List<TankVisualAnimation> tankAnimations = new ArrayList<>();
+    private long nextStorageNonce = 1L;
+    private int pendingSwapTank = -1;
+    private int pendingMergeTank = -1;
+    private int pendingClearTank = -1;
+    private TankContents pendingClearContents = TankContents.EMPTY;
 
     public DeepNullFluidScreen(DeepNullMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, BASE_IMAGE_WIDTH, imageHeightFor(menu));
@@ -101,6 +121,13 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     @Override
     public void containerTick() {
         super.containerTick();
+        if (pendingClearTank >= 0
+                && shortcutController.activeAction(SHORTCUT_ACTIONS) != NullShortcutController.Action.CLEAR
+                && !isShiftDown()) {
+            clearPendingClear();
+        } else if (pendingClearTank >= 0 && !tankContents(pendingClearTank).matches(pendingClearContents)) {
+            clearPendingClear();
+        }
         if (!menu.getDankInventory().supportsFluidStorage()) {
             ClientPacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.MAIN.ordinal()));
         }
@@ -109,7 +136,9 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
     @Override
     public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         graphics.blit(RenderPipelines.GUI_TEXTURED, backgroundTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
+        renderSelectedTank(graphics);
         renderTankContents(graphics);
+        renderTankActionContents(graphics);
         graphics.blit(RenderPipelines.GUI_TEXTURED, tankOverlayTexture, leftPos, topPos, 0.0F, 0.0F, imageWidth, imageHeight, 256, 256);
         renderSideButtons(graphics);
 
@@ -122,6 +151,20 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             graphics.nextStratum();
             renderStoneGeneratorPanel(graphics);
         }
+        graphics.nextStratum();
+        shortcutAnimations.render(graphics, font);
+        shortcutController.render(
+                graphics,
+                font,
+                mouseX,
+                mouseY,
+                leftPos,
+                topPos,
+                imageWidth,
+                imageHeight,
+                SHORTCUT_ACTIONS,
+                this::hasPendingAction
+        );
     }
 
     @Override
@@ -135,14 +178,32 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         hoveredTankIndex = getTankIndexAt(mouseX, mouseY);
         renderTankTooltip(graphics, mouseX, mouseY);
         renderSideButtonTooltip(graphics, mouseX, mouseY);
+        shortcutController.renderTooltip(graphics, font, mouseX, mouseY, SHORTCUT_ACTIONS);
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        NullShortcutController.Action chip = shortcutController.handleClick(event.x(), event.y(), event.button(), SHORTCUT_ACTIONS);
+        if (chip != null) {
+            if (shortcutController.isArmed(chip)) {
+                cancelPendingExcept(chip);
+            } else {
+                cancelAllPendingActions();
+            }
+            return true;
+        }
+        if (shortcutController.consumedLastClick()) {
+            return true;
+        }
         if (ClientModEvents.isTertiaryGuiButton(event.button()) && isWithin(event.x(), event.y(), leftPos, topPos, imageWidth, imageHeight)) {
             return true;
         }
+        int tankIndex = getTankIndexAt(event.x(), event.y());
+        if (pendingClearTank >= 0 && tankIndex != pendingClearTank) {
+            clearPendingClear();
+        }
         if (ClientModEvents.isPrimaryGuiButton(event.button()) && isWithin(event.x(), event.y(), infoButtonX(), topPos + 38, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            cancelAllPendingActions();
             infoPanelOpen = !infoPanelOpen;
             if (infoPanelOpen) {
                 stonePanelOpen = false;
@@ -150,16 +211,19 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             return true;
         }
         if (ClientModEvents.isPrimaryGuiButton(event.button()) && isWithin(event.x(), event.y(), infoButtonX(), topPos + 59, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            cancelAllPendingActions();
             toggleTransferOutputMode();
             return true;
         }
         if (ClientModEvents.isPrimaryGuiButton(event.button()) && isWithin(event.x(), event.y(), infoButtonX(), topPos + 80, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            cancelAllPendingActions();
             ClientPacketDistributor.sendToServer(new DeepNullPayloads.OpenMenuViewPayload(DeepNullMenu.ViewMode.UPGRADES.ordinal()));
             return true;
         }
         if (menu.hasUpgrade(DeepNullUpgradeType.STONE_GENERATOR)
                 && ClientModEvents.isPrimaryGuiButton(event.button())
                 && isWithin(event.x(), event.y(), infoButtonX(), topPos + 101, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)) {
+            cancelAllPendingActions();
             stonePanelOpen = !stonePanelOpen;
             if (stonePanelOpen) {
                 infoPanelOpen = false;
@@ -176,27 +240,325 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
             }
         }
 
-        int tankIndex = getTankIndexAt(event.x(), event.y());
         if (tankIndex >= 0 && menu.getCarried().isEmpty()) {
             if (ClientModEvents.isPrimaryGuiButton(event.button()) && event.hasShiftDown()) {
-                if (menu.clearFluidSlot(tankIndex)) {
-                    ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
-                            tankIndex,
-                            DeepNullPayloads.MenuSlotAction.CLEAR_FLUID.ordinal()
-                    ));
-                }
+                handleTankClearConfirmation(tankIndex);
+                return true;
+            }
+            if (handleShortcutTankClick(tankIndex, event.button())) {
                 return true;
             }
             if (ClientModEvents.isPrimaryGuiButton(event.button())) {
-                menu.getDankInventory().setSelectedSlot(tankIndex);
-                ClientPacketDistributor.sendToServer(new DeepNullPayloads.MenuSlotActionPayload(
-                        tankIndex,
-                        DeepNullPayloads.MenuSlotAction.SELECT.ordinal()
-                ));
+                requestStorageAction(NullStorageAction.SELECT, tankIndex, tankIndex);
                 return true;
             }
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (shortcutController.handleEscape(event.key())) {
+            cancelAllPendingActions();
+            return true;
+        }
+        if (shortcutController.handleKeyPressed(event, SHORTCUT_ACTIONS) != null) {
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
+    public boolean keyReleased(KeyEvent event) {
+        shortcutController.handleKeyReleased(event, SHORTCUT_ACTIONS);
+        if (shortcutController.shouldCancelPendingOnRelease(NullShortcutController.Action.SWAP)) {
+            pendingSwapTank = -1;
+        }
+        if (shortcutController.shouldCancelPendingOnRelease(NullShortcutController.Action.MERGE)) {
+            pendingMergeTank = -1;
+        }
+        if (shortcutController.shouldCancelPendingOnRelease(NullShortcutController.Action.CLEAR)) {
+            clearPendingClear();
+        }
+        return super.keyReleased(event);
+    }
+
+    private boolean handleShortcutTankClick(int tankIndex, int button) {
+        boolean primary = ClientModEvents.isPrimaryGuiButton(button);
+        boolean secondary = ClientModEvents.isSecondaryGuiButton(button);
+        if (!primary && !secondary) {
+            return false;
+        }
+        TankContents contents = tankContents(tankIndex);
+        NullShortcutController.Action activeAction = shortcutController.activeAction(SHORTCUT_ACTIONS);
+        if (activeAction == NullShortcutController.Action.CLEAR) {
+            if (!primary || contents.isEmpty()) {
+                clearPendingClear();
+                return true;
+            }
+            handleTankClearConfirmation(tankIndex);
+            return true;
+        }
+        if (activeAction == NullShortcutController.Action.SELECT) {
+            if (!contents.isEmpty()) {
+                requestStorageAction(NullStorageAction.SELECT, tankIndex, tankIndex);
+            }
+            return true;
+        }
+        if (activeAction == NullShortcutController.Action.MERGE) {
+            if (contents.isEmpty()) {
+                pendingMergeTank = -1;
+                return true;
+            }
+            if (pendingMergeTank < 0) {
+                pendingMergeTank = tankIndex;
+                return true;
+            }
+            int source = pendingMergeTank;
+            pendingMergeTank = -1;
+            if (source != tankIndex) {
+                requestStorageAction(NullStorageAction.MERGE, source, tankIndex);
+            }
+            return true;
+        }
+        if (activeAction == NullShortcutController.Action.SWAP) {
+            if (pendingSwapTank < 0) {
+                pendingSwapTank = tankIndex;
+                return true;
+            }
+            int source = pendingSwapTank;
+            pendingSwapTank = -1;
+            if (source != tankIndex) {
+                requestStorageAction(NullStorageAction.SWAP, source, tankIndex);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private void handleTankClearConfirmation(int tankIndex) {
+        TankContents contents = tankContents(tankIndex);
+        if (contents.isEmpty()) {
+            clearPendingClear();
+            return;
+        }
+        if (pendingClearTank < 0) {
+            pendingClearTank = tankIndex;
+            pendingClearContents = contents;
+            return;
+        }
+        if (pendingClearTank != tankIndex || !contents.matches(pendingClearContents)) {
+            clearPendingClear();
+            return;
+        }
+        requestStorageAction(NullStorageAction.CLEAR, tankIndex, tankIndex);
+    }
+
+    private void requestStorageAction(NullStorageAction action, int sourceTank, int targetTank) {
+        long nonce = nextStorageNonce++;
+        pendingTankActions.put(nonce, new PendingTankAction(
+                action,
+                sourceTank,
+                targetTank,
+                tankContents(sourceTank),
+                tankContents(targetTank)
+        ));
+        ClientPacketDistributor.sendToServer(new DeepNullPayloads.StorageActionRequestPayload(
+                menu.containerId,
+                nonce,
+                action.id(),
+                NullSlotDomain.FLUID_STORAGE.id(),
+                sourceTank,
+                targetTank
+        ));
+    }
+
+    @Override
+    public void deepNullReforged$handleStorageActionResult(DeepNullPayloads.StorageActionResultPayload payload) {
+        PendingTankAction pending = pendingTankActions.remove(payload.nonce());
+        if (pending == null
+                || payload.domainId() != NullSlotDomain.FLUID_STORAGE.id()
+                || payload.actionId() != pending.action().id()
+                || payload.sourceSlot() != pending.sourceTank()
+                || payload.targetSlot() != pending.targetTank()
+                || !payload.success()) {
+            if (pending != null) {
+                cancelPendingFor(pending.action());
+            }
+            return;
+        }
+        Rect2i sourceBounds = tankBounds(pending.sourceTank());
+        Rect2i targetBounds = tankBounds(pending.targetTank());
+        long startMs = System.currentTimeMillis();
+        switch (pending.action()) {
+            case SWAP -> {
+                long duration = NullShortcutActionAnimations.tankSwapFlowDurationMs(
+                        pending.sourceBefore().amount(),
+                        pending.targetBefore().amount(),
+                        menu.getDankInventory().getFluidCapacity()
+                );
+                tankAnimations.add(new TankVisualAnimation(
+                        pending.action(), pending.sourceTank(), pending.targetTank(), pending.sourceBefore(), pending.targetBefore(),
+                        tankContents(pending.sourceTank()), tankContents(pending.targetTank()), startMs, duration
+                ));
+            }
+            case MERGE -> tankAnimations.add(new TankVisualAnimation(
+                    pending.action(), pending.sourceTank(), pending.targetTank(), pending.sourceBefore(), pending.targetBefore(),
+                    tankContents(pending.sourceTank()), tankContents(pending.targetTank()), startMs, NullShortcutActionAnimations.TANK_MERGE_MS
+            ));
+            case CLEAR -> {
+                tankAnimations.add(new TankVisualAnimation(
+                        pending.action(), pending.sourceTank(), pending.targetTank(), pending.sourceBefore(), pending.targetBefore(),
+                        TankContents.EMPTY, TankContents.EMPTY, startMs, NullShortcutActionAnimations.DELETE_MS
+                ));
+                shortcutAnimations.startDelete(pending.targetTank(), ItemStack.EMPTY, targetBounds, pending.targetBefore().tint());
+            }
+            case SELECT -> shortcutAnimations.startSelectPixelPad(pending.targetTank(), targetBounds);
+            case SORT, CYCLE_FORWARD, CYCLE_BACKWARD -> { }
+        }
+        cancelPendingFor(pending.action());
+        if (pending.action() != NullStorageAction.SORT) {
+            shortcutController.clearArmed(actionFor(pending.action()));
+        }
+    }
+
+    private void renderSelectedTank(GuiGraphicsExtractor graphics) {
+        int selected = menu.getDankInventory().getSelectedSlot();
+        if (selected < 0 || selected >= tankWindows.size()) {
+            return;
+        }
+        Rect2i bounds = tankBounds(selected);
+        graphics.fillGradient(bounds.getX() - 1, bounds.getY() - 1, bounds.getX() + bounds.getWidth() + 1, bounds.getY() + bounds.getHeight() + 1, selectedPaletteColor(0x48), selectedPaletteColor(0x18));
+        graphics.outline(bounds.getX() - 1, bounds.getY() - 1, bounds.getWidth() + 2, bounds.getHeight() + 2, selectedPaletteColor(0xFF));
+    }
+
+    private int selectedPaletteColor(int alpha) {
+        int rgb = switch (menu.getTier()) {
+            case REDSTONE -> 0xD44848;
+            case LAPIS -> 0x4878D4;
+            case IRON -> 0xD8DCE5;
+            case GOLD -> 0xE7B623;
+            case DIAMOND -> 0x42C8D8;
+            case EMERALD -> 0x3ED47A;
+            case CREATIVE -> 0xC767E8;
+        };
+        return (alpha << 24) | rgb;
+    }
+
+    private void renderTankActionContents(GuiGraphicsExtractor graphics) {
+        long now = System.currentTimeMillis();
+        for (TankVisualAnimation animation : tankAnimations) {
+            long elapsed = Math.max(0L, now - animation.startMs());
+            if (animation.action() == NullStorageAction.SWAP) {
+                NullShortcutActionAnimations.TankSwapFlowFrame frame = NullShortcutActionAnimations.tankSwapFlowFrame(
+                        animation.sourceBefore().amount(), animation.targetBefore().amount(), elapsed, animation.durationMs());
+                if (frame.sourceDrainAmount() > 0L || frame.destinationDrainAmount() > 0L) {
+                    renderTankSnapshot(graphics, animation.sourceTank(), animation.sourceBefore(), frame.sourceDrainAmount());
+                    renderTankSnapshot(graphics, animation.targetTank(), animation.targetBefore(), frame.destinationDrainAmount());
+                } else {
+                    renderTankSnapshot(graphics, animation.sourceTank(), animation.targetBefore(), frame.destinationFillAmount());
+                    renderTankSnapshot(graphics, animation.targetTank(), animation.sourceBefore(), frame.sourceFillAmount());
+                }
+            } else if (animation.action() == NullStorageAction.MERGE) {
+                int sourceAmount = NullShortcutActionAnimations.tankMergeAmount(
+                        saturatedInt(animation.sourceBefore().amount()), saturatedInt(animation.sourceAfter().amount()), elapsed);
+                int targetAmount = NullShortcutActionAnimations.tankMergeAmount(
+                        saturatedInt(animation.targetBefore().amount()), saturatedInt(animation.targetAfter().amount()), elapsed);
+                renderTankSnapshot(graphics, animation.sourceTank(), animation.sourceBefore(), sourceAmount);
+                renderTankSnapshot(graphics, animation.targetTank(), animation.targetAfter(), targetAmount);
+            }
+        }
+        tankAnimations.removeIf(animation -> now - animation.startMs() >= animation.durationMs());
+    }
+
+    private void renderTankSnapshot(GuiGraphicsExtractor graphics, int tankIndex, TankContents contents, long amount) {
+        if (amount <= 0L || contents.isEmpty() || tankIndex < 0 || tankIndex >= tankWindows.size()) {
+            return;
+        }
+        int capacity = menu.getDankInventory().getFluidCapacity();
+        if (!contents.fluid().isEmpty()) {
+            renderFluidInTank(graphics, tankWindows.get(tankIndex), contents.fluid().copyWithAmount(saturatedInt(amount)), capacity);
+        } else if (!contents.chemical().isEmpty()) {
+            renderChemicalInTank(graphics, tankWindows.get(tankIndex), contents.chemical().copyWithAmount(amount), capacity);
+        }
+    }
+
+    private boolean isTankSuppressed(int tankIndex) {
+        long now = System.currentTimeMillis();
+        for (TankVisualAnimation animation : tankAnimations) {
+            if (animation.active(now) && (animation.sourceTank() == tankIndex || animation.targetTank() == tankIndex)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private TankContents tankContents(int tankIndex) {
+        if (tankIndex < 0 || tankIndex >= menu.getStorageSlotCount()) {
+            return TankContents.EMPTY;
+        }
+        return new TankContents(
+                menu.getDankInventory().getFluidInSlot(tankIndex).copy(),
+                menu.getDankInventory().getChemicalInSlot(tankIndex).copy()
+        );
+    }
+
+    private Rect2i tankBounds(int tankIndex) {
+        if (tankIndex < 0 || tankIndex >= tankWindows.size()) {
+            return new Rect2i(0, 0, 1, 1);
+        }
+        Rect2i relative = tankWindows.get(tankIndex);
+        return new Rect2i(leftPos + relative.getX(), topPos + relative.getY(), relative.getWidth(), relative.getHeight());
+    }
+
+    private boolean hasPendingAction(NullShortcutController.Action action) {
+        return switch (action) {
+            case SWAP -> pendingSwapTank >= 0;
+            case MERGE -> pendingMergeTank >= 0;
+            case CLEAR -> pendingClearTank >= 0;
+            case SELECT, CYCLE -> false;
+        };
+    }
+
+    private void cancelPendingExcept(NullShortcutController.Action action) {
+        if (action != NullShortcutController.Action.SWAP) pendingSwapTank = -1;
+        if (action != NullShortcutController.Action.MERGE) pendingMergeTank = -1;
+        if (action != NullShortcutController.Action.CLEAR) clearPendingClear();
+    }
+
+    private void cancelPendingFor(NullStorageAction action) {
+        switch (action) {
+            case SWAP -> pendingSwapTank = -1;
+            case MERGE -> pendingMergeTank = -1;
+            case CLEAR -> clearPendingClear();
+            default -> { }
+        }
+    }
+
+    private void clearPendingClear() {
+        pendingClearTank = -1;
+        pendingClearContents = TankContents.EMPTY;
+    }
+
+    private void cancelAllPendingActions() {
+        pendingSwapTank = -1;
+        pendingMergeTank = -1;
+        clearPendingClear();
+    }
+
+    private static NullShortcutController.Action actionFor(NullStorageAction action) {
+        return switch (action) {
+            case SWAP -> NullShortcutController.Action.SWAP;
+            case MERGE -> NullShortcutController.Action.MERGE;
+            case CLEAR -> NullShortcutController.Action.CLEAR;
+            case SELECT -> NullShortcutController.Action.SELECT;
+            case CYCLE_FORWARD, CYCLE_BACKWARD -> NullShortcutController.Action.CYCLE;
+            case SORT -> NullShortcutController.Action.SWAP;
+        };
+    }
+
+    private static int saturatedInt(long value) {
+        return (int) Math.max(0L, Math.min(Integer.MAX_VALUE, value));
     }
 
     private void renderTankContents(GuiGraphicsExtractor graphics) {
@@ -206,6 +568,9 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         }
 
         for (int slotIndex = 0; slotIndex < tankWindows.size() && slotIndex < menu.getStorageSlotCount(); slotIndex++) {
+            if (isTankSuppressed(slotIndex)) {
+                continue;
+            }
             FluidStack fluidStack = menu.getDankInventory().getFluidInSlot(slotIndex);
             if (!fluidStack.isEmpty()) {
                 renderFluidInTank(graphics, tankWindows.get(slotIndex), fluidStack, capacity);
@@ -688,8 +1053,81 @@ public class DeepNullFluidScreen extends AbstractContainerScreen<DeepNullMenu> {
         return next;
     }
 
+    @Override
+    public void removed() {
+        shortcutAnimations.clear();
+        tankAnimations.clear();
+        pendingTankActions.clear();
+        cancelAllPendingActions();
+        shortcutController.clearAll();
+        super.removed();
+    }
+
+    private record PendingTankAction(
+            NullStorageAction action,
+            int sourceTank,
+            int targetTank,
+            TankContents sourceBefore,
+            TankContents targetBefore
+    ) {
+    }
+
+    private record TankVisualAnimation(
+            NullStorageAction action,
+            int sourceTank,
+            int targetTank,
+            TankContents sourceBefore,
+            TankContents targetBefore,
+            TankContents sourceAfter,
+            TankContents targetAfter,
+            long startMs,
+            long durationMs
+    ) {
+        boolean active(long now) {
+            return now - startMs < durationMs;
+        }
+    }
+
+    private record TankContents(FluidStack fluid, StoredChemical chemical) {
+        private static final TankContents EMPTY = new TankContents(FluidStack.EMPTY, StoredChemical.EMPTY);
+
+        boolean isEmpty() {
+            return fluid.isEmpty() && chemical.isEmpty();
+        }
+
+        long amount() {
+            return !fluid.isEmpty() ? fluid.getAmount() : chemical.amount();
+        }
+
+        int tint() {
+            if (!fluid.isEmpty()) {
+                return ensureOpaque(resolveTintColor(IClientFluidTypeExtensions.of(fluid.getFluid()), fluid));
+            }
+            return ensureOpaque(chemical.tint());
+        }
+
+        boolean matches(TankContents other) {
+            if (other == null || fluid.isEmpty() != other.fluid.isEmpty() || chemical.isEmpty() != other.chemical.isEmpty()) {
+                return false;
+            }
+            boolean sameFluid = fluid.isEmpty() || (fluid.getAmount() == other.fluid.getAmount()
+                    && FluidStack.isSameFluidSameComponents(fluid, other.fluid));
+            boolean sameChemical = chemical.isEmpty() || (chemical.amount() == other.chemical.amount()
+                    && chemical.chemicalId().equals(other.chemical.chemicalId())
+                    && chemical.iconPath().equals(other.chemical.iconPath())
+                    && chemical.tint() == other.chemical.tint()
+                    && chemical.translationKey().equals(other.chemical.translationKey())
+                    && chemical.gaseous() == other.chemical.gaseous());
+            return sameFluid && sameChemical;
+        }
+    }
+
     private static int imageHeightFor(DeepNullMenu menu) {
         return 141 + Math.max(0, menu.getTier().rows() - 1) * 21;
+    }
+
+    private boolean isShiftDown() {
+        return minecraft != null && minecraft.hasShiftDown();
     }
 
     private static boolean isWithin(double mouseX, double mouseY, int x, int y, int width, int height) {

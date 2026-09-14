@@ -5,6 +5,9 @@ import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullFilterMode;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullInventory;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullTier;
 import dev.deepdaddyttv.deepnullreforged.inventory.DeepNullUpgradeType;
+import dev.deepdaddyttv.deepnullreforged.inventory.NullSlotDomain;
+import dev.deepdaddyttv.deepnullreforged.inventory.ItemExtractionMode;
+import dev.deepdaddyttv.deepnullreforged.inventory.StoredChemical;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneworksMaterial;
 import dev.deepdaddyttv.deepnullreforged.inventory.StoneGeneratorVariant;
 import dev.deepdaddyttv.deepnullreforged.inventory.TransferDirectionMode;
@@ -12,8 +15,10 @@ import dev.deepdaddyttv.deepnullreforged.inventory.TransferOutputMode;
 import dev.deepdaddyttv.deepnullreforged.capability.DeepNullFluidHandler;
 import dev.deepdaddyttv.deepnullreforged.item.DeepNullItem;
 import dev.deepdaddyttv.deepnullreforged.registry.ModMenus;
+import dev.deepdaddyttv.deepnullreforged.network.DeepNullPayloads;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -35,6 +40,7 @@ import net.neoforged.neoforge.items.SlotItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DeepNullMenu extends AbstractContainerMenu {
@@ -70,6 +76,13 @@ public class DeepNullMenu extends AbstractContainerMenu {
     private int syncedUpgradeMask;
     private int syncedEnergyStored;
     private boolean syncedChargingEnabled;
+    private final @Nullable ServerPlayer serverPlayer;
+    private List<FluidStack> lastSyncedFluids = List.of();
+    private List<StoredChemical> lastSyncedChemicals = List.of();
+    private long extractionEditId = Long.MIN_VALUE;
+    private long lastExtractionEditId = Long.MIN_VALUE;
+    private long lastStorageActionNonce = Long.MIN_VALUE;
+    private List<ExtractionSnapshot> extractionSnapshots = List.of();
 
     public static DeepNullMenu forItem(int containerId, Inventory playerInventory, int inventorySlot, DeepNullTier tier) {
         return forItem(containerId, playerInventory, inventorySlot, tier, ViewMode.MAIN);
@@ -157,6 +170,7 @@ public class DeepNullMenu extends AbstractContainerMenu {
         this.syncedUpgradeMask = syncedUpgradeMask;
         this.syncedEnergyStored = syncedEnergyStored;
         this.syncedChargingEnabled = syncedChargingEnabled;
+        this.serverPlayer = playerInventory.player instanceof ServerPlayer player ? player : null;
 
         this.storageSlotCount = addDeepNullSlots();
         this.upgradeSlotStartIndex = slots.size();
@@ -258,6 +272,20 @@ public class DeepNullMenu extends AbstractContainerMenu {
         return 36;
     }
 
+    public boolean hasCurrentSourceIdentity() {
+        if (serverPlayer == null) {
+            return true;
+        }
+        if (sourceType == SourceType.ITEM) {
+            return inventorySlot >= 0
+                    && inventorySlot < serverPlayer.getInventory().getContainerSize()
+                    && serverPlayer.getInventory().getItem(inventorySlot) == dankInventory.backingStack();
+        }
+        return dockPos != null
+                && serverPlayer.level().getBlockEntity(dockPos) instanceof DeepNullDockBlockEntity dock
+                && dock.getStoredDeepNull() == dankInventory.backingStack();
+    }
+
     public boolean hasUpgrade(DeepNullUpgradeType type) {
         if (dankInventory.hasUpgrade(type)) {
             return true;
@@ -329,6 +357,18 @@ public class DeepNullMenu extends AbstractContainerMenu {
         return true;
     }
 
+    public boolean selectStorageSlot(NullSlotDomain domain, int slot) {
+        if (domain == null || !isStorageSlot(slot)) {
+            return false;
+        }
+        boolean selectable = switch (domain) {
+            case ITEM_STORAGE -> !isFluidStorageView() && !dankInventory.getStackInSlot(slot).isEmpty();
+            case FLUID_STORAGE -> isFluidStorageView()
+                    && (!dankInventory.getFluidInSlot(slot).isEmpty() || !dankInventory.getChemicalInSlot(slot).isEmpty());
+        };
+        return selectable && selectStorageSlot(slot);
+    }
+
     public boolean cycleExtractionMode(int slot, boolean forward) {
         if (!isStorageSlot(slot) || dankInventory.getStackInSlot(slot).isEmpty()) {
             return false;
@@ -355,6 +395,107 @@ public class DeepNullMenu extends AbstractContainerMenu {
                 || currentMinimum != dankInventory.getExtractionMinimum(slot);
     }
 
+    public boolean beginExtractionEdit(long editId, int slot, boolean applyAll) {
+        if (editId <= lastExtractionEditId
+                || !hasCurrentSourceIdentity()
+                || viewMode != ViewMode.MAIN
+                || dankInventory.isFluidOnly()
+                || !isStorageSlot(slot)
+                || dankInventory.getStackInSlot(slot).isEmpty()) {
+            return false;
+        }
+
+        ArrayList<ExtractionSnapshot> snapshots = new ArrayList<>();
+        for (int target = 0; target < dankInventory.getSlots(); target++) {
+            ItemStack stack = dankInventory.getStackInSlot(target);
+            if (stack.isEmpty() || (!applyAll && target != slot)) {
+                continue;
+            }
+            snapshots.add(new ExtractionSnapshot(
+                    target,
+                    stack.copyWithCount(1),
+                    dankInventory.getExtractionMode(target),
+                    dankInventory.getCustomExtractionAmount(target)
+            ));
+        }
+        if (snapshots.isEmpty()) {
+            return false;
+        }
+        extractionEditId = editId;
+        lastExtractionEditId = editId;
+        extractionSnapshots = List.copyOf(snapshots);
+        return true;
+    }
+
+    public boolean acceptStorageActionNonce(long nonce) {
+        if (nonce <= lastStorageActionNonce) {
+            return false;
+        }
+        lastStorageActionNonce = nonce;
+        return true;
+    }
+
+    public boolean setExtractionEdit(long editId, ItemExtractionMode mode, int customAmount) {
+        if (!hasExtractionEdit(editId) || mode == null) {
+            return false;
+        }
+        if (!isExtractionSourceValid()) {
+            invalidateExtractionEdit();
+            return false;
+        }
+        for (ExtractionSnapshot snapshot : extractionSnapshots) {
+            dankInventory.setExtractionSetting(snapshot.slot(), mode, customAmount);
+        }
+        return true;
+    }
+
+    public boolean undoExtractionEdit(long editId) {
+        if (!hasExtractionEdit(editId)) {
+            return false;
+        }
+        if (!isExtractionSourceValid()) {
+            invalidateExtractionEdit();
+            return false;
+        }
+        for (ExtractionSnapshot snapshot : extractionSnapshots) {
+            dankInventory.setExtractionSetting(snapshot.slot(), snapshot.mode(), snapshot.customAmount());
+        }
+        return true;
+    }
+
+    public boolean invalidateExtractionEdit(long editId) {
+        if (extractionEditId != editId) {
+            return false;
+        }
+        invalidateExtractionEdit();
+        return true;
+    }
+
+    private boolean hasExtractionEdit(long editId) {
+        return extractionEditId == editId && !extractionSnapshots.isEmpty();
+    }
+
+    private boolean isExtractionSourceValid() {
+        if (!hasCurrentSourceIdentity()) {
+            return false;
+        }
+        for (ExtractionSnapshot snapshot : extractionSnapshots) {
+            ItemStack current = dankInventory.getStackInSlot(snapshot.slot());
+            if (current.isEmpty() || !ItemStack.isSameItemSameComponents(current, snapshot.identity())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void invalidateExtractionEdit() {
+        extractionEditId = Long.MIN_VALUE;
+        extractionSnapshots = List.of();
+    }
+
+    private record ExtractionSnapshot(int slot, ItemStack identity, ItemExtractionMode mode, int customAmount) {
+    }
+
     public boolean cyclePlacementMode(int slot, boolean forward) {
         if (!isStorageSlot(slot) || dankInventory.getStackInSlot(slot).isEmpty()) {
             return false;
@@ -376,6 +517,46 @@ public class DeepNullMenu extends AbstractContainerMenu {
             return false;
         }
         return dankInventory.moveSlot(fromSlot, toSlot);
+    }
+
+    public boolean moveStorageSlot(NullSlotDomain domain, int fromSlot, int toSlot) {
+        if (domain == null || !isStorageSlot(fromSlot) || !isStorageSlot(toSlot)) {
+            return false;
+        }
+        return switch (domain) {
+            case ITEM_STORAGE -> !isFluidStorageView() && dankInventory.moveSlot(fromSlot, toSlot);
+            case FLUID_STORAGE -> isFluidStorageView() && dankInventory.moveTankSlot(fromSlot, toSlot);
+        };
+    }
+
+    public boolean mergeStorageSlot(NullSlotDomain domain, int fromSlot, int toSlot) {
+        if (domain == null || !isStorageSlot(fromSlot) || !isStorageSlot(toSlot)) {
+            return false;
+        }
+        return switch (domain) {
+            case ITEM_STORAGE -> !isFluidStorageView() && dankInventory.mergeSlot(fromSlot, toSlot);
+            case FLUID_STORAGE -> isFluidStorageView() && dankInventory.mergeTankSlot(fromSlot, toSlot);
+        };
+    }
+
+    public boolean compactItemStorage() {
+        return viewMode == ViewMode.MAIN && !dankInventory.isFluidOnly() && dankInventory.compactItemSlots();
+    }
+
+    public boolean clearStorageSlot(NullSlotDomain domain, int slot) {
+        if (domain == null || !isStorageSlot(slot)) {
+            return false;
+        }
+        return switch (domain) {
+            case ITEM_STORAGE -> {
+                if (isFluidStorageView() || dankInventory.getStackInSlot(slot).isEmpty()) {
+                    yield false;
+                }
+                dankInventory.setStackInSlot(slot, ItemStack.EMPTY);
+                yield true;
+            }
+            case FLUID_STORAGE -> isFluidStorageView() && dankInventory.clearFluidSlot(slot);
+        };
     }
 
     public boolean clearFluidSlot(int slot) {
@@ -484,6 +665,67 @@ public class DeepNullMenu extends AbstractContainerMenu {
     public void broadcastChanges() {
         dankInventory.reloadFromBacking();
         super.broadcastChanges();
+        syncFluidContentsToClient(false);
+    }
+
+    public void syncFluidContentsToClient(boolean force) {
+        if (serverPlayer == null || !isFluidStorageView()) {
+            return;
+        }
+        List<FluidStack> fluids = dankInventory.copyFluidStacks();
+        List<StoredChemical> chemicals = dankInventory.copyChemicalStacks();
+        if (!force && sameFluidContents(lastSyncedFluids, fluids) && sameChemicalContents(lastSyncedChemicals, chemicals)) {
+            return;
+        }
+        lastSyncedFluids = fluids;
+        lastSyncedChemicals = chemicals;
+        DeepNullPayloads.sendFluidContents(serverPlayer, containerId, fluids, chemicals);
+    }
+
+    public void acceptFluidContents(List<FluidStack> fluids, List<StoredChemical> chemicals) {
+        dankInventory.replaceFluidContents(fluids, chemicals);
+    }
+
+    private static boolean sameFluidContents(List<FluidStack> left, List<FluidStack> right) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            FluidStack leftStack = left.get(index);
+            FluidStack rightStack = right.get(index);
+            if (leftStack.isEmpty() || rightStack.isEmpty()) {
+                if (leftStack.isEmpty() != rightStack.isEmpty()) {
+                    return false;
+                }
+            } else if (leftStack.getAmount() != rightStack.getAmount()
+                    || !FluidStack.isSameFluidSameComponents(leftStack, rightStack)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean sameChemicalContents(List<StoredChemical> left, List<StoredChemical> right) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            StoredChemical leftStack = left.get(index);
+            StoredChemical rightStack = right.get(index);
+            if (leftStack.isEmpty() || rightStack.isEmpty()) {
+                if (leftStack.isEmpty() != rightStack.isEmpty()) {
+                    return false;
+                }
+            } else if (!leftStack.chemicalId().equals(rightStack.chemicalId())
+                    || leftStack.amount() != rightStack.amount()
+                    || !leftStack.iconPath().equals(rightStack.iconPath())
+                    || leftStack.tint() != rightStack.tint()
+                    || !leftStack.translationKey().equals(rightStack.translationKey())
+                    || leftStack.gaseous() != rightStack.gaseous()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public int addGhostFilterStack(ItemStack stack) {
@@ -532,6 +774,12 @@ public class DeepNullMenu extends AbstractContainerMenu {
         }
 
         return player.distanceToSqr(dockPos.getCenter()) <= 64.0D && dock.hasStoredDeepNull();
+    }
+
+    @Override
+    public void removed(Player player) {
+        invalidateExtractionEdit();
+        super.removed(player);
     }
 
     @Override
@@ -659,6 +907,27 @@ public class DeepNullMenu extends AbstractContainerMenu {
                 ItemStack updated = tryStoreFluidFromContainer(carried, slotId, false);
                 if (!ItemStack.matches(updated, carried)) {
                     setCarried(updated);
+                    broadcastChanges();
+                    return;
+                }
+            }
+        }
+        if (!isFluidStorageView()
+                && viewMode == ViewMode.MAIN
+                && clickType == ContainerInput.PICKUP
+                && (button == 0 || button == 1)
+                && slotId >= 0
+                && slotId < storageSlotCount) {
+            ItemStack carried = getCarried();
+            if (!carried.isEmpty() && slots.get(slotId) instanceof StorageSlot storageSlot) {
+                int requested = button == 1 ? 1 : carried.getCount();
+                ItemStack attempted = carried.copyWithCount(requested);
+                ItemStack remainder = storageSlot.getItemHandler().insertItem(storageSlot.getSlotIndex(), attempted, false);
+                int accepted = requested - remainder.getCount();
+                if (accepted > 0) {
+                    carried.shrink(accepted);
+                    setCarried(carried.isEmpty() ? ItemStack.EMPTY : carried);
+                    storageSlot.setChanged();
                     broadcastChanges();
                     return;
                 }
@@ -935,6 +1204,11 @@ public class DeepNullMenu extends AbstractContainerMenu {
     public static class StorageSlot extends SlotItemHandler {
         private StorageSlot(DeepNullInventory itemHandler, int index, int xPosition, int yPosition) {
             super(itemHandler, index, xPosition, yPosition);
+        }
+
+        @Override
+        public int getMaxStackSize(ItemStack stack) {
+            return getItemHandler().getSlotLimit(index);
         }
     }
 
