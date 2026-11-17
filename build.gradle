@@ -130,6 +130,14 @@ tasks.named('test', Test).configure {
     useJUnitPlatform()
 }
 
+tasks.named('check').configure {
+    doLast {
+        if (fileTree("$buildDir/test-results/test").matching { include 'TEST-*.xml' }.isEmpty()) {
+            throw new GradleException('No regression test reports produced')
+        }
+    }
+}
+
 tasks.named('jar', Jar).configure {
     manifest {
         attributes(

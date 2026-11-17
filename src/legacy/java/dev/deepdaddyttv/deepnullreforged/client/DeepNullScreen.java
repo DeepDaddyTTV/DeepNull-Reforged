@@ -4,6 +4,7 @@ import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.deepdaddyttv.deepnullreforged.DeepNullReforged;
 import dev.deepdaddyttv.deepnullreforged.menu.DeepNullMenu;
+import dev.deepdaddyttv.deepnullreforged.menu.DeepNullLayout;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.util.ResourceLocation;
@@ -19,9 +20,10 @@ public class DeepNullScreen extends ContainerScreen<DeepNullMenu> {
         super(menu, inventory, title);
         int textureIndex = menu.getTier().creative() ? 6 : menu.getTier().rows() - 1;
         this.texture = DeepNullReforged.id("textures/gui/deepnullscreen" + textureIndex + ".png");
-        this.imageWidth = 176;
-        this.imageHeight = 114 + menu.getTier().rows() * 18;
-        this.inventoryLabelY = this.imageHeight - 94;
+        this.imageWidth = DeepNullLayout.WIDTH;
+        this.imageHeight = DeepNullLayout.height(menu.getTier().rows());
+        this.inventoryLabelX = 7;
+        this.inventoryLabelY = this.imageHeight - 103;
     }
 
     @Override

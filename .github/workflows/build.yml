@@ -24,7 +24,7 @@ jobs:
       - name: Build and run unit tests
         run: ./gradlew build --stacktrace -PincludeJeiRuntime=false -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
 
-      - name: Verify Forge data loading
+      - name: Run Forge recipe and gameplay regressions
         run: ./gradlew runData --stacktrace -PincludeJeiRuntime=false -PincludeMekanismRuntime=false -PincludeAe2Runtime=false
 
       - name: Upload port jar
@@ -40,6 +40,7 @@ jobs:
           name: deepnull-base-logs
           path: |
             run/logs/**
+            run-data/logs/**
             logs/**
             crash-reports/**
             build/reports/**
@@ -51,10 +52,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: jei
+            gradle_args: "-PincludeJeiRuntime=true -PincludeMekanismRuntime=false -PincludeAe2Runtime=false"
           - name: mekanism
             gradle_args: "-PincludeJeiRuntime=false -PincludeMekanismRuntime=true -PincludeAe2Runtime=false"
           - name: ae2-mekanism
             gradle_args: "-PincludeJeiRuntime=false -PincludeMekanismRuntime=true -PincludeAe2Runtime=true"
+          - name: all-integrations
+            gradle_args: "-PincludeJeiRuntime=true -PincludeMekanismRuntime=true -PincludeAe2Runtime=true"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -74,6 +79,9 @@ jobs:
       - name: Build and run unit tests
         run: ./gradlew build --stacktrace ${{ matrix.gradle_args }}
 
+      - name: Run Forge recipe and gameplay regressions
+        run: ./gradlew runData --stacktrace ${{ matrix.gradle_args }}
+
       - name: Upload test logs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -81,6 +89,7 @@ jobs:
           name: deepnull-${{ matrix.name }}-logs
           path: |
             run/logs/**
+            run-data/logs/**
             logs/**
             crash-reports/**
             build/reports/**

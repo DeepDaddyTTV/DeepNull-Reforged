@@ -55,21 +55,20 @@ public class DeepNullMenu extends Container {
         int slot = 0;
         for (int row = 0; row < tier.rows(); row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new SlotItemHandler(handler, slot++, 8 + col * 18, 18 + row * 18));
+                addSlot(new SlotItemHandler(handler, slot++, DeepNullLayout.x(col), DeepNullLayout.storageY(row)));
             }
         }
     }
 
     private void addPlayerSlots(PlayerInventory inventory) {
-        int startY = 32 + tier.rows() * 18;
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, startY + row * 18));
+                addSlot(new Slot(inventory, col + row * 9 + 9, DeepNullLayout.x(col), DeepNullLayout.playerY(tier.rows(), row)));
             }
         }
         for (int col = 0; col < 9; col++) {
             final int playerSlot = col;
-            addSlot(new Slot(inventory, col, 8 + col * 18, startY + 58) {
+            addSlot(new Slot(inventory, col, DeepNullLayout.x(col), DeepNullLayout.hotbarY(tier.rows())) {
                 @Override
                 public boolean mayPickup(PlayerEntity player) {
                     return !(hand == Hand.MAIN_HAND && inventory.selected == playerSlot);

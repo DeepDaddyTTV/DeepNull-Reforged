@@ -40,6 +40,7 @@ public final class DeepNullReforged {
             String resources = System.getProperty("deepnull.sourceResources");
             if (resources == null) throw new IllegalStateException("Missing deepnull.sourceResources data-run property");
             event.getGenerator().addProvider(new RecipeValidationProvider(java.nio.file.Paths.get(resources)));
+            event.getGenerator().addProvider(new dev.deepdaddyttv.deepnullreforged.data.RegressionValidationProvider());
         }
     }
 
