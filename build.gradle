@@ -26,6 +26,9 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'info'
+            // Optional mods ship SRG refmaps; development runs use official names.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file("$buildDir/createSrgToMcp/output.srg").absolutePath
             mods {
                 deepnullreforged {
                     source sourceSets.main
