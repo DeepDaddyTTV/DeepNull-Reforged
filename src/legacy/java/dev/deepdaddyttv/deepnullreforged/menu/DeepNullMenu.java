@@ -125,7 +125,9 @@ public class DeepNullMenu extends Container {
                 return ItemStack.EMPTY;
             }
             if (clickType == ClickType.THROW) {
-                ItemStack dropped = handler.extractItem(slotId, button == 0 ? 1 : 64, false);
+                if ((button != 0 && button != 1) || !player.inventory.getCarried().isEmpty()) return ItemStack.EMPTY;
+                ItemStack stored = handler.getStackInSlot(slotId);
+                ItemStack dropped = handler.extractItem(slotId, button == 0 ? 1 : stored.getMaxStackSize(), false);
                 if (!dropped.isEmpty()) player.drop(dropped, true);
                 return ItemStack.EMPTY;
             }

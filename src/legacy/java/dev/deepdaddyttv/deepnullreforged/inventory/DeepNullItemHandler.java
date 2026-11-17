@@ -17,13 +17,36 @@ public class DeepNullItemHandler extends ItemStackHandler {
     private final ItemStack owner;
     private final DeepNullTier tier;
     private boolean loading;
+    private CompoundNBT lastSaved;
 
     public DeepNullItemHandler(ItemStack owner, DeepNullTier tier) {
         super(tier.slots());
         this.owner = owner;
         this.tier = tier;
-        CompoundNBT saved = owner.getTagElement(INVENTORY_TAG);
-        if (saved != null) deserializeNBT(saved);
+        lastSaved = owner.getTagElement(INVENTORY_TAG);
+        if (lastSaved != null) deserializeNBT(lastSaved);
+    }
+
+    // Forge can replace an ItemStack's tag without recreating its capabilities.
+    private void refresh() {
+        CompoundNBT current = owner.getTagElement(INVENTORY_TAG);
+        if (current != lastSaved) {
+            deserializeNBT(current == null ? new CompoundNBT() : current);
+            lastSaved = current;
+        }
+    }
+
+    @Nonnull
+    @Override
+    public ItemStack getStackInSlot(int slot) {
+        refresh();
+        return super.getStackInSlot(slot);
+    }
+
+    @Override
+    public void setStackInSlot(int slot, @Nonnull ItemStack stack) {
+        refresh();
+        super.setStackInSlot(slot, stack);
     }
 
     public DeepNullTier getTier() {
@@ -52,6 +75,7 @@ public class DeepNullItemHandler extends ItemStackHandler {
     @Override
     @Nonnull
     public ItemStack insertItem(int slot, @Nonnull ItemStack incoming, boolean simulate) {
+        refresh();
         validateSlotIndex(slot);
         if (incoming.isEmpty() || !isItemValid(slot, incoming)) return incoming;
 
@@ -92,6 +116,7 @@ public class DeepNullItemHandler extends ItemStackHandler {
     @Override
     @Nonnull
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        refresh();
         validateSlotIndex(slot);
         if (amount <= 0) return ItemStack.EMPTY;
         ItemStack existing = stacks.get(slot);
@@ -152,11 +177,13 @@ public class DeepNullItemHandler extends ItemStackHandler {
     }
 
     public void saveOwner() {
-        owner.getOrCreateTag().put(INVENTORY_TAG, serializeNBT());
+        lastSaved = serializeNBT();
+        owner.getOrCreateTag().put(INVENTORY_TAG, lastSaved);
     }
 
     @Override
     public CompoundNBT serializeNBT() {
+        refresh();
         ListNBT list = new ListNBT();
         for (int slot = 0; slot < stacks.size(); slot++) {
             ItemStack stack = stacks.get(slot);

@@ -17,6 +17,15 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(8)
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
+// Forge-loaded issue reproductions are development-only, never packaged in the mod.
+sourceSets {
+    regression {
+        java.srcDirs = ['src/legacy/regression']
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
     copyIdeResources = true
@@ -43,8 +52,10 @@ minecraft {
         }
 
         data {
+            mods { deepnullreforged { source sourceSets.regression } }
             workingDirectory project.file('run-data')
             property 'deepnull.sourceResources', file('src/main/resources').absolutePath
+            property 'deepnull.regressionReport', file("$buildDir/reports/legacy-issues.txt").absolutePath
             args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
         }
     }
@@ -98,7 +109,17 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testImplementation 'org.mockito:mockito-core:4.11.0'
+    regressionImplementation 'org.mockito:mockito-core:4.11.0'
+}
+
+tasks.matching { it.name == 'runData' }.configureEach {
+    dependsOn tasks.named('regressionClasses')
+    doFirst { delete file("$buildDir/reports/legacy-issues.txt") }
+    doLast {
+        if (!file("$buildDir/reports/legacy-issues.txt").isFile()) {
+            throw new GradleException('Forge issue regressions did not complete')
+        }
+    }
 }
 
 tasks.named('processResources', ProcessResources).configure {

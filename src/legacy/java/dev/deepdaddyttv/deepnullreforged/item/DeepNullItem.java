@@ -47,12 +47,13 @@ public class DeepNullItem extends Item {
     }
 
     public DeepNullItemHandler createHandler(ItemStack stack) {
-        return new DeepNullItemHandler(stack, tier);
+        return (DeepNullItemHandler) stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY)
+                .orElseThrow(() -> new IllegalStateException("DeepNull item capability missing"));
     }
 
     @Override
     public ICapabilityProvider initCapabilities(final ItemStack stack, @Nullable CompoundNBT nbt) {
-        final LazyOptional<DeepNullItemHandler> handler = LazyOptional.of(() -> createHandler(stack));
+        final LazyOptional<DeepNullItemHandler> handler = LazyOptional.of(() -> new DeepNullItemHandler(stack, tier));
         final LazyOptional<DeepNullEnergyStorage> energy = LazyOptional.of(() -> new DeepNullEnergyStorage(stack, tier));
         return new ICapabilityProvider() {
             @Nonnull

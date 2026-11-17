@@ -30,6 +30,7 @@ import net.minecraftforge.fluids.FluidActionResult;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,12 +51,13 @@ public class DampNullItem extends Item {
     public DeepNullTier getTier() { return tier; }
 
     public DampNullFluidHandler createHandler(ItemStack stack) {
-        return new DampNullFluidHandler(stack, tier);
+        return (DampNullFluidHandler) stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY)
+                .orElseThrow(() -> new IllegalStateException("DampNull fluid capability missing"));
     }
 
     @Override
     public ICapabilityProvider initCapabilities(final ItemStack stack, @Nullable CompoundNBT nbt) {
-        final LazyOptional<DampNullFluidHandler> handler = LazyOptional.of(() -> createHandler(stack));
+        final LazyOptional<DampNullFluidHandler> handler = LazyOptional.of(() -> new DampNullFluidHandler(stack, tier));
         return new ICapabilityProvider() {
             @Nonnull
             @Override
@@ -70,10 +72,17 @@ public class DampNullItem extends Item {
     @Override
     public ActionResultType useOn(ItemUseContext context) {
         PlayerEntity player = context.getPlayer();
-        if (player != null && FluidUtil.interactWithFluidHandler(player, context.getHand(), context.getLevel(),
-                context.getClickedPos(), context.getClickedFace())) {
-            return ActionResultType.sidedSuccess(context.getLevel().isClientSide);
-        }
+        if (player == null) return ActionResultType.PASS;
+        IFluidHandler external = FluidUtil.getFluidHandler(context.getLevel(), context.getClickedPos(),
+                context.getClickedFace()).orElse(null);
+        if (external == null) return ActionResultType.PASS;
+        if (context.getLevel().isClientSide) return ActionResultType.SUCCESS;
+        // Generic bucket interaction discards the filled copy for creative players.
+        // Persistent storage must transfer against the live held stack on the server.
+        DampNullFluidHandler storage = createHandler(context.getItemInHand());
+        if (!FluidUtil.tryFluidTransfer(storage, external, Integer.MAX_VALUE, true).isEmpty()
+                || !FluidUtil.tryFluidTransfer(external, storage, Integer.MAX_VALUE, true).isEmpty())
+            return ActionResultType.CONSUME;
         return ActionResultType.PASS;
     }
 
